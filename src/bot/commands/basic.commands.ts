@@ -181,19 +181,37 @@ export class ResetCommand extends BaseCommandHandler {
 
       // Get chat ID
       const chatId = ctx.chatIdString;
-
-      // Delete all feeds for this chat
-      const deletedFeeds = await database.client.feed.deleteMany({
-        where: { chatId },
+      
+      logger.info('Reset command starting', {
+        chatId,
+        userId: ctx.userId,
+        chatType: ctx.chat?.type,
       });
 
-      // Delete all filters for this chat
+      // First, check how many feeds exist for this chat
+      const existingFeeds = await database.client.feed.findMany({
+        where: { chatId },
+        select: { id: true, name: true }
+      });
+      
+      logger.info('Feeds found before deletion', {
+        chatId,
+        feedCount: existingFeeds.length,
+        feeds: existingFeeds.map(f => ({ id: f.id, name: f.name }))
+      });
+
+      // Delete all filters first (foreign key constraint)
       const deletedFilters = await database.client.feedFilter.deleteMany({
         where: {
           feed: {
             chatId,
           },
         },
+      });
+
+      // Delete all feeds for this chat
+      const deletedFeeds = await database.client.feed.deleteMany({
+        where: { chatId },
       });
 
       // Delete chat settings
