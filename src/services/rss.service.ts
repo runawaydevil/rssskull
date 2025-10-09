@@ -227,7 +227,7 @@ export class RSSService {
     
     if (urls && urls.length > 0) {
       // Filter out Reddit URLs and return the first external URL
-      const externalUrls = urls.filter(url => 
+      const externalUrls = urls.filter((url: string) => 
         !url.includes('reddit.com') && 
         !url.includes('redd.it') &&
         !url.includes('i.redd.it') &&
