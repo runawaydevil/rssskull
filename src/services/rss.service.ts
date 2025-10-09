@@ -1,7 +1,9 @@
 import type { FeedFilter as PrismaFeedFilter } from '@prisma/client';
 import Parser from 'rss-parser';
+import { getRecommendedHeaders } from '../config/feed.config.js';
 import { filterService } from '../utils/filters/filter.service.js';
 import { logger } from '../utils/logger/logger.service.js';
+import { rateLimiterService } from '../utils/rate-limiter.service.js';
 
 export interface RSSItem {
   id: string;
@@ -28,22 +30,16 @@ export interface ParseResult {
 }
 
 export class RSSService {
-  private parser: Parser;
   private readonly maxRetries = 3;
   private readonly baseDelay = 1000; // 1 second
   private readonly maxDelay = 30000; // 30 seconds
 
   constructor() {
-    this.parser = new Parser({
-      timeout: 5000, // 5 seconds timeout (reduced from 10)
-      headers: {
-        'User-Agent': 'RSS-Skull-Bot/2.0 (+https://github.com/runawaydevil/rss-skull)',
-      },
-    });
+    // Parser instances are created per request with domain-specific headers
   }
 
   /**
-   * Fetch and parse an RSS feed with retry logic
+   * Fetch and parse an RSS feed with retry logic and rate limiting
    */
   async fetchFeed(url: string): Promise<ParseResult> {
     // Check if URL is known to be problematic
@@ -61,7 +57,19 @@ export class RSSService {
       try {
         logger.debug(`Fetching RSS feed (attempt ${attempt}/${this.maxRetries}): ${url}`);
 
-        const feed = await this.parser.parseURL(url);
+        // Apply rate limiting before making the request
+        await rateLimiterService.waitIfNeeded(url);
+
+        // Get domain-specific headers
+        const recommendedHeaders = getRecommendedHeaders(url);
+        
+        // Create a parser instance with domain-specific headers for this request
+        const domainParser = new Parser({
+          timeout: 10000,
+          headers: recommendedHeaders,
+        });
+
+        const feed = await domainParser.parseURL(url);
         const processedFeed = this.processFeed(feed);
 
         logger.debug(`Successfully parsed RSS feed: ${url} (${processedFeed.items.length} items)`);
@@ -72,18 +80,30 @@ export class RSSService {
         };
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        logger.warn(`RSS fetch attempt ${attempt} failed for ${url}:`, lastError.message);
+        
+        // Check if it's a rate limiting error (429)
+        if (this.isRateLimitError(lastError)) {
+          logger.warn(`Rate limit hit for ${url}, increasing delay for next attempt`);
+          // For rate limit errors, wait longer before retry
+          if (attempt < this.maxRetries) {
+            const rateLimitDelay = this.getRateLimitDelay(url, attempt);
+            logger.debug(`Waiting ${rateLimitDelay}ms due to rate limiting...`);
+            await this.sleep(rateLimitDelay);
+          }
+        } else {
+          logger.warn(`RSS fetch attempt ${attempt} failed for ${url}:`, lastError.message);
+          
+          // Don't retry on certain errors
+          if (this.isNonRetryableError(lastError)) {
+            break;
+          }
 
-        // Don't retry on certain errors
-        if (this.isNonRetryableError(lastError)) {
-          break;
-        }
-
-        // Wait before retrying (exponential backoff)
-        if (attempt < this.maxRetries) {
-          const delay = Math.min(this.baseDelay * 2 ** (attempt - 1), this.maxDelay);
-          logger.debug(`Waiting ${delay}ms before retry...`);
-          await this.sleep(delay);
+          // Wait before retrying (exponential backoff)
+          if (attempt < this.maxRetries) {
+            const delay = Math.min(this.baseDelay * 2 ** (attempt - 1), this.maxDelay);
+            logger.debug(`Waiting ${delay}ms before retry...`);
+            await this.sleep(delay);
+          }
         }
       }
     }
@@ -314,6 +334,46 @@ export class RSSService {
     ];
 
     return nonRetryablePatterns.some((pattern) => message.includes(pattern));
+  }
+
+  /**
+   * Check if an error is a rate limiting error
+   */
+  private isRateLimitError(error: Error): boolean {
+    const message = error.message.toLowerCase();
+    return message.includes('status code 429') || 
+           message.includes('too many requests') ||
+           message.includes('rate limit');
+  }
+
+  /**
+   * Get appropriate delay for rate limiting errors
+   */
+  private getRateLimitDelay(url: string, attempt: number): number {
+    const domain = this.extractDomain(url);
+    
+    // Special handling for Reddit
+    if (domain.includes('reddit.com')) {
+      // Progressive delays for Reddit: 5s, 15s, 30s
+      const redditDelays = [5000, 15000, 30000];
+      const delayIndex = Math.min(attempt - 1, redditDelays.length - 1);
+      return redditDelays[delayIndex] || 30000; // Fallback to 30s
+    }
+    
+    // Default rate limit delay with exponential backoff
+    return Math.min(5000 * 2 ** (attempt - 1), 60000); // Max 1 minute
+  }
+
+  /**
+   * Extract domain from URL
+   */
+  private extractDomain(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.hostname.toLowerCase();
+    } catch {
+      return 'unknown';
+    }
   }
 
   /**

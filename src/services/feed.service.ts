@@ -6,6 +6,7 @@ import {
 } from '../database/repositories/feed.repository.js';
 import { feedQueueService } from '../jobs/index.js';
 import { ConverterService } from '../utils/converters/converter.service.js';
+import { feedIntervalService } from '../utils/feed-interval.service.js';
 import { logger } from '../utils/logger/logger.service.js';
 import { isValidUrl } from '../utils/validation.js';
 
@@ -106,16 +107,18 @@ export class FeedService {
       const feed = await this.feedRepository.create(feedData);
       logger.info(`Feed added successfully: ${feed.name} (${feed.id})`);
 
-      // Schedule recurring feed checks
+      // Schedule recurring feed checks with domain-specific intervals
       try {
+        const intervalMinutes = feedIntervalService.getIntervalForUrl(feed.rssUrl);
+        
         await feedQueueService.scheduleRecurringFeedCheck({
           feedId: feed.id,
           chatId: feed.chatId,
           feedUrl: feed.rssUrl,
           lastItemId: feed.lastItemId ?? undefined,
-        }, 2); // Check every 2 minutes
+        }, intervalMinutes);
 
-        logger.info(`Scheduled recurring feed check for feed ${feed.id} every 2 minutes`);
+        logger.info(`Scheduled recurring feed check for feed ${feed.id} every ${intervalMinutes} minutes`);
       } catch (error) {
         logger.error(`Failed to schedule feed check for feed ${feed.id}:`, error);
         // Don't fail the entire operation if scheduling fails
