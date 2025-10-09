@@ -32,8 +32,13 @@
     "docker:prod:down": "docker compose -f docker-compose.prod.yml down",
     "docker:prod:logs": "docker compose -f docker-compose.prod.yml logs -f",
     "migrate:v1": "tsx scripts/migrate-from-v1.ts",
+    "backup": "bash scripts/backup.sh backup",
+    "backup:restore": "bash scripts/backup.sh restore",
+    "backup:list": "bash scripts/backup.sh list",
     "deploy:prod": "docker-compose -f docker-compose.prod.yml up -d --build",
+    "deploy:staging": "docker-compose -f docker-compose.staging.yml up -d --build",
     "deploy:stop": "docker-compose -f docker-compose.prod.yml down",
+    "deploy:stop:staging": "docker-compose -f docker-compose.staging.yml down",
     "setup": "npm install && npm run db:generate && npm run docker:dev"
   },
   "dependencies": {

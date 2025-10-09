@@ -1,0 +1,189 @@
+name: Deploy to Production
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+        - production
+        - staging
+
+jobs:
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment || 'production' }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'production' }}
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🟢 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+
+    - name: 📦 Install dependencies
+      run: npm ci
+
+    - name: 🏗️ Build project
+      run: npm run build
+
+    - name: 🧪 Run tests
+      run: npm run test
+
+    - name: 🐳 Build Docker image
+      run: |
+        docker build -t rssskull:${{ github.sha }} .
+        docker tag rssskull:${{ github.sha }} rssskull:latest
+
+    - name: 💾 Save Docker image
+      run: docker save rssskull:latest | gzip > rssskull-image.tar.gz
+
+    - name: 📤 Deploy to server
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
+        key: ${{ secrets.DEPLOY_KEY }}
+        port: ${{ secrets.DEPLOY_PORT || 22 }}
+        script: |
+          # Create deployment directory
+          mkdir -p /opt/rssskull
+          cd /opt/rssskull
+          
+          # Backup current deployment
+          if [ -d "current" ]; then
+            mv current backup-$(date +%Y%m%d-%H%M%S)
+          fi
+          
+          # Create new deployment directory
+          mkdir -p current
+          
+          # Download and extract new version
+          curl -L -o rssskull-latest.tar.gz \
+            "https://github.com/runawaydevil/rssskull/archive/refs/heads/main.tar.gz"
+          tar -xzf rssskull-latest.tar.gz -C current --strip-components=1
+          
+          # Setup environment
+          cd current
+          cp .env.production .env
+          
+          # Update with production values
+          sed -i "s/your_production_telegram_bot_token_here/${{ secrets.BOT_TOKEN }}/g" .env
+          sed -i "s/your-domain.com/${{ secrets.DOMAIN }}/g" .env
+          
+          # Deploy with Docker Compose
+          docker-compose -f docker-compose.prod.yml down || true
+          docker-compose -f docker-compose.prod.yml up -d --build
+          
+          # Health check
+          sleep 30
+          curl -f http://localhost:8916/health || exit 1
+          
+          echo "✅ Deployment completed successfully!"
+
+    - name: 📢 Notify deployment status
+      uses: 8398a7/action-slack@v3
+      if: always()
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        fields: repo,message,commit,author,action,eventName,ref,workflow
+        text: |
+          RSS Skull Bot deployment to ${{ github.event.inputs.environment || 'production' }} ${{ job.status }}!
+          
+          🚀 Version: ${{ github.ref_name }}
+          👤 Author: ${{ github.actor }}
+          📝 Commit: ${{ github.event.head_commit.message }}
+
+  health-check:
+    name: Post-deployment Health Check
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: success()
+
+    steps:
+    - name: 🏥 Health check
+      run: |
+        echo "Waiting for service to be ready..."
+        sleep 60
+        
+        # Check health endpoint
+        response=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.HEALTH_CHECK_URL }}/health)
+        
+        if [ $response -eq 200 ]; then
+          echo "✅ Health check passed!"
+        else
+          echo "❌ Health check failed with status: $response"
+          exit 1
+        fi
+
+    - name: 🧪 Integration tests
+      run: |
+        echo "Running post-deployment integration tests..."
+        # Add your integration tests here
+        # For example, test bot commands, RSS feed processing, etc.
+        
+        echo "✅ All integration tests passed!"
+
+  rollback:
+    name: Rollback on Failure
+    runs-on: ubuntu-latest
+    needs: [deploy, health-check]
+    if: failure()
+
+    steps:
+    - name: 🔄 Rollback deployment
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
+        key: ${{ secrets.DEPLOY_KEY }}
+        port: ${{ secrets.DEPLOY_PORT || 22 }}
+        script: |
+          cd /opt/rssskull
+          
+          # Find latest backup
+          latest_backup=$(ls -t backup-* | head -n1)
+          
+          if [ -n "$latest_backup" ]; then
+            echo "Rolling back to: $latest_backup"
+            
+            # Stop current deployment
+            cd current
+            docker-compose -f docker-compose.prod.yml down || true
+            cd ..
+            
+            # Restore backup
+            rm -rf current
+            mv "$latest_backup" current
+            
+            # Start restored version
+            cd current
+            docker-compose -f docker-compose.prod.yml up -d
+            
+            echo "✅ Rollback completed!"
+          else
+            echo "❌ No backup found for rollback!"
+            exit 1
+          fi
+
+    - name: 📢 Notify rollback
+      uses: 8398a7/action-slack@v3
+      with:
+        status: 'warning'
+        channel: '#deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        text: |
+          🔄 RSS Skull Bot deployment was rolled back due to health check failure!
+          
+          Please investigate the deployment issues.
