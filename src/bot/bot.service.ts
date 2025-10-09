@@ -681,13 +681,14 @@ export class BotService {
       // Register bot commands in BotFather
       await this.setBotCommands();
 
-      // Load and schedule all existing feeds BEFORE starting polling
-      await this.loadAndScheduleAllFeeds();
-      logger.info('All existing feeds loaded and scheduled');
-
-      // Start polling
+      // Start polling FIRST to avoid hanging
       await this.bot.start();
       logger.info('Bot started and listening for updates');
+
+      // Load and schedule all existing feeds AFTER bot is running
+      logger.info('Loading existing feeds in background...');
+      this.loadAndScheduleAllFeedsAsync();
+      
     } catch (error) {
       logger.error('Failed to initialize bot:', error);
       throw error;
@@ -741,24 +742,52 @@ export class BotService {
   }
 
   /**
+   * Load all existing feeds from database and schedule them for checking (async version)
+   */
+  private loadAndScheduleAllFeedsAsync(): void {
+    // Run in background without blocking initialization
+    setTimeout(async () => {
+      try {
+        await this.loadAndScheduleAllFeeds();
+        logger.info('✅ All existing feeds loaded and scheduled successfully');
+      } catch (error) {
+        logger.error('❌ Failed to load feeds in background:', error);
+        // Retry after 30 seconds
+        logger.info('🔄 Retrying feed loading in 30 seconds...');
+        setTimeout(() => this.loadAndScheduleAllFeedsAsync(), 30000);
+      }
+    }, 5000); // Wait 5 seconds after bot starts
+  }
+
+  /**
    * Load all existing feeds from database and schedule them for checking
    */
   async loadAndScheduleAllFeeds(): Promise<void> {
     try {
       logger.info('Loading all existing feeds from database...');
 
-      // Import services
-      const { database } = await import('../database/database.service.js');
+      // Import services with timeout
+      const { database } = await Promise.race([
+        import('../database/database.service.js'),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database import timeout')), 10000)
+        )
+      ]) as any;
 
-      // Get all chats with their feeds
-      const chats = await database.client.chat.findMany({
-        include: {
-          feeds: {
-            where: { enabled: true },
-            include: { filters: true },
+      // Get all chats with their feeds with timeout
+      const chats = await Promise.race([
+        database.client.chat.findMany({
+          include: {
+            feeds: {
+              where: { enabled: true },
+              include: { filters: true },
+            },
           },
-        },
-      });
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database query timeout')), 15000)
+        )
+      ]) as any;
 
       let totalScheduled = 0;
       let totalErrors = 0;
@@ -770,15 +799,19 @@ export class BotService {
 
         for (const feed of chat.feeds) {
           try {
+            // Use dynamic intervals based on feed URL
+            const { feedIntervalService } = await import('../utils/feed-interval.service.js');
+            const intervalMinutes = feedIntervalService.getIntervalForUrl(feed.rssUrl);
+
             await feedQueueService.scheduleRecurringFeedCheck({
               feedId: feed.id,
               chatId: feed.chatId,
               feedUrl: feed.rssUrl,
               lastItemId: feed.lastItemId ?? undefined,
-            }, 2); // Check every 2 minutes
+            }, intervalMinutes);
 
             totalScheduled++;
-            logger.debug(`Scheduled feed ${feed.id} (${feed.name}) for chat ${chat.id}`);
+            logger.debug(`Scheduled feed ${feed.id} (${feed.name}) for chat ${chat.id} with ${intervalMinutes}min interval`);
           } catch (error) {
             totalErrors++;
             logger.error(`Failed to schedule feed ${feed.id} (${feed.name}):`, error);
