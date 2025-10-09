@@ -35,7 +35,7 @@ export class RSSService {
 
   constructor() {
     this.parser = new Parser({
-      timeout: 10000, // 10 seconds timeout
+      timeout: 5000, // 5 seconds timeout (reduced from 10)
       headers: {
         'User-Agent': 'RSS-Skull-Bot/2.0 (+https://github.com/runawaydevil/rss-skull)',
       },
@@ -46,6 +46,15 @@ export class RSSService {
    * Fetch and parse an RSS feed with retry logic
    */
   async fetchFeed(url: string): Promise<ParseResult> {
+    // Check if URL is known to be problematic
+    if (this.isProblematicUrl(url)) {
+      logger.warn(`Skipping problematic URL: ${url}`);
+      return {
+        success: false,
+        error: 'URL is known to be problematic and has been skipped',
+      };
+    }
+
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
@@ -300,9 +309,23 @@ export class RSSService {
       'invalid url',
       'invalid feed',
       'parse error',
+      'timeout', // Timeout errors
+      'request timed out', // Specific timeout message
     ];
 
     return nonRetryablePatterns.some((pattern) => message.includes(pattern));
+  }
+
+  /**
+   * Check if a URL is known to be problematic
+   */
+  private isProblematicUrl(url: string): boolean {
+    const problematicPatterns = [
+      'reddit.com.br', // Known problematic domain
+      'reddit.com.br/r/', // Specific pattern
+    ];
+
+    return problematicPatterns.some((pattern) => url.includes(pattern));
   }
 
   /**

@@ -12,6 +12,7 @@ import {
   ListFeedsCommand,
   PingCommand,
   RemoveFeedCommand,
+  ResetCommand,
   SettingsCommand,
   StartCommand,
   StatsCommand,
@@ -96,6 +97,7 @@ export class BotService {
     this.commandRouter.register(FiltersCommand.create());
     this.commandRouter.register(StatsCommand.create());
     this.commandRouter.register(PingCommand.create());
+    this.commandRouter.register(ResetCommand.create());
 
     logger.info('Command router initialized', {
       commandCount: this.commandRouter.getCommands().length,

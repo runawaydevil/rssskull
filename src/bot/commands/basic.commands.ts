@@ -155,3 +155,74 @@ export class PingCommand extends BaseCommandHandler {
   }
 }
 
+/**
+ * Secret reset command to clear all feeds and data
+ */
+export class ResetCommand extends BaseCommandHandler {
+  static create(): CommandHandler {
+    const instance = new ResetCommand();
+    return {
+      name: 'reset',
+      aliases: [],
+      description: 'Secret reset command to clear all feeds',
+      schema: CommandSchemas.noArgs,
+      handler: instance.validateAndExecute.bind(instance),
+    };
+  }
+
+  protected async execute(ctx: CommandContext): Promise<void> {
+    try {
+      await ctx.reply('🔄 Resetando todos os feeds e dados...');
+
+      // Import database service
+      const { DatabaseService } = await import('../../database/database.service.js');
+      const database = new DatabaseService();
+      await database.connect();
+
+      // Get chat ID
+      const chatId = ctx.chatIdString;
+
+      // Delete all feeds for this chat
+      const deletedFeeds = await database.client.feed.deleteMany({
+        where: { chatId },
+      });
+
+      // Delete all filters for this chat
+      const deletedFilters = await database.client.feedFilter.deleteMany({
+        where: {
+          feed: {
+            chatId,
+          },
+        },
+      });
+
+      // Delete chat settings
+      const deletedSettings = await database.client.chatSettings.deleteMany({
+        where: { chatId },
+      });
+
+      // Delete statistics
+      const deletedStats = await database.client.statistic.deleteMany({
+        where: { chatId },
+      });
+
+      await database.disconnect();
+
+      logger.info('Reset command executed successfully', {
+        chatId,
+        userId: ctx.userId,
+        chatType: ctx.chat?.type,
+        deletedFeeds: deletedFeeds.count,
+        deletedFilters: deletedFilters.count,
+        deletedSettings: deletedSettings.count,
+        deletedStats: deletedStats.count,
+      });
+
+      await ctx.reply(`✅ Reset concluído!\n\n📊 Dados removidos:\n• ${deletedFeeds.count} feeds\n• ${deletedFilters.count} filtros\n• ${deletedSettings.count} configurações\n• ${deletedStats.count} estatísticas`);
+    } catch (error) {
+      logger.error('Error in reset command:', error);
+      await ctx.reply('❌ Erro interno ao executar comando.');
+    }
+  }
+}
+

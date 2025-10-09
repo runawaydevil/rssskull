@@ -10,7 +10,7 @@ export interface I18nContext extends Context {
 const messages = {
   en: {
     // Welcome messages
-    'welcome.title': '🤖 Hello! I am RSS Skull Bot v2.',
+    'welcome.title': '🤖 Hello! I am RSS Skull Bot.',
     'welcome.help': 'Use /help to see all available commands.',
 
     // Help messages
@@ -152,7 +152,7 @@ const messages = {
   },
   pt: {
     // Welcome messages
-    'welcome.title': '🤖 Olá! Eu sou o RSS Skull Bot v2.',
+    'welcome.title': '🤖 Olá! Eu sou o RSS Skull Bot.',
     'welcome.help': 'Use /ajuda para ver todos os comandos disponíveis.',
 
     // Help messages
