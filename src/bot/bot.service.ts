@@ -10,6 +10,7 @@ import {
   FiltersCommand,
   HelpCommand,
   ListFeedsCommand,
+  PingCommand,
   RemoveFeedCommand,
   SettingsCommand,
   StartCommand,
@@ -22,8 +23,8 @@ import {
   authMiddleware,
   i18nMiddleware,
   loggingMiddleware,
-  mentionMiddleware,
 } from './middleware/index.js';
+import { MentionProcessor } from '../utils/mention.utils.js';
 
 interface SessionData {
   language: 'en' | 'pt';
@@ -94,6 +95,7 @@ export class BotService {
     this.commandRouter.register(SettingsCommand.create());
     this.commandRouter.register(FiltersCommand.create());
     this.commandRouter.register(StatsCommand.create());
+    this.commandRouter.register(PingCommand.create());
 
     logger.info('Command router initialized', {
       commandCount: this.commandRouter.getCommands().length,
@@ -135,6 +137,28 @@ export class BotService {
       const text = ctx.message.text;
       const authCtx = ctx as CommandContext;
 
+      // Apply mention processing directly if bot info is available
+      if (this.botUsername && this.botId && ctx.message?.text && ctx.message?.entities) {
+        const mentionProcessor = MentionProcessor.create(this.botUsername, this.botId, false);
+        const mentionContext = mentionProcessor.extractMentionCommand(text, ctx.message.entities);
+        
+        // Add mention context to the context object
+        Object.assign(ctx, {
+          mentionContext,
+        });
+
+        if (mentionContext.isMentioned) {
+          logger.info('Bot mentioned in message (direct processing)', {
+            chatId: authCtx.chatIdString,
+            userId: authCtx.userId,
+            chatType: ctx.chat?.type,
+            mentionText: mentionContext.mentionText,
+            extractedCommand: mentionContext.commandFromMention,
+            argsCount: mentionContext.argsFromMention?.length || 0,
+          });
+        }
+      }
+
       // Debug logging for text messages
       logger.info('Text message received', {
         chatId: authCtx.chatIdString,
@@ -142,6 +166,8 @@ export class BotService {
         text: text?.substring(0, 100),
         hasEntities: !!(ctx.message as any).entities?.length,
         mentionContext: authCtx.mentionContext,
+        hasMentionContext: !!authCtx.mentionContext,
+        isMentioned: authCtx.mentionContext?.isMentioned,
       });
 
       // Auto-register chat when any message is received
@@ -640,10 +666,11 @@ export class BotService {
       this.botUsername = me.username;
       this.botId = me.id;
 
-      // Setup mention middleware now that we have bot info
-      if (this.botUsername && this.botId) {
-        this.bot.use(mentionMiddleware(this.botUsername, this.botId));
-      }
+      // Store bot info for mention processing
+      logger.info('Bot info obtained for mention processing', {
+        botUsername: this.botUsername,
+        botId: this.botId,
+      });
 
       logger.info(`Bot initialized: @${me.username} (${me.first_name})`);
 

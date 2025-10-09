@@ -1,5 +1,5 @@
 // Basic commands
-export { StartCommand, HelpCommand } from './basic.commands.js';
+export { StartCommand, HelpCommand, PingCommand } from './basic.commands.js';
 
 // Feed management commands
 export {

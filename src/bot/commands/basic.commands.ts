@@ -4,6 +4,7 @@ import {
   type CommandHandler,
   CommandSchemas,
 } from '../handlers/command.handler.js';
+import { logger } from '../../utils/logger/logger.service.js';
 
 /**
  * Start command handler
@@ -121,6 +122,36 @@ ${ctx.t('cmd.help')}
 ${ctx.t('help.developer')}`;
 
     await ctx.reply(helpMessage, { parse_mode: 'Markdown' });
+  }
+}
+
+/**
+ * Secret ping command for testing bot functionality
+ */
+export class PingCommand extends BaseCommandHandler {
+  static create(): CommandHandler {
+    const instance = new PingCommand();
+    return {
+      name: 'ping',
+      aliases: [],
+      description: 'Secret ping command for testing',
+      schema: CommandSchemas.noArgs,
+      handler: instance.validateAndExecute.bind(instance),
+    };
+  }
+
+  protected async execute(ctx: CommandContext): Promise<void> {
+    try {
+      await ctx.reply('PONG!!!');
+      logger.info('Ping command executed successfully', {
+        chatId: ctx.chatIdString,
+        userId: ctx.userId,
+        chatType: ctx.chat?.type,
+      });
+    } catch (error) {
+      logger.error('Error in ping command:', error);
+      await ctx.reply('❌ Erro interno ao executar comando.');
+    }
   }
 }
 
