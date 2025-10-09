@@ -694,6 +694,42 @@ export class BotService {
     }
   }
 
+  /**
+   * Simplified initialization that skips feed loading for debugging
+   */
+  async initializeSimplified(): Promise<void> {
+    try {
+      // Initialize notification service with bot instance
+      notificationService.initialize(this.bot);
+
+      // Get bot info and store for mention processing
+      const me = await this.bot.api.getMe();
+      this.botUsername = me.username;
+      this.botId = me.id;
+
+      // Store bot info for mention processing
+      logger.info('Bot info obtained for mention processing', {
+        botUsername: this.botUsername,
+        botId: this.botId,
+      });
+
+      logger.info(`Bot initialized: @${me.username} (${me.first_name})`);
+
+      // Register bot commands in BotFather
+      await this.setBotCommands();
+
+      // SKIP: Load and schedule all existing feeds (this is what's causing the hang)
+      logger.info('⚠️ Skipping feed loading in simplified mode');
+
+      // Start polling
+      await this.bot.start();
+      logger.info('Bot started and listening for updates');
+    } catch (error) {
+      logger.error('Failed to initialize bot (simplified):', error);
+      throw error;
+    }
+  }
+
   async stop(): Promise<void> {
     try {
       await this.bot.stop();

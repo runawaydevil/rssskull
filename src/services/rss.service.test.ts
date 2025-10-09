@@ -1,14 +1,35 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RSSService } from './rss.service.js';
 
-// Mock rss-parser
+// Create a mock parser instance that will be reused
+const mockParseURL = vi.fn();
+const mockParser = {
+  parseURL: mockParseURL,
+};
+
+// Mock rss-parser to return our mock parser
 vi.mock('rss-parser', () => {
   return {
-    default: vi.fn().mockImplementation(() => ({
-      parseURL: vi.fn(),
-    })),
+    default: vi.fn().mockImplementation(() => mockParser),
   };
 });
+
+// Mock rate limiter service
+vi.mock('../utils/rate-limiter.service.js', () => ({
+  rateLimiterService: {
+    waitIfNeeded: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
+// Mock feed config
+vi.mock('../config/feed.config.js', () => ({
+  getRecommendedHeaders: vi.fn().mockReturnValue({
+    'User-Agent': 'RSS-Skull-Bot/0.01 (+https://github.com/runawaydevil/rssskull)',
+    'Accept': 'application/rss+xml, application/xml, text/xml, application/atom+xml',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Cache-Control': 'no-cache',
+  }),
+}));
 
 // Mock logger service
 vi.mock('../utils/logger/logger.service.js', () => ({
@@ -22,12 +43,10 @@ vi.mock('../utils/logger/logger.service.js', () => ({
 
 describe('RSSService', () => {
   let rssService: RSSService;
-  let mockParser: any;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     rssService = new RSSService();
-    // Get the mocked parser instance
-    mockParser = (rssService as any).parser;
   });
 
   describe('fetchFeed', () => {
@@ -54,7 +73,7 @@ describe('RSSService', () => {
         ],
       };
 
-      mockParser.parseURL.mockResolvedValue(mockFeedData);
+      mockParseURL.mockResolvedValue(mockFeedData);
 
       const result = await rssService.fetchFeed('https://example.com/feed.xml');
 
@@ -67,7 +86,7 @@ describe('RSSService', () => {
     });
 
     it('should handle parsing errors with retry logic', async () => {
-      mockParser.parseURL
+      mockParseURL
         .mockRejectedValueOnce(new Error('Network error'))
         .mockRejectedValueOnce(new Error('Network error'))
         .mockResolvedValue({
@@ -78,27 +97,27 @@ describe('RSSService', () => {
       const result = await rssService.fetchFeed('https://example.com/feed.xml');
 
       expect(result.success).toBe(true);
-      expect(mockParser.parseURL).toHaveBeenCalledTimes(3);
+      expect(mockParseURL).toHaveBeenCalledTimes(3);
     });
 
     it('should fail after max retries', async () => {
-      mockParser.parseURL.mockRejectedValue(new Error('Persistent error'));
+      mockParseURL.mockRejectedValue(new Error('Persistent error'));
 
       const result = await rssService.fetchFeed('https://example.com/feed.xml');
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('Persistent error');
-      expect(mockParser.parseURL).toHaveBeenCalledTimes(3);
+      expect(mockParseURL).toHaveBeenCalledTimes(3);
     });
 
     it('should not retry on non-retryable errors', async () => {
-      mockParser.parseURL.mockRejectedValue(new Error('Not found'));
+      mockParseURL.mockRejectedValue(new Error('Not found'));
 
       const result = await rssService.fetchFeed('https://example.com/feed.xml');
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('Not found');
-      expect(mockParser.parseURL).toHaveBeenCalledTimes(1);
+      expect(mockParseURL).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -122,7 +141,7 @@ describe('RSSService', () => {
         ],
       };
 
-      mockParser.parseURL.mockResolvedValue(mockFeedData);
+      mockParseURL.mockResolvedValue(mockFeedData);
     });
 
     it('should return items from bot startup onwards when no lastItemId is provided', async () => {
@@ -160,7 +179,7 @@ describe('RSSService', () => {
     });
 
     it('should return empty array when feed fetch fails', async () => {
-      mockParser.parseURL.mockRejectedValue(new Error('Feed error'));
+      mockParseURL.mockRejectedValue(new Error('Feed error'));
 
       const items = await rssService.getNewItems('https://example.com/feed.xml');
 
@@ -170,7 +189,7 @@ describe('RSSService', () => {
 
   describe('validateFeedUrl', () => {
     it('should return true for valid feed URL', async () => {
-      mockParser.parseURL.mockResolvedValue({ items: [] });
+      mockParseURL.mockResolvedValue({ items: [] });
 
       const isValid = await rssService.validateFeedUrl('https://example.com/feed.xml');
 
@@ -178,7 +197,7 @@ describe('RSSService', () => {
     });
 
     it('should return false for invalid feed URL', async () => {
-      mockParser.parseURL.mockRejectedValue(new Error('Invalid feed'));
+      mockParseURL.mockRejectedValue(new Error('Invalid feed'));
 
       const isValid = await rssService.validateFeedUrl('https://example.com/invalid');
 
