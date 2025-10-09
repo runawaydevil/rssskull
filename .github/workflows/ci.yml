@@ -127,22 +127,32 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            runawaydevil/rssskull
-            ghcr.io/runawaydevil/rssskull
+          images: ghcr.io/runawaydevil/rssskull
           tags: |
             type=ref,event=branch
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: 🏗️ Build and push Docker image
-        if: ${{ (env.DOCKER_USERNAME && env.DOCKER_PASSWORD) || (env.GHCR_USERNAME && env.GHCR_TOKEN) }}
+      - name: 🏗️ Build and push to Docker Hub
+        if: ${{ env.DOCKER_USERNAME && env.DOCKER_PASSWORD }}
         uses: docker/build-push-action@v5
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: runawaydevil/rssskull:latest,runawaydevil/rssskull:${{ github.sha }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 🏗️ Build and push to GHCR
+        if: ${{ env.GHCR_USERNAME && env.GHCR_TOKEN }}
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/runawaydevil/rssskull:latest,ghcr.io/runawaydevil/rssskull:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
