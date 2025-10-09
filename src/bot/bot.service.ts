@@ -1,5 +1,6 @@
 import { Bot, type Context, session } from 'grammy';
 import { config } from '../config/config.service.js';
+import { feedQueueService } from '../jobs/index.js';
 import { notificationService } from '../services/notification.service.js';
 import { logger } from '../utils/logger/logger.service.js';
 import {
@@ -650,6 +651,62 @@ export class BotService {
       logger.info('Bot stopped');
     } catch (error) {
       logger.error('Error stopping bot:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Load all existing feeds from database and schedule them for checking
+   */
+  async loadAndScheduleAllFeeds(): Promise<void> {
+    try {
+      logger.info('Loading all existing feeds from database...');
+
+      // Import services
+      const { FeedService } = await import('../services/feed.service.js');
+      const { database } = await import('../database/database.service.js');
+
+      const feedService = new FeedService(database.client);
+
+      // Get all chats with their feeds
+      const chats = await database.client.chat.findMany({
+        include: {
+          feeds: {
+            where: { enabled: true },
+            include: { filters: true },
+          },
+        },
+      });
+
+      let totalScheduled = 0;
+      let totalErrors = 0;
+
+      for (const chat of chats) {
+        if (chat.feeds.length === 0) continue;
+
+        logger.info(`Loading ${chat.feeds.length} feeds for chat ${chat.id} (${chat.title || 'No title'})`);
+
+        for (const feed of chat.feeds) {
+          try {
+            await feedQueueService.scheduleRecurringFeedCheck({
+              feedId: feed.id,
+              chatId: feed.chatId,
+              feedUrl: feed.rssUrl,
+              lastItemId: feed.lastItemId,
+            }, 5); // Check every 5 minutes
+
+            totalScheduled++;
+            logger.debug(`Scheduled feed ${feed.id} (${feed.name}) for chat ${chat.id}`);
+          } catch (error) {
+            totalErrors++;
+            logger.error(`Failed to schedule feed ${feed.id} (${feed.name}):`, error);
+          }
+        }
+      }
+
+      logger.info(`Feed loading completed: ${totalScheduled} feeds scheduled, ${totalErrors} errors`);
+    } catch (error) {
+      logger.error('Failed to load and schedule feeds:', error);
       throw error;
     }
   }
