@@ -13,7 +13,7 @@
   
 </div>
 
----.
+---
 
 ## ✨ Features
 
@@ -154,6 +154,32 @@ RSS Skull Bot v0.01 includes **full support for Telegram channels**!
 @yourbotname /help
 ```
 
+## 🤖 Available Commands
+
+### English Commands
+- `/start` - Initialize the bot and show welcome message
+- `/help` - Display all available commands and usage
+- `/add <name> <url>` - Add a new RSS feed to the chat
+- `/list` - List all active feeds in the chat
+- `/remove <name>` - Remove a feed from the chat
+- `/enable <name>` - Enable a disabled feed
+- `/disable <name>` - Temporarily disable a feed
+- `/settings` - View and modify chat settings
+- `/filters <name>` - Manage include/exclude filters for a feed
+- `/stats` - View usage statistics for the last 30 days
+
+### Portuguese Commands
+- `/iniciar` - Inicializar o bot e mostrar mensagem de boas-vindas
+- `/ajuda` - Mostrar todos os comandos disponíveis
+- `/adicionar <nome> <url>` - Adicionar um novo feed RSS ao chat
+- `/listar` - Listar todos os feeds ativos no chat
+- `/remover <nome>` - Remover um feed do chat
+- `/habilitar <nome>` - Habilitar um feed desabilitado
+- `/desabilitar <nome>` - Desabilitar temporariamente um feed
+- `/configuracoes` - Ver e modificar configurações do chat
+- `/filtros <nome>` - Gerenciar filtros de inclusão/exclusão para um feed
+- `/estatisticas` - Ver estatísticas de uso dos últimos 30 dias
+
 ## 🏗️ Architecture
 
 RSS Skull Bot v0.01 follows a clean, modular architecture:
@@ -182,34 +208,6 @@ src/
 ├── config/                # Configuration management
 └── main.ts               # Application entry point
 ```
-
-## 🤖 Available Commands
-
-### English Commands
-- `/start` - Initialize the bot and show welcome message
-- `/help` - Display all available commands and usage
-- `/add <name> <url>` - Add a new RSS feed to the chat
-- `/list` - List all active feeds in the chat
-- `/remove <name>` - Remove a feed from the chat
-- `/enable <name>` - Enable a disabled feed
-- `/disable <name>` - Temporarily disable a feed
-- `/settings` - View and modify chat settings
-- `/filters <name>` - Manage include/exclude filters for a feed
-- `/stats` - View usage statistics for the last 30 days
-
-### Portuguese Commands
-- `/iniciar` - Inicializar o bot e mostrar mensagem de boas-vindas
-- `/ajuda` - Mostrar todos os comandos disponíveis
-- `/adicionar <nome> <url>` - Adicionar um novo feed RSS ao chat
-- `/listar` - Listar todos os feeds ativos no chat
-- `/remover <nome>` - Remover um feed do chat
-- `/habilitar <nome>` - Habilitar um feed desabilitado
-- `/desabilitar <nome>` - Desabilitar temporariamente um feed
-- `/configuracoes` - Ver e modificar configurações do chat
-- `/filtros <nome>` - Gerenciar filtros de inclusão/exclusão para um feed
-- `/estatisticas` - Ver estatísticas de uso dos últimos 30 dias
-
-
 
 ## 🔧 Smart Features
 
@@ -251,13 +249,50 @@ Example template:
 [Read more]({{link}})
 ```
 
-## Quick Start
+## ⚙️ Configuration
 
-### Prerequisites
+### Environment Variables
 
-- Node.js 20+
-- Docker and Docker Compose
-- Telegram Bot Token (from @BotFather)
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `BOT_TOKEN` | Telegram bot token from @BotFather | - | ✅ |
+| `PORT` | Server port | 8916 | ❌ |
+| `HOST` | Server host | 0.0.0.0 | ❌ |
+| `NODE_ENV` | Environment (development/production) | development | ❌ |
+| `LOG_LEVEL` | Logging level (debug/info/warn/error) | info | ❌ |
+| `DATABASE_URL` | SQLite database path | file:./dev.db | ❌ |
+| `REDIS_HOST` | Redis host | localhost | ❌ |
+| `REDIS_PORT` | Redis port | 6379 | ❌ |
+
+### Bot Settings
+
+The bot includes several configurable settings per chat:
+
+- **Check Interval**: 90s to 15min (default: 2min)
+- **Max Feeds**: Up to 50 feeds per chat
+- **Language**: English or Portuguese
+- **Filters**: Include/exclude patterns with regex
+- **Message Templates**: Custom notification formats
+
+### Performance Tuning
+
+For high-traffic deployments:
+
+```yaml
+# docker-compose.prod.yml
+services:
+  rss-skull-bot:
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+```
+
+## 🚀 Development
 
 ### Setup
 
@@ -284,21 +319,6 @@ Example template:
    npm run dev
    ```
 
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `BOT_TOKEN` | Telegram bot token | Required |
-| `PORT` | Server port | 8916 |
-| `HOST` | Server host | 0.0.0.0 |
-| `DATABASE_URL` | SQLite database path | file:./dev.db |
-| `REDIS_HOST` | Redis host | localhost |
-| `REDIS_PORT` | Redis port | 6379 |
-| `LOG_LEVEL` | Logging level | info |
-| `NODE_ENV` | Environment | development |
-
-## Development
-
 ### Available Scripts
 
 - `npm run dev` - Start development server with hot reload
@@ -312,19 +332,6 @@ Example template:
 - `npm run db:migrate` - Run database migrations
 - `npm run docker:dev` - Start Redis for development
 - `npm run setup` - Complete development setup
-
-### Project Structure
-
-```
-src/
-├── bot/                    # Telegram bot layer
-├── services/              # Business logic layer
-├── jobs/                  # Background job processors
-├── database/              # Database layer
-├── utils/                 # Utilities and helpers
-├── config/                # Configuration management
-└── main.ts               # Application entry point
-```
 
 ## 🚀 Production Deployment
 
@@ -396,58 +403,6 @@ For custom deployment scenarios:
    npm start
    ```
 
-### Environment Configuration
-
-Key environment variables for production:
-
-```env
-# Bot Configuration
-BOT_TOKEN=your_telegram_bot_token_here
-WEBHOOK_URL=https://your-domain.com/webhook  # Optional
-
-# Server Configuration
-PORT=8916
-HOST=0.0.0.0
-
-# Database Configuration
-DATABASE_URL=file:/app/data/production.db
-
-# Redis Configuration
-REDIS_HOST=redis
-REDIS_PORT=6379
-
-# Performance Configuration
-MAX_FEEDS_PER_CHAT=50
-RSS_CHECK_INTERVAL=300
-MAX_CONCURRENT_JOBS=10
-```
-
-## Commands
-
-### English Commands
-- `/start` - Initialize the bot
-- `/help` - Show available commands
-- `/add <name> <url>` - Add RSS feed
-- `/list` - List all feeds
-- `/remove <name>` - Remove feed
-- `/enable <name>` - Enable feed
-- `/disable <name>` - Disable feed
-- `/settings` - View chat settings
-- `/filters <name>` - Manage feed filters
-- `/stats` - View usage statistics
-
-### Portuguese Commands
-- `/iniciar` - Inicializar o bot
-- `/ajuda` - Mostrar comandos disponíveis
-- `/adicionar <nome> <url>` - Adicionar feed RSS
-- `/listar` - Listar todos os feeds
-- `/remover <nome>` - Remover feed
-- `/habilitar <nome>` - Habilitar feed
-- `/desabilitar <nome>` - Desabilitar feed
-- `/configuracoes` - Ver configurações do chat
-- `/filtros <nome>` - Gerenciar filtros do feed
-- `/estatisticas` - Ver estatísticas de uso
-
 ## 📈 Performance Improvements
 
 RSS Skull Bot v2 delivers significant performance improvements over v1:
@@ -471,76 +426,6 @@ npm run migrate:v1 /path/to/old/database.db
 ```
 
 See [Migration Guide](scripts/MIGRATION.md) for detailed instructions.
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 👨‍💻 Author
-
-**Pablo Murad**
-- GitHub: [@runawaydevil](https://github.com/runawaydevil)
-- Email: runawaydevil@pm.me
-
----
-
-<div align="center">
-  <p>Made with ❤️ by <a href="https://github.com/runawaydevil">Pablo Murad</a></p>
-  <p>If this project helped you, please consider giving it a ⭐!</p>
-</div>
-## 
-🔧 Configuration
-
-### Environment Variables
-
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `BOT_TOKEN` | Telegram bot token from @BotFather | - | ✅ |
-| `PORT` | Server port | 8916 | ❌ |
-| `HOST` | Server host | 0.0.0.0 | ❌ |
-| `NODE_ENV` | Environment (development/production) | development | ❌ |
-| `LOG_LEVEL` | Logging level (debug/info/warn/error) | info | ❌ |
-| `DATABASE_URL` | SQLite database path | file:./dev.db | ❌ |
-| `REDIS_HOST` | Redis host | localhost | ❌ |
-| `REDIS_PORT` | Redis port | 6379 | ❌ |
-
-### Bot Settings
-
-The bot includes several configurable settings per chat:
-
-- **Check Interval**: 90s to 15min (default: 2min)
-- **Max Feeds**: Up to 50 feeds per chat
-- **Language**: English or Portuguese
-- **Filters**: Include/exclude patterns with regex
-- **Message Templates**: Custom notification formats
-
-### Performance Tuning
-
-For high-traffic deployments:
-
-```yaml
-# docker-compose.prod.yml
-services:
-  rss-skull-bot:
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '0.5'
-        reservations:
-          memory: 256M
-          cpus: '0.25'
-```
 
 ## 🐛 Troubleshooting
 
@@ -648,12 +533,23 @@ The bot tracks usage statistics:
 
 Access via: `@yourbotname /stats`
 
+## 🔮 Future Plans
+
+RSS Skull Bot is evolving! Check out our [**Roadmap**](ROADMAP.md) for upcoming features:
+
+- 📱 **WhatsApp Integration** - Full WhatsApp Business API support
+- 🤖 **Discord & Slack** - Multi-platform messaging support  
+- 🧠 **AI-Powered Features** - Smart content filtering and analysis
+- 🏢 **Enterprise Features** - Multi-tenant architecture and advanced security
+
 ## 🤝 Contributing
 
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
 1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
 ### Development Setup
@@ -670,9 +566,12 @@ npm run setup
 npm run dev
 ```
 
-## 📝 License
+## 📞 Support
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- **Issues**: [GitHub Issues](https://github.com/runawaydevil/rssskull/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/runawaydevil/rssskull/discussions)
+- **Telegram**: [@runawaydevil](https://t.me/runawaydevil) - Direct support
+- **Developer**: [@runawaydevil](https://github.com/runawaydevil)
 
 ## 🙏 Acknowledgments
 
@@ -681,29 +580,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [BullMQ](https://docs.bullmq.io/) - Premium queue package
 - [Fastify](https://fastify.dev/) - Fast web framework
 
-## � Futpure Plans
-
-RSS Skull Bot is evolving! Check out our [**Roadmap**](ROADMAP.md) for upcoming features:
-
-- 📱 **WhatsApp Integration** - Full WhatsApp Business API support
-- 🤖 **Discord & Slack** - Multi-platform messaging support  
-- 🧠 **AI-Powered Features** - Smart content filtering and analysis
-- 🏢 **Enterprise Features** - Multi-tenant architecture and advanced security
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/runawaydevil/rssskull/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/runawaydevil/rssskull/discussions)
-- **Telegram**: [@runawaydevil](https://t.me/runawaydevil) - Direct support
-- **Developer**: [@runawaydevil](https://github.com/runawaydevil)
-
----
-
-<div align="center">
-  <p>Made with ❤️ by <a href="https://github.com/runawaydevil">Pablo Murad</a></p>
-  <p>⭐ Star this repo if you find it useful!</p>
-</div>## 📝 L
-icense
+## 📝 License
 
 This project is **open source** and licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
@@ -713,14 +590,11 @@ This project is **open source** and licensed under the MIT License - see the [LI
 - ✅ **Community contributions** welcome
 - ✅ **No vendor lock-in** - you own your deployment
 
-### 🤝 Contributing
-We welcome contributions! Please feel free to:
-- 🐛 Report bugs and issues
-- 💡 Suggest new features
-- 🔧 Submit pull requests
-- 📖 Improve documentation
-- 🌍 Add translations
+**MIT License** - Copyright (c) 2025 Pablo Murad (@runawaydevil)
 
 ---
 
-**MIT License** - Copyright (c) 2025 Pablo Murad (@runawaydevil)
+<div align="center">
+  <p>Made with ❤️ by <a href="https://github.com/runawaydevil">Pablo Murad</a></p>
+  <p>⭐ Star this repo if you find it useful!</p>
+</div>
