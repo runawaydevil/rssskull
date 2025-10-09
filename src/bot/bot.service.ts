@@ -636,6 +636,10 @@ export class BotService {
       // Register bot commands in BotFather
       await this.setBotCommands();
 
+      // Load and schedule all existing feeds BEFORE starting polling
+      await this.loadAndScheduleAllFeeds();
+      logger.info('All existing feeds loaded and scheduled');
+
       // Start polling
       await this.bot.start();
       logger.info('Bot started and listening for updates');

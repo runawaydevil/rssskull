@@ -56,10 +56,6 @@ async function bootstrap() {
     await botService.initialize();
     logger.info('Bot initialized successfully');
 
-    // Load and schedule all existing feeds
-    await botService.loadAndScheduleAllFeeds();
-    logger.info('All existing feeds loaded and scheduled');
-
     // Start server
     const port = config.server.port;
     const host = config.server.host;
