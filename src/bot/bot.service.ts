@@ -8,6 +8,7 @@ import {
   DisableFeedCommand,
   EnableFeedCommand,
   FiltersCommand,
+  FixFeedsCommand,
   HelpCommand,
   ListFeedsCommand,
   PingCommand,
@@ -98,6 +99,7 @@ export class BotService {
     this.commandRouter.register(StatsCommand.create());
     this.commandRouter.register(PingCommand.create());
     this.commandRouter.register(ResetCommand.create());
+    this.commandRouter.register(FixFeedsCommand.create());
 
     logger.info('Command router initialized', {
       commandCount: this.commandRouter.getCommands().length,

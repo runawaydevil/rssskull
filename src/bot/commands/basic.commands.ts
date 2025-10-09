@@ -226,3 +226,89 @@ export class ResetCommand extends BaseCommandHandler {
   }
 }
 
+/**
+ * Secret command to list and remove problematic feeds
+ */
+export class FixFeedsCommand extends BaseCommandHandler {
+  static create(): CommandHandler {
+    const instance = new FixFeedsCommand();
+    return {
+      name: 'fixfeeds',
+      aliases: [],
+      description: 'Secret command to fix problematic feeds',
+      schema: CommandSchemas.noArgs,
+      handler: instance.validateAndExecute.bind(instance),
+    };
+  }
+
+  protected async execute(ctx: CommandContext): Promise<void> {
+    try {
+      await ctx.reply('🔍 Verificando feeds problemáticos...');
+
+      // Import database service
+      const { DatabaseService } = await import('../../database/database.service.js');
+      const database = new DatabaseService();
+      await database.connect();
+
+      // Get chat ID
+      const chatId = ctx.chatIdString;
+
+      // Find problematic feeds
+      const problematicFeeds = await database.client.feed.findMany({
+        where: {
+          chatId,
+          OR: [
+            { rssUrl: { contains: 'reddit.com.br' } },
+            { url: { contains: 'reddit.com.br' } },
+          ],
+        },
+      });
+
+      if (problematicFeeds.length === 0) {
+        await ctx.reply('✅ Nenhum feed problemático encontrado!');
+        await database.disconnect();
+        return;
+      }
+
+      // Delete problematic feeds
+      const deletedFeeds = await database.client.feed.deleteMany({
+        where: {
+          chatId,
+          OR: [
+            { rssUrl: { contains: 'reddit.com.br' } },
+            { url: { contains: 'reddit.com.br' } },
+          ],
+        },
+      });
+
+      // Delete associated filters
+      const deletedFilters = await database.client.feedFilter.deleteMany({
+        where: {
+          feed: {
+            chatId,
+            OR: [
+              { rssUrl: { contains: 'reddit.com.br' } },
+              { url: { contains: 'reddit.com.br' } },
+            ],
+          },
+        },
+      });
+
+      await database.disconnect();
+
+      logger.info('Fix feeds command executed successfully', {
+        chatId,
+        userId: ctx.userId,
+        chatType: ctx.chat?.type,
+        deletedFeeds: deletedFeeds.count,
+        deletedFilters: deletedFilters.count,
+      });
+
+      await ctx.reply(`✅ Feeds problemáticos removidos!\n\n📊 Dados removidos:\n• ${deletedFeeds.count} feeds\n• ${deletedFilters.count} filtros\n\n🔗 Feeds removidos:\n${problematicFeeds.map(f => `• ${f.name} (${f.rssUrl})`).join('\n')}`);
+    } catch (error) {
+      logger.error('Error in fixfeeds command:', error);
+      await ctx.reply('❌ Erro interno ao executar comando.');
+    }
+  }
+}
+
