@@ -70,14 +70,12 @@ export class StartCommand extends BaseCommandHandler {
         },
       });
 
-      console.log(
-        `[INFO] Chat registered successfully: ${chatId} (${chatType}) - ${chatTitle || 'No title'}`
-      );
+      logger.info(`Chat registered successfully: ${chatId} (${chatType}) - ${chatTitle || 'No title'}`);
 
       const welcomeMessage = `${ctx.t('welcome.title')}\n\n${ctx.t('welcome.help')}`;
       await ctx.reply(welcomeMessage);
     } catch (error) {
-      console.error('[ERROR] Failed to register chat in start command:', error);
+      logger.error('Failed to register chat in start command:', error);
       const welcomeMessage = `${ctx.t('welcome.title')}\n\n${ctx.t('welcome.help')}`;
       await ctx.reply(welcomeMessage);
     }

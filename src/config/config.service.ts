@@ -19,7 +19,7 @@ const configSchema = z.object({
     db: z.number().int().min(0).default(0),
   }),
   app: z.object({
-    logLevel: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+    logLevel: z.enum(['debug', 'info', 'warn', 'error']).default('error'),
     environment: z.enum(['development', 'production', 'test']).default('development'),
   }),
 });
@@ -46,7 +46,7 @@ function loadConfig(): Config {
       db: process.env.REDIS_DB ? Number.parseInt(process.env.REDIS_DB, 10) : 0,
     },
     app: {
-      logLevel: (process.env.LOG_LEVEL as any) || 'info',
+      logLevel: (process.env.LOG_LEVEL as any) || 'error',
       environment: (process.env.NODE_ENV as any) || 'development',
     },
   };
