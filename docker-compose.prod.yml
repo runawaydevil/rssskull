@@ -1,0 +1,85 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: rss-skull-redis-prod
+    ports:
+      - "127.0.0.1:6380:6379"  # Using port 6380 to avoid conflicts
+    volumes:
+      - redis_prod_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - rss-skull-network
+    # Security configurations
+    security_opt:
+      - no-new-privileges:true
+    read_only: false  # Redis needs write access for persistence
+    tmpfs:
+      - /tmp:noexec,nosuid,size=50m
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: rss-skull-bot:latest
+    container_name: rss-skull-bot-prod
+    ports:
+      - "127.0.0.1:8916:8916"  # Bind to localhost only, use reverse proxy
+    environment:
+      - NODE_ENV=production
+      - BOT_TOKEN=${BOT_TOKEN}
+      - DATABASE_URL=file:/app/data/production.db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=8916
+      - HOST=0.0.0.0
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - MAX_FEEDS_PER_CHAT=${MAX_FEEDS_PER_CHAT:-50}
+      - RSS_CHECK_INTERVAL=${RSS_CHECK_INTERVAL:-300}
+      - OPENSSL_CONF=/dev/null
+    volumes:
+      - app_prod_data:/app/data
+      - ./logs:/app/logs  # Mount logs directory
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8916/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - rss-skull-network
+    # Security configurations
+    security_opt:
+      - no-new-privileges:true
+    read_only: false  # SQLite needs write access
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+    # Resource limits for production
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
+
+volumes:
+  redis_prod_data:
+    driver: local
+  app_prod_data:
+    driver: local
+
+networks:
+  rss-skull-network:
+    driver: bridge

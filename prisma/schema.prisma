@@ -1,0 +1,73 @@
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../node_modules/.prisma/client"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Chat {
+  id          String   @id
+  type        String   // 'private', 'group', 'channel'
+  title       String?
+  settings    ChatSettings?
+  feeds       Feed[]
+  statistics  Statistic[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Feed {
+  id          String   @id @default(cuid())
+  chatId      String
+  name        String
+  url         String   // Original URL
+  rssUrl      String   // Converted RSS URL
+  lastItemId  String?
+  enabled     Boolean  @default(true)
+  filters     FeedFilter[]
+  failures    Int      @default(0)
+  lastCheck   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  chat        Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  
+  @@unique([chatId, name])
+}
+
+model ChatSettings {
+  chatId           String   @id
+  language         String   @default("en") // 'en' or 'pt'
+  checkInterval    Int      @default(120) // seconds (2 minutes max)
+  maxFeeds         Int      @default(50)
+  enableFilters    Boolean  @default(true)
+  messageTemplate  String?
+  timezone         String   @default("UTC")
+  
+  chat             Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+}
+
+model FeedFilter {
+  id       String @id @default(cuid())
+  feedId   String
+  type     String // 'include', 'exclude'
+  pattern  String
+  isRegex  Boolean @default(false)
+  
+  feed     Feed   @relation(fields: [feedId], references: [id], onDelete: Cascade)
+}
+
+model Statistic {
+  id        String   @id @default(cuid())
+  chatId    String
+  feedId    String?
+  action    String   // 'message_sent', 'feed_added', 'feed_checked'
+  count     Int      @default(1)
+  date      DateTime @default(now())
+  
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+}

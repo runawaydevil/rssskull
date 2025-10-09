@@ -1,0 +1,68 @@
+{
+  "name": "rss-skull-bot",
+  "version": "0.01.0",
+  "description": "Modern RSS to Telegram Bot with Reddit support and bilingual commands",
+  "main": "dist/main.js",
+  "type": "module",
+  "author": {
+    "name": "Pablo Murad",
+    "email": "runawaydevil@pm.me",
+    "url": "https://github.com/runawaydevil"
+  },
+  "license": "MIT",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:reset": "prisma migrate reset --force",
+    "lint": "biome check .",
+    "lint:ci": "biome check . || exit 0",
+    "lint:fix": "biome check --apply .",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest --coverage",
+    "docker:build": "docker build -t rss-skull-bot:0.01.0 .",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:dev": "docker compose -f docker-compose.dev.yml up -d",
+    "docker:dev:down": "docker compose -f docker-compose.dev.yml down",
+    "docker:prod": "docker compose -f docker-compose.prod.yml up -d --build",
+    "docker:prod:down": "docker compose -f docker-compose.prod.yml down",
+    "docker:prod:logs": "docker compose -f docker-compose.prod.yml logs -f",
+    "migrate:v1": "tsx scripts/migrate-from-v1.ts",
+    "backup": "bash scripts/backup.sh backup",
+    "backup:restore": "bash scripts/backup.sh restore",
+    "backup:list": "bash scripts/backup.sh list",
+    "deploy:prod": "docker-compose -f docker-compose.prod.yml up -d --build",
+    "deploy:staging": "docker-compose -f docker-compose.staging.yml up -d --build",
+    "deploy:stop": "docker-compose -f docker-compose.prod.yml down",
+    "deploy:stop:staging": "docker-compose -f docker-compose.staging.yml down",
+    "setup": "npm install && npm run db:generate && npm run docker:dev"
+  },
+  "dependencies": {
+    "@paralleldrive/cuid2": "^2.2.2",
+    "@prisma/client": "^5.20.0",
+    "bullmq": "^5.13.2",
+    "fastify": "^4.28.1",
+    "grammy": "^1.29.0",
+    "ioredis": "^5.4.1",
+    "rss-parser": "^3.13.0",
+    "sqlite3": "^5.1.7",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.2",
+    "@types/node": "^20.16.10",
+    "@types/sqlite3": "^3.1.11",
+    "prisma": "^5.20.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.1"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

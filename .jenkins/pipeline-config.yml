@@ -1,0 +1,61 @@
+# Jenkins Pipeline Configuration for RSS Skull Bot v2
+# This file contains configuration parameters for the Jenkins pipeline
+
+# Build Configuration
+build:
+  node_version: "20"
+  npm_cache: true
+  parallel_jobs: 2
+
+# Testing Configuration
+testing:
+  unit_tests: true
+  integration_tests: true
+  coverage_threshold: 80
+  security_audit: true
+  
+# Docker Configuration
+docker:
+  registry: "your-registry.com"
+  image_name: "rss-skull-bot"
+  scan_vulnerabilities: true
+  cleanup_images: true
+
+# Deployment Configuration
+deployment:
+  staging:
+    auto_deploy: true
+    branch: "develop"
+    environment: "staging"
+    health_check_url: "http://localhost:8917/health"
+    
+  production:
+    auto_deploy: false  # Requires manual approval
+    branch: "main"
+    environment: "production"
+    health_check_url: "http://localhost:8916/health"
+    backup_before_deploy: true
+
+# Notification Configuration
+notifications:
+  slack:
+    enabled: true
+    channel: "#deployments"
+    webhook_credential_id: "slack-webhook"
+    
+  email:
+    enabled: false
+    recipients: ["runawaydevil@pm.me"]
+    
+# Quality Gates
+quality_gates:
+  code_coverage: 80
+  security_scan: "high"
+  lint_errors: 0
+  test_failures: 0
+
+# Environment Variables (to be set in Jenkins)
+# BOT_TOKEN_STAGING - Staging bot token
+# BOT_TOKEN_PRODUCTION - Production bot token
+# DOCKER_REGISTRY_CREDENTIALS - Docker registry credentials ID
+# SLACK_WEBHOOK - Slack webhook credentials ID
