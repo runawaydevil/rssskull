@@ -191,7 +191,21 @@ export class BotService {
 
           try {
             // Execute the command through the router
+            logger.info('Attempting to execute command from mention', {
+              chatId: authCtx.chatIdString,
+              command,
+              args,
+              chatType: ctx.chat?.type,
+            });
+
             const executed = await this.commandRouter.execute(authCtx, command, args);
+
+            logger.info('Command execution result', {
+              chatId: authCtx.chatIdString,
+              command,
+              executed,
+              chatType: ctx.chat?.type,
+            });
 
             if (!executed) {
               // Unknown command from mention - provide helpful feedback
