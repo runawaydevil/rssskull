@@ -747,6 +747,57 @@ export class BotService {
     }
   }
 
+  /**
+   * Initialize bot for webhook mode (no polling)
+   */
+  async initializeWebhook(): Promise<void> {
+    try {
+      logger.info('🔧 Step 1: Initializing notification service...');
+      console.log('🔧 Step 1: Initializing notification service...');
+      // Initialize notification service with bot instance
+      notificationService.initialize(this.bot);
+      logger.info('✅ Notification service initialized');
+      console.log('✅ Notification service initialized');
+
+      logger.info('🔧 Step 2: Getting bot info from Telegram API...');
+      console.log('🔧 Step 2: Getting bot info from Telegram API...');
+      // Get bot info and store for mention processing
+      const me = await this.bot.api.getMe();
+      this.botUsername = me.username;
+      this.botId = me.id;
+
+      // Store bot info for mention processing
+      logger.info('✅ Bot info obtained for mention processing', {
+        botUsername: this.botUsername,
+        botId: this.botId,
+      });
+      console.log(`✅ Bot info: @${me.username} (${me.first_name})`);
+
+      logger.info('🔧 Step 3: Registering bot commands...');
+      console.log('🔧 Step 3: Registering bot commands...');
+      // Register bot commands in BotFather
+      await this.setBotCommands();
+      logger.info('✅ Bot commands registered');
+      console.log('✅ Bot commands registered');
+
+      // NO POLLING - webhook mode
+      logger.info('✅ Bot ready for webhook mode (no polling)');
+      console.log('✅ Bot ready for webhook mode (no polling)');
+      
+    } catch (error) {
+      logger.error('❌ Failed to initialize bot (webhook):', error);
+      console.error('❌ Failed to initialize bot (webhook):', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get the bot instance for webhook setup
+   */
+  getBot() {
+    return this.bot;
+  }
+
   async stop(): Promise<void> {
     try {
       await this.bot.stop();
