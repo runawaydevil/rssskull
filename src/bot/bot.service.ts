@@ -662,35 +662,51 @@ export class BotService {
 
   async initialize(): Promise<void> {
     try {
+      logger.info('🔧 Step 1: Initializing notification service...');
+      console.log('🔧 Step 1: Initializing notification service...');
       // Initialize notification service with bot instance
       notificationService.initialize(this.bot);
+      logger.info('✅ Notification service initialized');
+      console.log('✅ Notification service initialized');
 
+      logger.info('🔧 Step 2: Getting bot info from Telegram API...');
+      console.log('🔧 Step 2: Getting bot info from Telegram API...');
       // Get bot info and store for mention processing
       const me = await this.bot.api.getMe();
       this.botUsername = me.username;
       this.botId = me.id;
 
       // Store bot info for mention processing
-      logger.info('Bot info obtained for mention processing', {
+      logger.info('✅ Bot info obtained for mention processing', {
         botUsername: this.botUsername,
         botId: this.botId,
       });
+      console.log(`✅ Bot info: @${me.username} (${me.first_name})`);
 
-      logger.info(`Bot initialized: @${me.username} (${me.first_name})`);
-
+      logger.info('🔧 Step 3: Registering bot commands...');
+      console.log('🔧 Step 3: Registering bot commands...');
       // Register bot commands in BotFather
       await this.setBotCommands();
+      logger.info('✅ Bot commands registered');
+      console.log('✅ Bot commands registered');
 
+      logger.info('🔧 Step 4: Starting bot polling (this might take a moment)...');
+      console.log('🔧 Step 4: Starting bot polling (this might take a moment)...');
       // Start polling FIRST to avoid hanging
       await this.bot.start();
-      logger.info('Bot started and listening for updates');
+      logger.info('✅ Bot started and listening for updates');
+      console.log('✅ Bot started and listening for updates');
 
+      logger.info('🔧 Step 5: Scheduling background feed loading...');
+      console.log('🔧 Step 5: Scheduling background feed loading...');
       // Load and schedule all existing feeds AFTER bot is running
-      logger.info('Loading existing feeds in background...');
       this.loadAndScheduleAllFeedsAsync();
+      logger.info('✅ Background feed loading scheduled');
+      console.log('✅ Background feed loading scheduled');
       
     } catch (error) {
-      logger.error('Failed to initialize bot:', error);
+      logger.error('❌ Failed to initialize bot:', error);
+      console.error('❌ Failed to initialize bot:', error);
       throw error;
     }
   }
