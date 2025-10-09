@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   redis:
     image: redis:7-alpine
@@ -8,7 +6,7 @@ services:
       - "127.0.0.1:6380:6379"  # Using port 6380 to avoid conflicts
     volumes:
       - redis_prod_data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]

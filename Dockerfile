@@ -27,8 +27,8 @@ RUN npm ci --only=production && npm cache clean --force
 # Production stage
 FROM node:20-alpine AS production
 
-# Install curl for health checks
-RUN apk add --no-cache curl
+# Install curl and OpenSSL for health checks and Prisma compatibility
+RUN apk add --no-cache curl openssl1.1-compat
 
 WORKDIR /app
 
