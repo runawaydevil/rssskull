@@ -694,7 +694,7 @@ export class BotService {
               chatId: feed.chatId,
               feedUrl: feed.rssUrl,
               lastItemId: feed.lastItemId ?? undefined,
-            }, 5); // Check every 5 minutes
+            }, 2); // Check every 2 minutes
 
             totalScheduled++;
             logger.debug(`Scheduled feed ${feed.id} (${feed.name}) for chat ${chat.id}`);

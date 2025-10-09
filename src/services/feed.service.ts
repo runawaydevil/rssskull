@@ -113,9 +113,9 @@ export class FeedService {
           chatId: feed.chatId,
           feedUrl: feed.rssUrl,
           lastItemId: feed.lastItemId ?? undefined,
-        }, 5); // Check every 5 minutes
+        }, 2); // Check every 2 minutes
 
-        logger.info(`Scheduled recurring feed check for feed ${feed.id} every 5 minutes`);
+        logger.info(`Scheduled recurring feed check for feed ${feed.id} every 2 minutes`);
       } catch (error) {
         logger.error(`Failed to schedule feed check for feed ${feed.id}:`, error);
         // Don't fail the entire operation if scheduling fails
