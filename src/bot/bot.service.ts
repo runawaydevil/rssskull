@@ -663,10 +663,7 @@ export class BotService {
       logger.info('Loading all existing feeds from database...');
 
       // Import services
-      const { FeedService } = await import('../services/feed.service.js');
       const { database } = await import('../database/database.service.js');
-
-      const feedService = new FeedService(database.client);
 
       // Get all chats with their feeds
       const chats = await database.client.chat.findMany({
@@ -692,7 +689,7 @@ export class BotService {
               feedId: feed.id,
               chatId: feed.chatId,
               feedUrl: feed.rssUrl,
-              lastItemId: feed.lastItemId,
+              lastItemId: feed.lastItemId ?? undefined,
             }, 5); // Check every 5 minutes
 
             totalScheduled++;
@@ -750,7 +747,7 @@ export class BotService {
         await database.client.chatSettings.create({
           data: {
             chatId,
-            language: (ctx as any).language || 'en',
+            language: (ctx as any).language ?? 'en',
             checkInterval: 120, // 2 minutes max
             maxFeeds: 50,
             enableFilters: true,

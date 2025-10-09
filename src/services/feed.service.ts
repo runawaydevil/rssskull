@@ -112,7 +112,7 @@ export class FeedService {
           feedId: feed.id,
           chatId: feed.chatId,
           feedUrl: feed.rssUrl,
-          lastItemId: feed.lastItemId,
+          lastItemId: feed.lastItemId ?? undefined,
         }, 5); // Check every 5 minutes
 
         logger.info(`Scheduled recurring feed check for feed ${feed.id} every 5 minutes`);
