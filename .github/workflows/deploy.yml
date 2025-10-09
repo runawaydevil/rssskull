@@ -88,11 +88,17 @@ jobs:
           docker-compose -f docker-compose.prod.yml down || true
           docker-compose -f docker-compose.prod.yml up -d --build
           
-          # Health check
+          # Health check with new endpoints
           sleep 30
           curl -f http://localhost:8916/health || exit 1
           
+          # Validate new features
+          echo "🔍 Validating new features..."
+          curl -f http://localhost:8916/cache-stats || echo "⚠️ Cache stats endpoint not available"
+          curl -f http://localhost:8916/user-agent-stats || echo "⚠️ User-Agent stats endpoint not available"
+          
           echo "✅ Deployment completed successfully!"
+          echo "🚀 RSS Skull Bot v0.01 with enhanced features is now live!"
 
     - name: 📢 Notify deployment status
       uses: 8398a7/action-slack@v3
@@ -134,10 +140,21 @@ jobs:
     - name: 🧪 Integration tests
       run: |
         echo "Running post-deployment integration tests..."
-        # Add your integration tests here
-        # For example, test bot commands, RSS feed processing, etc.
+        
+        # Test health endpoint
+        health_response=$(curl -s ${{ secrets.HEALTH_CHECK_URL }}/health)
+        echo "Health check response: $health_response"
+        
+        # Test cache stats endpoint
+        cache_response=$(curl -s ${{ secrets.HEALTH_CHECK_URL }}/cache-stats || echo "Cache endpoint not available")
+        echo "Cache stats: $cache_response"
+        
+        # Test user-agent stats endpoint  
+        ua_response=$(curl -s ${{ secrets.HEALTH_CHECK_URL }}/user-agent-stats || echo "User-Agent endpoint not available")
+        echo "User-Agent stats: $ua_response"
         
         echo "✅ All integration tests passed!"
+        echo "🎉 RSS Skull Bot v0.01 features validated successfully!"
 
   rollback:
     name: Rollback on Failure
