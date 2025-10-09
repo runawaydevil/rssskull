@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 permissions:
-  contents: write   # criar release
+  contents: write
   actions: read
   checks: read
 
@@ -34,6 +34,10 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
+    # torna o token opcional via env (fica vazio em PR de fork)
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
     steps:
       - name: 📥 Checkout code
@@ -65,22 +69,20 @@ jobs:
           REDIS_PORT: 6379
 
       - name: 📊 Upload coverage reports
-        if: ${{ matrix['node-version'] == '20.x' }}
+        if: ${{ matrix['node-version'] == '20.x' && env.CODECOV_TOKEN }}
         uses: codecov/codecov-action@v4
         with:
           files: ./coverage/lcov.info
           flags: unittests
           name: codecov-umbrella
-        env:
-          # Para repositórios privados, forneça o token; público pode omitir.
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   docker:
     name: Docker Build
     runs-on: ubuntu-latest
     needs: test
-    # Só builda no push para a main (evita tentar em PRs/forks)
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+    # 👇 expõe segredos como env do job
     env:
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
@@ -93,14 +95,14 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: 🔑 Login to Docker Hub (se segredos existirem)
-        if: env.DOCKER_USERNAME != '' && env.DOCKER_PASSWORD != ''
+        if: ${{ env.DOCKER_USERNAME && env.DOCKER_PASSWORD }}
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
 
       - name: ⚠️ Skip Docker login (faltam segredos)
-        if: env.DOCKER_USERNAME == '' || env.DOCKER_PASSWORD == ''
+        if: ${{ !env.DOCKER_USERNAME || !env.DOCKER_PASSWORD }}
         run: |
           echo "⚠️ Skipping Docker login - secrets not configured"
           echo "Configure DOCKER_USERNAME and DOCKER_PASSWORD secrets in repository settings"
@@ -116,7 +118,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: 🏗️ Build and push Docker image
-        if: env.DOCKER_USERNAME != '' && env.DOCKER_PASSWORD != ''
+        if: ${{ env.DOCKER_USERNAME && env.DOCKER_PASSWORD }}
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -131,6 +133,8 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     needs: test
+
+    # 👇 expõe o token do Snyk como env do job
     env:
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
@@ -151,11 +155,11 @@ jobs:
         run: npm audit --audit-level=high || true
 
       - name: 🛡️ Run Snyk security scan (se houver token)
-        if: env.SNYK_TOKEN != ''
+        if: ${{ env.SNYK_TOKEN }}
         uses: snyk/actions/node@master
         continue-on-error: true
         env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          SNYK_TOKEN: ${{ env.SNYK_TOKEN }}
         with:
           args: --severity-threshold=high
 
@@ -163,7 +167,6 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     needs: [test, docker, security]
-    # Apenas em push na main E quando a mensagem do commit começar com "release:"
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'release:') }}
 
     steps:
