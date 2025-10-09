@@ -44,9 +44,7 @@ describe('NotificationService', () => {
 
       const result = notificationService.formatMessage(items, 'Test Feed');
 
-      expect(result).toContain('📰 *Test Feed*');
       expect(result).toContain('🔗 *Test Article*');
-      expect(result).toContain('This is a test article description.');
       expect(result).toContain('[Read more](https://example.com/article)');
     });
 

@@ -125,12 +125,24 @@ describe('RSSService', () => {
       mockParser.parseURL.mockResolvedValue(mockFeedData);
     });
 
-    it('should return all items when no lastItemId is provided', async () => {
+    it('should return items from bot startup onwards when no lastItemId is provided', async () => {
+      // Set bot startup time to before the test items
+      process.env.BOT_STARTUP_TIME = '2022-12-31T00:00:00Z';
+      
       const items = await rssService.getNewItems('https://example.com/feed.xml');
 
       expect(items).toHaveLength(2);
       expect(items[0].id).toBe('new-item');
       expect(items[1].id).toBe('old-item');
+    });
+
+    it('should return empty array when all items are older than bot startup', async () => {
+      // Set bot startup time to after all test items
+      process.env.BOT_STARTUP_TIME = '2023-01-04T00:00:00Z';
+      
+      const items = await rssService.getNewItems('https://example.com/feed.xml');
+
+      expect(items).toHaveLength(0);
     });
 
     it('should return only new items when lastItemId is provided', async () => {
@@ -140,10 +152,11 @@ describe('RSSService', () => {
       expect(items[0].id).toBe('new-item');
     });
 
-    it('should return all items when lastItemId is not found', async () => {
+    it('should return only the most recent item when lastItemId is not found', async () => {
       const items = await rssService.getNewItems('https://example.com/feed.xml', 'non-existent');
 
-      expect(items).toHaveLength(2);
+      expect(items).toHaveLength(1);
+      expect(items[0].id).toBe('new-item');
     });
 
     it('should return empty array when feed fetch fails', async () => {

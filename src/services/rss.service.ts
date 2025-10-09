@@ -102,16 +102,16 @@ export class RSSService {
 
     const items = result.feed.items;
 
-    // If no last item ID, return only recent items (last 24 hours) to avoid processing old posts
+    // If no last item ID, return only items from bot startup time onwards
     if (!lastItemId) {
-      const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 hours ago
-      const recentItems = items.filter(item => {
+      const botStartupTime = new Date(process.env.BOT_STARTUP_TIME || Date.now());
+      const startupItems = items.filter(item => {
         if (!item.pubDate) return false;
-        return item.pubDate > cutoffTime;
+        return item.pubDate > botStartupTime;
       });
       
-      logger.debug(`No last item ID for ${url}, returning ${recentItems.length} recent items (last 24 hours) out of ${items.length} total`);
-      return recentItems;
+      logger.debug(`No last item ID for ${url}, returning ${startupItems.length} items from bot startup onwards out of ${items.length} total`);
+      return startupItems;
     }
 
     // Find the index of the last known item
@@ -119,9 +119,9 @@ export class RSSService {
 
     if (lastItemIndex === -1) {
       // Last item not found, might be too old or feed changed
-      // Return all items to be safe, but log this situation
-      logger.warn(`Last item ID ${lastItemId} not found in feed ${url}, returning all items`);
-      return items;
+      // Return only the most recent item to avoid spam
+      logger.warn(`Last item ID ${lastItemId} not found in feed ${url}, returning only the most recent item`);
+      return items.slice(0, 1);
     }
 
     // Return only new items (items before the last known item in the array)
@@ -246,6 +246,14 @@ export class RSSService {
    * Generate a unique ID for an RSS item
    */
   private generateItemId(item: any): string {
+    // For Reddit posts, extract the post ID from the link
+    if (item.link && item.link.includes('reddit.com')) {
+      const redditIdMatch = item.link.match(/\/comments\/([a-zA-Z0-9]+)/);
+      if (redditIdMatch) {
+        return `reddit_${redditIdMatch[1]}`;
+      }
+    }
+
     // Try to use GUID first, then link, then title + pubDate
     if (item.guid) {
       return String(item.guid);
