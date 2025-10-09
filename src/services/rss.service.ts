@@ -102,10 +102,16 @@ export class RSSService {
 
     const items = result.feed.items;
 
-    // If no last item ID, return all items (first time checking)
+    // If no last item ID, return only recent items (last 24 hours) to avoid processing old posts
     if (!lastItemId) {
-      logger.debug(`No last item ID for ${url}, returning all ${items.length} items`);
-      return items;
+      const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 hours ago
+      const recentItems = items.filter(item => {
+        if (!item.pubDate) return false;
+        return item.pubDate > cutoffTime;
+      });
+      
+      logger.debug(`No last item ID for ${url}, returning ${recentItems.length} recent items (last 24 hours) out of ${items.length} total`);
+      return recentItems;
     }
 
     // Find the index of the last known item
@@ -179,10 +185,13 @@ export class RSSService {
       // Generate a unique ID for the item
       const id = this.generateItemId(item);
 
+      // Extract original link from Reddit posts
+      const originalLink = this.extractOriginalLink(item);
+
       return {
         id,
         title: this.sanitizeText(item.title || 'Untitled'),
-        link: item.link || '',
+        link: originalLink || item.link || '',
         description: this.sanitizeText(item.contentSnippet || item.content || item.summary || ''),
         pubDate: item.pubDate ? new Date(item.pubDate) : undefined,
         author: this.sanitizeText(item.creator || item.author || ''),
@@ -197,6 +206,40 @@ export class RSSService {
       link: rawFeed.link || '',
       items,
     };
+  }
+
+  /**
+   * Extract original link from Reddit posts
+   */
+  private extractOriginalLink(item: any): string | null {
+    // Check if this is a Reddit post
+    const link = item.link || '';
+    if (!link.includes('reddit.com')) {
+      return null; // Not a Reddit post
+    }
+
+    // Try to extract original link from content
+    const content = item.content || item.contentSnippet || item.summary || '';
+    
+    // Look for URLs in the content
+    const urlRegex = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/g;
+    const urls = content.match(urlRegex);
+    
+    if (urls && urls.length > 0) {
+      // Filter out Reddit URLs and return the first external URL
+      const externalUrls = urls.filter(url => 
+        !url.includes('reddit.com') && 
+        !url.includes('redd.it') &&
+        !url.includes('i.redd.it') &&
+        !url.includes('v.redd.it')
+      );
+      
+      if (externalUrls.length > 0) {
+        return externalUrls[0];
+      }
+    }
+
+    return null;
   }
 
   /**
