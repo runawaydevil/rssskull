@@ -1,9 +1,11 @@
 import type { FeedFilter as PrismaFeedFilter } from '@prisma/client';
 import Parser from 'rss-parser';
-import { getRecommendedHeaders } from '../config/feed.config.js';
+
 import { filterService } from '../utils/filters/filter.service.js';
 import { logger } from '../utils/logger/logger.service.js';
 import { rateLimiterService } from '../utils/rate-limiter.service.js';
+import { userAgentService } from '../utils/user-agent.service.js';
+import { cacheService } from '../utils/cache.service.js';
 
 export interface RSSItem {
   id: string;
@@ -39,9 +41,19 @@ export class RSSService {
   }
 
   /**
-   * Fetch and parse an RSS feed with retry logic and rate limiting
+   * Fetch and parse an RSS feed with retry logic, rate limiting, and caching
    */
   async fetchFeed(url: string): Promise<ParseResult> {
+    // Check cache first
+    const cachedFeed = cacheService.get(url);
+    if (cachedFeed) {
+      logger.debug(`Using cached RSS feed: ${url} (${cachedFeed.items.length} items)`);
+      return {
+        success: true,
+        feed: cachedFeed,
+      };
+    }
+
     // Check if URL is known to be problematic
     if (this.isProblematicUrl(url)) {
       logger.warn(`Skipping problematic URL: ${url}`);
@@ -60,17 +72,20 @@ export class RSSService {
         // Apply rate limiting before making the request
         await rateLimiterService.waitIfNeeded(url);
 
-        // Get domain-specific headers
-        const recommendedHeaders = getRecommendedHeaders(url);
+        // Get realistic browser headers with User-Agent rotation
+        const browserHeaders = userAgentService.getHeaders(url);
         
-        // Create a parser instance with domain-specific headers for this request
+        // Create a parser instance with realistic browser headers
         const domainParser = new Parser({
           timeout: 10000,
-          headers: recommendedHeaders,
+          headers: browserHeaders,
         });
 
         const feed = await domainParser.parseURL(url);
         const processedFeed = this.processFeed(feed);
+
+        // Cache the successful result
+        cacheService.set(url, processedFeed);
 
         logger.debug(`Successfully parsed RSS feed: ${url} (${processedFeed.items.length} items)`);
 

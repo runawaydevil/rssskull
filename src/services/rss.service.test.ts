@@ -21,14 +21,24 @@ vi.mock('../utils/rate-limiter.service.js', () => ({
   },
 }));
 
-// Mock feed config
-vi.mock('../config/feed.config.js', () => ({
-  getRecommendedHeaders: vi.fn().mockReturnValue({
-    'User-Agent': 'RSS-Skull-Bot/0.01 (+https://github.com/runawaydevil/rssskull)',
-    'Accept': 'application/rss+xml, application/xml, text/xml, application/atom+xml',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Cache-Control': 'no-cache',
-  }),
+// Mock user agent service
+vi.mock('../utils/user-agent.service.js', () => ({
+  userAgentService: {
+    getHeaders: vi.fn().mockReturnValue({
+      'User-Agent': 'RSS-Skull-Bot/0.01 (+https://github.com/runawaydevil/rssskull)',
+      'Accept': 'application/rss+xml, application/xml, text/xml, application/atom+xml',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Cache-Control': 'no-cache',
+    }),
+  },
+}));
+
+// Mock cache service
+vi.mock('../utils/cache.service.js', () => ({
+  cacheService: {
+    get: vi.fn().mockReturnValue(null), // Always return cache miss for tests
+    set: vi.fn(),
+  },
 }));
 
 // Mock logger service

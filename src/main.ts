@@ -37,6 +37,36 @@ async function bootstrap() {
       };
     });
 
+    // User-Agent monitoring endpoint
+    fastify.get('/user-agent-stats', async () => {
+      const { userAgentService } = await import('./utils/user-agent.service.js');
+      return {
+        status: 'ok',
+        userAgentStats: userAgentService.getStats(),
+        timestamp: new Date().toISOString(),
+      };
+    });
+
+    // Cache monitoring endpoint
+    fastify.get('/cache-stats', async () => {
+      const { cacheService } = await import('./utils/cache.service.js');
+      return {
+        status: 'ok',
+        cacheStats: cacheService.getStats(),
+        timestamp: new Date().toISOString(),
+      };
+    });
+
+    // Detailed cache info endpoint
+    fastify.get('/cache-info', async () => {
+      const { cacheService } = await import('./utils/cache.service.js');
+      return {
+        status: 'ok',
+        cacheInfo: cacheService.getDetailedInfo(),
+        timestamp: new Date().toISOString(),
+      };
+    });
+
     // Start server
     const port = config.server.port;
     const host = config.server.host;
