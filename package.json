@@ -45,7 +45,7 @@
     "@paralleldrive/cuid2": "^2.2.2",
     "@prisma/client": "^5.20.0",
     "bullmq": "^5.13.2",
-    "fastify": "^4.28.1",
+    "fastify": "^5.6.1",
     "grammy": "^1.29.0",
     "ioredis": "^5.4.1",
     "rss-parser": "^3.13.0",
