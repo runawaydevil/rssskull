@@ -293,18 +293,24 @@ export class SimpleBotService {
       logger.info('✅ Telegram API connectivity confirmed');
       console.log('✅ Telegram API connectivity confirmed');
       
-      // Now start polling with timeout
-      logger.info('🔄 Starting bot polling...');
-      console.log('🔄 Starting bot polling...');
+      // Start polling in background (non-blocking)
+      logger.info('🔄 Starting bot polling in background...');
+      console.log('🔄 Starting bot polling in background...');
       
-      const pollingPromise = this.bot.start();
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Bot polling timeout after 30 seconds')), 30000)
-      );
+      // Start polling without waiting for it to complete
+      this.bot.start().then(() => {
+        logger.info('✅ Bot polling started successfully');
+        console.log('✅ Bot polling started successfully');
+      }).catch((error) => {
+        logger.error('❌ Bot polling failed:', error);
+        console.error('❌ Bot polling failed:', error);
+      });
       
-      await Promise.race([pollingPromise, timeoutPromise]);
-      logger.info('✅ Bot polling started successfully');
-      console.log('✅ Bot polling started successfully');
+      // Give it a moment to initialize
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      logger.info('✅ Bot polling initialization completed');
+      console.log('✅ Bot polling initialization completed');
     } catch (error) {
       logger.error('❌ Failed to start polling:', error);
       console.error('❌ Failed to start polling:', error);
