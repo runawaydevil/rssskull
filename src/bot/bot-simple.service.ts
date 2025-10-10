@@ -48,25 +48,46 @@ export class SimpleBotService {
       await ctx.reply('🏓 Pong! Bot is working.');
     });
 
-    // Feed commands - simplified
+    // Feed commands - functional
     this.bot.command('add', async (ctx) => {
       logger.info(`/add command from ${ctx.from?.first_name}`);
-      await ctx.reply('⚠️ Feed management is being implemented. Please wait for updates.');
+      await this.handleAddFeed(ctx);
     });
 
     this.bot.command('list', async (ctx) => {
       logger.info(`/list command from ${ctx.from?.first_name}`);
-      await ctx.reply('📋 Feed list functionality is being implemented.');
+      await this.handleListFeeds(ctx);
     });
 
     this.bot.command('remove', async (ctx) => {
       logger.info(`/remove command from ${ctx.from?.first_name}`);
-      await ctx.reply('🗑️ Feed removal functionality is being implemented.');
+      await this.handleRemoveFeed(ctx);
     });
 
     this.bot.command('settings', async (ctx) => {
       logger.info(`/settings command from ${ctx.from?.first_name}`);
-      await ctx.reply('⚙️ Settings functionality is being implemented.');
+      await this.handleSettings(ctx);
+    });
+
+    // Portuguese feed commands
+    this.bot.command('adicionar', async (ctx) => {
+      logger.info(`/adicionar command from ${ctx.from?.first_name}`);
+      await this.handleAddFeed(ctx);
+    });
+
+    this.bot.command('listar', async (ctx) => {
+      logger.info(`/listar command from ${ctx.from?.first_name}`);
+      await this.handleListFeeds(ctx);
+    });
+
+    this.bot.command('remover', async (ctx) => {
+      logger.info(`/remover command from ${ctx.from?.first_name}`);
+      await this.handleRemoveFeed(ctx);
+    });
+
+    this.bot.command('configuracoes', async (ctx) => {
+      logger.info(`/configuracoes command from ${ctx.from?.first_name}`);
+      await this.handleSettings(ctx);
     });
 
     // Portuguese commands
@@ -184,6 +205,165 @@ export class SimpleBotService {
       username: this.botUsername,
       id: this.botId,
     };
+  }
+
+  // Feed management methods
+  private async handleAddFeed(ctx: any): Promise<void> {
+    try {
+      const text = ctx.message.text;
+      const args = text.split(' ').slice(1); // Remove command
+      
+      if (args.length < 2) {
+        await ctx.reply('❌ Usage: /add <name> <url>\nExample: /add tech https://feeds.feedburner.com/TechCrunch');
+        return;
+      }
+
+      const [name, url] = args;
+      const chatId = ctx.chat.id.toString();
+
+      // Import feed service
+      const { database } = await import('../database/database.service.js');
+      const { FeedService } = await import('../services/feed.service.js');
+      
+      const feedService = new FeedService(database.client);
+      
+      await ctx.reply('⏳ Adding feed...');
+      
+      const result = await feedService.addFeed({
+        chatId,
+        name,
+        url,
+      });
+
+      if (result.success) {
+        let message = `✅ Feed "${name}" added successfully!`;
+        
+        if (result.conversionInfo) {
+          message += `\n\n🔄 URL converted:\n${result.conversionInfo.platform}: ${result.conversionInfo.originalUrl}\n→ RSS: ${result.conversionInfo.rssUrl}`;
+        }
+        
+        await ctx.reply(message);
+      } else {
+        const errors = result.errors?.map(e => `• ${e.message}`).join('\n') || 'Unknown error';
+        await ctx.reply(`❌ Failed to add feed:\n${errors}`);
+      }
+    } catch (error) {
+      logger.error('Error in handleAddFeed:', error);
+      await ctx.reply('❌ An error occurred while adding the feed. Please try again.');
+    }
+  }
+
+  private async handleListFeeds(ctx: any): Promise<void> {
+    try {
+      const chatId = ctx.chat.id.toString();
+
+      // Import feed service
+      const { database } = await import('../database/database.service.js');
+      const { FeedService } = await import('../services/feed.service.js');
+      
+      const feedService = new FeedService(database.client);
+      const feeds = await feedService.listFeeds(chatId);
+
+      if (feeds.length === 0) {
+        await ctx.reply('📋 No feeds configured for this chat.\n\nUse /add <name> <url> to add your first feed!');
+        return;
+      }
+
+      let message = `📋 *Configured Feeds (${feeds.length}):*\n\n`;
+      
+      feeds.forEach((feed, index) => {
+        const status = feed.enabled ? '✅' : '❌';
+        const failureInfo = feed.failures > 0 ? ` (${feed.failures} failures)` : '';
+        message += `${index + 1}. ${status} *${feed.name}*${failureInfo}\n   ${feed.url}\n\n`;
+      });
+
+      message += `Use /remove <name> to remove a feed\nUse /settings to configure options`;
+
+      await ctx.reply(message, { parse_mode: 'Markdown' });
+    } catch (error) {
+      logger.error('Error in handleListFeeds:', error);
+      await ctx.reply('❌ An error occurred while listing feeds. Please try again.');
+    }
+  }
+
+  private async handleRemoveFeed(ctx: any): Promise<void> {
+    try {
+      const text = ctx.message.text;
+      const args = text.split(' ').slice(1); // Remove command
+      
+      if (args.length < 1) {
+        await ctx.reply('❌ Usage: /remove <name>\nExample: /remove tech');
+        return;
+      }
+
+      const name = args[0];
+      const chatId = ctx.chat.id.toString();
+
+      // Import feed service
+      const { database } = await import('../database/database.service.js');
+      const { FeedService } = await import('../services/feed.service.js');
+      
+      const feedService = new FeedService(database.client);
+      
+      const result = await feedService.removeFeed(chatId, name);
+
+      if (result.success) {
+        await ctx.reply(`✅ Feed "${name}" removed successfully!`);
+      } else {
+        await ctx.reply(`❌ ${result.message}`);
+      }
+    } catch (error) {
+      logger.error('Error in handleRemoveFeed:', error);
+      await ctx.reply('❌ An error occurred while removing the feed. Please try again.');
+    }
+  }
+
+  private async handleSettings(ctx: any): Promise<void> {
+    try {
+      const chatId = ctx.chat.id.toString();
+
+      // Import database service
+      const { database } = await import('../database/database.service.js');
+      
+      // Get chat settings
+      const chat = await database.client.chat.findUnique({
+        where: { id: chatId },
+        include: { feeds: true }
+      });
+
+      if (!chat) {
+        await ctx.reply('⚙️ No settings found. Add a feed first with /add <name> <url>');
+        return;
+      }
+
+      const feedCount = chat.feeds.length;
+      const enabledFeeds = chat.feeds.filter(f => f.enabled).length;
+      
+      const message = `⚙️ *Chat Settings*
+
+📊 *Feed Statistics:*
+• Total feeds: ${feedCount}
+• Enabled feeds: ${enabledFeeds}
+• Disabled feeds: ${feedCount - enabledFeeds}
+
+🔧 *Configuration:*
+• Chat ID: ${chatId}
+• Chat Type: ${ctx.chat.type}
+• Rate limiting: Active (Reddit 15min, YouTube 10min)
+
+📋 *Available Commands:*
+• /add <name> <url> - Add new feed
+• /list - Show all feeds
+• /remove <name> - Remove feed
+• /help - Show help
+
+👨‍💻 *Developer:* Pablo Murad - https://github.com/runawaydevil`;
+
+      await ctx.reply(message, { parse_mode: 'Markdown' });
+    } catch (error) {
+      logger.error('Error in handleSettings:', error);
+      await ctx.reply('❌ An error occurred while loading settings. Please try again.');
+    }
   }
 }
 
