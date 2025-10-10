@@ -124,9 +124,9 @@ export class SimpleBotService {
       const text = ctx.message.text || '[non-text message]';
       const user = ctx.from?.first_name || 'Unknown';
       const chatType = ctx.chat?.type || 'unknown';
-      
+
       logger.info(`Message received: "${text}" from ${user} in ${chatType} chat`);
-      
+
       // Handle unknown commands
       if (text.startsWith('/') && !text.match(/^\/(start|help|ping|add|list|remove|settings|iniciar|ajuda|adicionar|listar|remover|configuracoes|habilitar|desabilitar)(\s|$)/)) {
         ctx.reply('❌ Unknown command. Use /help or /ajuda to see available commands.');
@@ -178,8 +178,29 @@ export class SimpleBotService {
       logger.info('✅ Bot commands registered');
       console.log('✅ Bot commands registered');
 
-      // Start bot
-      await this.bot.start();
+      // Clear webhook to ensure polling works
+      logger.info('🔧 Clearing webhook to enable polling...');
+      console.log('🔧 Clearing webhook to enable polling...');
+
+      try {
+        await this.bot.api.deleteWebhook({ drop_pending_updates: true });
+        logger.info('✅ Webhook cleared');
+        console.log('✅ Webhook cleared');
+      } catch (error) {
+        logger.warn('Webhook clear failed (may not exist):', error);
+        console.log('⚠️ Webhook clear failed (may not exist)');
+      }
+
+      // Start bot with timeout
+      logger.info('🔄 Starting bot polling...');
+      console.log('🔄 Starting bot polling...');
+
+      const startPromise = this.bot.start();
+      const startTimeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Bot start timeout after 30 seconds')), 30000)
+      );
+
+      await Promise.race([startPromise, startTimeout]);
       logger.info('✅ Bot started and listening for updates');
       console.log('✅ Bot started and listening for updates');
 
@@ -212,7 +233,7 @@ export class SimpleBotService {
     try {
       const text = ctx.message.text;
       const args = text.split(' ').slice(1); // Remove command
-      
+
       if (args.length < 2) {
         await ctx.reply('❌ Usage: /add <name> <url>\nExample: /add tech https://feeds.feedburner.com/TechCrunch');
         return;
@@ -224,11 +245,11 @@ export class SimpleBotService {
       // Import feed service
       const { database } = await import('../database/database.service.js');
       const { FeedService } = await import('../services/feed.service.js');
-      
+
       const feedService = new FeedService(database.client);
-      
+
       await ctx.reply('⏳ Adding feed...');
-      
+
       const result = await feedService.addFeed({
         chatId,
         name,
@@ -237,11 +258,11 @@ export class SimpleBotService {
 
       if (result.success) {
         let message = `✅ Feed "${name}" added successfully!`;
-        
+
         if (result.conversionInfo) {
           message += `\n\n🔄 URL converted:\n${result.conversionInfo.platform}: ${result.conversionInfo.originalUrl}\n→ RSS: ${result.conversionInfo.rssUrl}`;
         }
-        
+
         await ctx.reply(message);
       } else {
         const errors = result.errors?.map(e => `• ${e.message}`).join('\n') || 'Unknown error';
@@ -260,7 +281,7 @@ export class SimpleBotService {
       // Import feed service
       const { database } = await import('../database/database.service.js');
       const { FeedService } = await import('../services/feed.service.js');
-      
+
       const feedService = new FeedService(database.client);
       const feeds = await feedService.listFeeds(chatId);
 
@@ -270,7 +291,7 @@ export class SimpleBotService {
       }
 
       let message = `📋 *Configured Feeds (${feeds.length}):*\n\n`;
-      
+
       feeds.forEach((feed, index) => {
         const status = feed.enabled ? '✅' : '❌';
         const failureInfo = feed.failures > 0 ? ` (${feed.failures} failures)` : '';
@@ -290,7 +311,7 @@ export class SimpleBotService {
     try {
       const text = ctx.message.text;
       const args = text.split(' ').slice(1); // Remove command
-      
+
       if (args.length < 1) {
         await ctx.reply('❌ Usage: /remove <name>\nExample: /remove tech');
         return;
@@ -302,9 +323,9 @@ export class SimpleBotService {
       // Import feed service
       const { database } = await import('../database/database.service.js');
       const { FeedService } = await import('../services/feed.service.js');
-      
+
       const feedService = new FeedService(database.client);
-      
+
       const result = await feedService.removeFeed(chatId, name);
 
       if (result.success) {
@@ -324,7 +345,7 @@ export class SimpleBotService {
 
       // Import database service
       const { database } = await import('../database/database.service.js');
-      
+
       // Get chat settings
       const chat = await database.client.chat.findUnique({
         where: { id: chatId },
@@ -338,7 +359,7 @@ export class SimpleBotService {
 
       const feedCount = chat.feeds.length;
       const enabledFeeds = chat.feeds.filter(f => f.enabled).length;
-      
+
       const message = `⚙️ *Chat Settings*
 
 📊 *Feed Statistics:*
