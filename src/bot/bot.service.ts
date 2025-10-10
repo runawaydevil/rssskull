@@ -96,6 +96,13 @@ export class BotService {
       console.log(`📨 Message received: "${text}" from ${user} in ${chatType} chat`);
     });
 
+    // Simple test command to verify bot is working
+    this.bot.command('test', async (ctx) => {
+      logger.info('Test command received');
+      console.log('Test command received');
+      await ctx.reply('✅ Bot is working! Test command received.');
+    });
+
     // Note: Mention middleware will be added after bot initialization when we have bot info
   }
 
@@ -711,6 +718,19 @@ export class BotService {
       logger.info('🔧 Step 4: Starting bot polling (this might take a moment)...');
       console.log('🔧 Step 4: Starting bot polling (this might take a moment)...');
       
+      // Clear any existing webhook first
+      logger.info('🔧 Clearing webhook to enable polling...');
+      console.log('🔧 Clearing webhook to enable polling...');
+      
+      try {
+        await this.bot.api.deleteWebhook({ drop_pending_updates: true });
+        logger.info('✅ Webhook cleared');
+        console.log('✅ Webhook cleared');
+      } catch (error) {
+        logger.warn('Webhook clear failed (may not exist):', error);
+        console.log('⚠️ Webhook clear failed (may not exist)');
+      }
+
       // Use grammY Runner for better reliability and concurrency
       logger.info('🔧 Starting bot with grammY Runner...');
       console.log('🔧 Starting bot with grammY Runner...');
@@ -719,7 +739,7 @@ export class BotService {
         // Start bot with runner for concurrent processing
         this.runner = run(this.bot, {
           runner: {
-            concurrency: 5, // Process up to 5 updates concurrently
+            concurrency: 3, // Reduced concurrency for stability
             allowed_updates: ['message', 'callback_query'],
           },
         });
@@ -734,13 +754,29 @@ export class BotService {
         logger.info('🔄 Falling back to regular polling...');
         console.log('🔄 Falling back to regular polling...');
         
-        this.bot.start().then(() => {
-          logger.info('✅ Bot polling started in background');
-          console.log('✅ Bot polling started in background');
-        }).catch((bgError) => {
-          logger.error('❌ Background polling also failed:', bgError);
-          console.error('❌ Background polling also failed:', bgError);
-        });
+        // Try regular polling with timeout
+        const pollingPromise = this.bot.start();
+        const pollingTimeout = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Polling timeout')), 15000)
+        );
+        
+        try {
+          await Promise.race([pollingPromise, pollingTimeout]);
+          logger.info('✅ Bot polling started successfully');
+          console.log('✅ Bot polling started successfully');
+        } catch (pollingError) {
+          logger.error('❌ Regular polling also failed:', pollingError);
+          console.error('❌ Regular polling also failed:', pollingError);
+          
+          // Last resort: start polling in background without waiting
+          this.bot.start().then(() => {
+            logger.info('✅ Bot polling started in background (last resort)');
+            console.log('✅ Bot polling started in background (last resort)');
+          }).catch((bgError) => {
+            logger.error('❌ All polling methods failed:', bgError);
+            console.error('❌ All polling methods failed:', bgError);
+          });
+        }
       }
       
       logger.info('✅ Bot polling initialization completed');
