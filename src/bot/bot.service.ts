@@ -737,11 +737,7 @@ export class BotService {
       
       try {
         // Start bot with runner for concurrent processing
-        this.runner = run(this.bot, {
-          runner: {
-            allowed_updates: ['message', 'callback_query'],
-          },
-        });
+        this.runner = run(this.bot);
         
         logger.info('✅ Bot started with grammY Runner');
         console.log('✅ Bot started with grammY Runner');
