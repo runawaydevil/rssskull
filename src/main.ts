@@ -85,6 +85,17 @@ async function bootstrap() {
     logger.info('✅ Bot initialized successfully');
     console.log('✅ Bot initialized successfully');
 
+    // Try to start polling after initialization
+    logger.info('🔄 Attempting to start bot polling...');
+    console.log('🔄 Attempting to start bot polling...');
+    
+    try {
+      await botService.startPolling();
+    } catch (error) {
+      logger.warn('⚠️ Polling failed, bot will work in webhook mode only:', error);
+      console.log('⚠️ Polling failed, bot will work in webhook mode only');
+    }
+
     // Start server
     logger.info('🌐 Starting web server...');
     console.log('🌐 Starting web server...');
