@@ -84,6 +84,16 @@ export class BotService {
       await next();
     });
 
+    // Simple message handler for debugging
+    this.bot.on('message', (ctx) => {
+      const text = ctx.message.text || '[non-text message]';
+      const user = ctx.from?.first_name || 'Unknown';
+      const chatType = ctx.chat?.type || 'unknown';
+      
+      logger.info(`📨 Message received: "${text}" from ${user} in ${chatType} chat`);
+      console.log(`📨 Message received: "${text}" from ${user} in ${chatType} chat`);
+    });
+
     // Note: Mention middleware will be added after bot initialization when we have bot info
   }
 
@@ -700,16 +710,30 @@ export class BotService {
       console.log('🔧 Step 4: Starting bot polling (this might take a moment)...');
       
       // Start polling in background (non-blocking) to avoid hanging
-      this.bot.start().then(() => {
+      const pollingPromise = this.bot.start();
+      
+      // Add timeout to detect if polling fails
+      const pollingTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Polling startup timeout')), 10000)
+      );
+      
+      try {
+        await Promise.race([pollingPromise, pollingTimeout]);
         logger.info('✅ Bot started and listening for updates');
         console.log('✅ Bot started and listening for updates');
-      }).catch((error) => {
+      } catch (error) {
         logger.error('❌ Bot polling failed:', error);
         console.error('❌ Bot polling failed:', error);
-      });
-      
-      // Give it a moment to initialize
-      await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Try to start polling without waiting
+        this.bot.start().then(() => {
+          logger.info('✅ Bot polling started in background');
+          console.log('✅ Bot polling started in background');
+        }).catch((bgError) => {
+          logger.error('❌ Background polling also failed:', bgError);
+          console.error('❌ Background polling also failed:', bgError);
+        });
+      }
       
       logger.info('✅ Bot polling initialization completed');
       console.log('✅ Bot polling initialization completed');
