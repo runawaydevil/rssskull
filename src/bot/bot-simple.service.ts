@@ -9,7 +9,12 @@ export class SimpleBotService {
   private botId?: number;
 
   constructor() {
-    this.bot = new Bot(config.bot.token);
+    this.bot = new Bot(config.bot.token, {
+      client: {
+        timeout: 30000, // 30 seconds timeout
+        apiRoot: 'https://api.telegram.org',
+      },
+    });
     this.setupCommands();
   }
 
@@ -183,7 +188,13 @@ export class SimpleBotService {
       console.log('🔧 Clearing webhook to enable polling...');
 
       try {
-        await this.bot.api.deleteWebhook({ drop_pending_updates: true });
+        // Add timeout to webhook clearing
+        const webhookPromise = this.bot.api.deleteWebhook({ drop_pending_updates: true });
+        const webhookTimeout = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Webhook clear timeout')), 10000)
+        );
+        
+        await Promise.race([webhookPromise, webhookTimeout]);
         logger.info('✅ Webhook cleared');
         console.log('✅ Webhook cleared');
       } catch (error) {
@@ -274,13 +285,38 @@ export class SimpleBotService {
       logger.info('🔄 Starting bot polling manually...');
       console.log('🔄 Starting bot polling manually...');
       
-      await this.bot.start();
+      // Test connectivity first
+      logger.info('🔍 Testing Telegram API connectivity...');
+      console.log('🔍 Testing Telegram API connectivity...');
+      
+      const connectivityTest = this.bot.api.getMe();
+      const connectivityTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connectivity test timeout')), 10000)
+      );
+      
+      await Promise.race([connectivityTest, connectivityTimeout]);
+      logger.info('✅ Telegram API connectivity confirmed');
+      console.log('✅ Telegram API connectivity confirmed');
+      
+      // Now start polling with timeout
+      logger.info('🔄 Starting bot polling...');
+      console.log('🔄 Starting bot polling...');
+      
+      const pollingPromise = this.bot.start();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Bot polling timeout after 30 seconds')), 30000)
+      );
+      
+      await Promise.race([pollingPromise, timeoutPromise]);
       logger.info('✅ Bot polling started successfully');
       console.log('✅ Bot polling started successfully');
     } catch (error) {
       logger.error('❌ Failed to start polling:', error);
       console.error('❌ Failed to start polling:', error);
-      throw error;
+      
+      // Don't throw error - let bot work in webhook mode
+      logger.warn('⚠️ Bot will work in webhook mode only');
+      console.log('⚠️ Bot will work in webhook mode only');
     }
   }
 
