@@ -152,3 +152,6 @@ nginx/ssl/*.pem
 nginx/ssl/*.key
 nginx/ssl/*.crt
 !nginx/ssl/.gitkeep
+
+# Kiro specs (development files)
+.kiro/specs/bot-diagnosis-and-fix/
