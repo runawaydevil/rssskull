@@ -739,7 +739,6 @@ export class BotService {
         // Start bot with runner for concurrent processing
         this.runner = run(this.bot, {
           runner: {
-            concurrency: 3, // Reduced concurrency for stability
             allowed_updates: ['message', 'callback_query'],
           },
         });
