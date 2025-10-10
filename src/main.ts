@@ -76,12 +76,8 @@ async function bootstrap() {
     logger.info('🔧 Initializing bot service...');
     console.log('🔧 Initializing bot service...');
     
-    const botInitPromise = botService.initialize();
-    const botTimeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Bot initialization timeout after 60 seconds')), 60000)
-    );
-
-    await Promise.race([botInitPromise, botTimeout]);
+    // Initialize bot service (no timeout needed since polling is non-blocking)
+    await botService.initialize();
     logger.info('✅ Bot initialized successfully');
     console.log('✅ Bot initialized successfully');
 

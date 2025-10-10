@@ -698,10 +698,21 @@ export class BotService {
 
       logger.info('🔧 Step 4: Starting bot polling (this might take a moment)...');
       console.log('🔧 Step 4: Starting bot polling (this might take a moment)...');
-      // Start polling FIRST to avoid hanging
-      await this.bot.start();
-      logger.info('✅ Bot started and listening for updates');
-      console.log('✅ Bot started and listening for updates');
+      
+      // Start polling in background (non-blocking) to avoid hanging
+      this.bot.start().then(() => {
+        logger.info('✅ Bot started and listening for updates');
+        console.log('✅ Bot started and listening for updates');
+      }).catch((error) => {
+        logger.error('❌ Bot polling failed:', error);
+        console.error('❌ Bot polling failed:', error);
+      });
+      
+      // Give it a moment to initialize
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      logger.info('✅ Bot polling initialization completed');
+      console.log('✅ Bot polling initialization completed');
 
       logger.info('🔧 Step 5: Scheduling background feed loading...');
       console.log('🔧 Step 5: Scheduling background feed loading...');
