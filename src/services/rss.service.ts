@@ -147,13 +147,22 @@ export class RSSService {
     const items = result.feed.items;
 
     // If no last item ID, return only items from bot startup time onwards
-    // Unless forceProcessAll is true, then return all items
+    // Unless forceProcessAll is true, then return items from today only
     if (!lastItemId) {
       logger.info(`No lastItemId for ${url}, forceProcessAll: ${forceProcessAll}, BOT_STARTUP_TIME: ${process.env.BOT_STARTUP_TIME}`);
       
       if (forceProcessAll) {
-        logger.info(`Force processing all items for ${url}, returning ${items.length} items`);
-        return items;
+        // Filter only items from today when force processing
+        const today = new Date();
+        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        
+        const todayItems = items.filter(item => {
+          if (!item.pubDate) return false;
+          return item.pubDate >= startOfDay;
+        });
+        
+        logger.info(`Force processing items from today for ${url}, returning ${todayItems.length} items out of ${items.length} total`);
+        return todayItems;
       }
       
       const botStartupTime = new Date(process.env.BOT_STARTUP_TIME || Date.now());
