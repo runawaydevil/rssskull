@@ -1,4 +1,5 @@
 import { Bot, type Context, session } from 'grammy';
+import { run } from '@grammyjs/runner';
 import { config } from '../config/config.service.js';
 import { feedQueueService } from '../jobs/index.js';
 import { notificationService } from '../services/notification.service.js';
@@ -45,6 +46,7 @@ export class BotService {
   private commandRouter: CommandRouter;
   private botUsername?: string;
   private botId?: number;
+  private runner?: any;
 
   constructor() {
     this.bot = new Bot<BotContext>(config.bot.token);
@@ -709,23 +711,29 @@ export class BotService {
       logger.info('🔧 Step 4: Starting bot polling (this might take a moment)...');
       console.log('🔧 Step 4: Starting bot polling (this might take a moment)...');
       
-      // Start polling in background (non-blocking) to avoid hanging
-      const pollingPromise = this.bot.start();
-      
-      // Add timeout to detect if polling fails
-      const pollingTimeout = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Polling startup timeout')), 10000)
-      );
+      // Use grammY Runner for better reliability and concurrency
+      logger.info('🔧 Starting bot with grammY Runner...');
+      console.log('🔧 Starting bot with grammY Runner...');
       
       try {
-        await Promise.race([pollingPromise, pollingTimeout]);
-        logger.info('✅ Bot started and listening for updates');
-        console.log('✅ Bot started and listening for updates');
-      } catch (error) {
-        logger.error('❌ Bot polling failed:', error);
-        console.error('❌ Bot polling failed:', error);
+        // Start bot with runner for concurrent processing
+        this.runner = run(this.bot, {
+          runner: {
+            concurrency: 5, // Process up to 5 updates concurrently
+            allowed_updates: ['message', 'callback_query'],
+          },
+        });
         
-        // Try to start polling without waiting
+        logger.info('✅ Bot started with grammY Runner');
+        console.log('✅ Bot started with grammY Runner');
+      } catch (error) {
+        logger.error('❌ Failed to start bot with runner:', error);
+        console.error('❌ Failed to start bot with runner:', error);
+        
+        // Fallback to regular polling
+        logger.info('🔄 Falling back to regular polling...');
+        console.log('🔄 Falling back to regular polling...');
+        
         this.bot.start().then(() => {
           logger.info('✅ Bot polling started in background');
           console.log('✅ Bot polling started in background');
@@ -841,8 +849,15 @@ export class BotService {
 
   async stop(): Promise<void> {
     try {
-      await this.bot.stop();
-      logger.info('Bot stopped');
+      if (this.runner) {
+        // Stop runner if it was used
+        await this.runner.stop();
+        logger.info('Bot runner stopped');
+      } else {
+        // Stop regular polling
+        await this.bot.stop();
+        logger.info('Bot polling stopped');
+      }
     } catch (error) {
       logger.error('Error stopping bot:', error);
       throw error;

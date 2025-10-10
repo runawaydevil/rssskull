@@ -43,6 +43,7 @@
     "setup": "npm install && npm run db:generate && npm run docker:dev"
   },
   "dependencies": {
+    "@grammyjs/runner": "^2.0.3",
     "@paralleldrive/cuid2": "^2.2.2",
     "@prisma/client": "^6.17.0",
     "bullmq": "^5.13.2",

@@ -103,16 +103,33 @@ async function bootstrap() {
     // Graceful shutdown
     const shutdown = async () => {
       logger.info('Shutting down gracefully...');
-      await botService.stop();
-      await feedQueueService.close();
-      await jobService.close();
-      await fastify.close();
-      await database.disconnect();
+      try {
+        await botService.stop();
+        await feedQueueService.close();
+        await jobService.close();
+        await fastify.close();
+        await database.disconnect();
+        logger.info('Shutdown completed successfully');
+      } catch (error) {
+        logger.error('Error during shutdown:', error);
+      }
       process.exit(0);
     };
 
-    process.on('SIGINT', shutdown);
-    process.on('SIGTERM', shutdown);
+    // Handle shutdown signals
+    process.once('SIGINT', shutdown);
+    process.once('SIGTERM', shutdown);
+    
+    // Handle uncaught exceptions
+    process.on('uncaughtException', (error) => {
+      logger.error('Uncaught Exception:', error);
+      shutdown();
+    });
+    
+    process.on('unhandledRejection', (reason, promise) => {
+      logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+      shutdown();
+    });
   } catch (error) {
     logger.error('❌ Failed to start application:', error);
     console.error('❌ Failed to start application:', error);
