@@ -37,6 +37,8 @@ export class FeedQueueService {
     );
 
     logger.info('Feed queue service initialized');
+    logger.info(`Created feed check worker for queue: ${FEED_QUEUE_NAMES.FEED_CHECK}`);
+    logger.info(`Created message send worker for queue: ${FEED_QUEUE_NAMES.MESSAGE_SEND}`);
   }
 
   /**

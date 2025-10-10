@@ -53,12 +53,14 @@ export class ProcessFeedsCommand extends BaseCommandHandler {
           logger.info(`Processing feed immediately: ${feed.name} (${feed.id})`);
           
           // Schedule immediate feed check (no delay)
+          // For manual processing, if no lastItemId, process all available items
           await feedQueueService.scheduleFeedCheck({
             feedId: feed.id,
             chatId: feed.chatId,
             feedUrl: feed.rssUrl,
             lastItemId: feed.lastItemId ?? undefined,
             failureCount: 0,
+            forceProcessAll: !feed.lastItemId, // Force process all items if no lastItemId
           }, 0); // 0 delay = immediate processing
 
           processedCount++;
@@ -78,7 +80,7 @@ export class ProcessFeedsCommand extends BaseCommandHandler {
       if (processedCount > 0) {
         resultMessage += `🔄 Feeds are being checked now. New items will be sent shortly.`;
       } else {
-        resultMessage += `❌ No feeds could be processed.`;
+        resultMessage += `❌ No new items found in any feeds.`;
       }
 
       await ctx.reply(resultMessage, { parse_mode: 'Markdown' });
@@ -138,6 +140,7 @@ export class ProcessFeedCommand extends BaseCommandHandler {
         feedUrl: feed.rssUrl,
         lastItemId: feed.lastItemId ?? undefined,
         failureCount: 0,
+        forceProcessAll: !feed.lastItemId, // Force process all items if no lastItemId
       }, 0); // 0 delay = immediate processing
 
       await ctx.reply(

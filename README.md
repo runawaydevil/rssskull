@@ -18,7 +18,7 @@
 ## ✨ Features
 
 - 🚀 **High Performance**: Optimized architecture with efficient resource usage
-- 🌍 **Bilingual Support**: Portuguese and English commands with automatic detection
+- 🌍 **English Only**: All messages and commands in English for consistency
 - 📢 **Channel Support**: Full support for Telegram channels with mention-based commands
 - 🔗 **Smart URL Conversion**: Automatic Reddit and YouTube URL to RSS conversion
 - 🎯 **Advanced Filtering**: Include/exclude patterns with regex support
@@ -29,6 +29,8 @@
 - 📱 **Modern Architecture**: Clean code with repository pattern and dependency injection
 - 🤖 **Smart Mention Processing**: Intelligent bot mention detection and command extraction
 - 🔐 **Permission Management**: Automatic permission validation for channel operations
+- 🔒 **Security Settings**: User-configurable rate limiting, cache, retry, and timeout settings
+- 🚀 **Secret Commands**: Hidden commands for advanced users (`/processar`, `/reset`)
 
 ## 🛠️ Tech Stack
 
@@ -156,9 +158,10 @@ RSS Skull Bot v0.01 includes **full support for Telegram channels**!
 
 ## 🤖 Available Commands
 
-### English Commands
+### Basic Commands
 - `/start` - Initialize the bot and show welcome message
 - `/help` - Display all available commands and usage
+- `/ping` - Test bot response
 - `/add <name> <url>` - Add a new RSS feed to the chat
 - `/list` - List all active feeds in the chat
 - `/remove <name>` - Remove a feed from the chat
@@ -168,17 +171,11 @@ RSS Skull Bot v0.01 includes **full support for Telegram channels**!
 - `/filters <name>` - Manage include/exclude filters for a feed
 - `/stats` - View usage statistics for the last 30 days
 
-### Portuguese Commands
-- `/iniciar` - Inicializar o bot e mostrar mensagem de boas-vindas
-- `/ajuda` - Mostrar todos os comandos disponíveis
-- `/adicionar <nome> <url>` - Adicionar um novo feed RSS ao chat
-- `/listar` - Listar todos os feeds ativos no chat
-- `/remover <nome>` - Remover um feed do chat
-- `/habilitar <nome>` - Habilitar um feed desabilitado
-- `/desabilitar <nome>` - Desabilitar temporariamente um feed
-- `/configuracoes` - Ver e modificar configurações do chat
-- `/filtros <nome>` - Gerenciar filtros de inclusão/exclusão para um feed
-- `/estatisticas` - Ver estatísticas de uso dos últimos 30 dias
+### Secret Commands (Not listed in /help)
+- `/processar` - Process all feeds immediately (manual trigger)
+- `/processarfeed <name>` - Process specific feed immediately
+- `/reset` - Reset entire database (all chats, feeds, filters, settings)
+- `/fixfeeds` - Remove problematic feeds (Reddit .com.br domains)
 
 ## 🏗️ Architecture
 
@@ -214,9 +211,10 @@ src/
 ### URL Auto-Conversion
 The bot automatically converts various URL formats to their RSS equivalents:
 
-- **Reddit**: `reddit.com/r/programming` → `reddit.com/r/programming.rss`
+- **Reddit**: `reddit.com/r/programming` → `reddit.com/r/programming.rss` (automatic .rss append)
 - **YouTube Channels**: `youtube.com/channel/UCxxx` → `youtube.com/feeds/videos.xml?channel_id=UCxxx`
 - **YouTube Users**: `youtube.com/user/username` → RSS feed via API lookup
+- **Any RSS Site**: Works with any site that has RSS feeds
 
 ### Advanced Filtering
 Create powerful filters for your feeds:
@@ -270,9 +268,24 @@ The bot includes several configurable settings per chat:
 
 - **Check Interval**: 90s to 15min (default: 2min)
 - **Max Feeds**: Up to 50 feeds per chat
-- **Language**: English or Portuguese
+- **Language**: English only
 - **Filters**: Include/exclude patterns with regex
 - **Message Templates**: Custom notification formats
+
+### Security Settings (User Configurable)
+
+⚠️ **Warning**: Changing these settings may cause rate limiting or blocking by RSS providers.
+
+- **Rate Limiting**: Enable/disable with custom requests per minute and delay
+- **Cache**: Enable/disable with custom TTL (1-1440 minutes)
+- **Retry**: Enable/disable with custom max attempts (0-10)
+- **Timeout**: Request timeout (1-300 seconds)
+
+#### Security Commands:
+- `/settings ratelimit <enabled|disabled> [maxRequests] [minDelay]`
+- `/settings cache <enabled|disabled> [ttlMinutes]`
+- `/settings retry <enabled|disabled> [maxRetries]`
+- `/settings timeout <seconds>`
 
 ### Performance Tuning
 
@@ -405,13 +418,15 @@ For custom deployment scenarios:
 
 ## 📈 Performance Improvements
 
-RSS Skull Bot v2 delivers significant performance improvements over v1:
+RSS Skull Bot v0.01 delivers significant performance improvements:
 
-- **3x Faster Processing**: Optimized RSS parsing and message delivery
-- **50% Less Memory Usage**: Efficient data structures and garbage collection
-- **Background Processing**: Non-blocking job queue system
+- **Smart Rate Limiting**: Domain-specific rate limiting (Reddit: 15min, YouTube: 10min, Default: 5min)
+- **Intelligent Caching**: Domain-specific cache TTL (Reddit: 10min, GitHub: 60min, Default: 20min)
+- **Background Processing**: Non-blocking job queue system with Redis
 - **Connection Pooling**: Optimized database and Redis connections
-- **Smart Caching**: Intelligent feed caching and deduplication
+- **User-Agent Rotation**: Realistic browser headers to avoid blocking
+- **Exponential Backoff**: Smart retry logic with increasing delays
+- **Deduplication**: Prevents duplicate items using lastItemId tracking
 
 ## 🔧 Migration from v1
 
@@ -426,6 +441,36 @@ npm run migrate:v1 /path/to/old/database.db
 ```
 
 See [Migration Guide](scripts/MIGRATION.md) for detailed instructions.
+
+## 🔒 Security Features
+
+RSS Skull Bot includes comprehensive security measures:
+
+### Rate Limiting
+- **Domain-specific limits**: Reddit (5 req/min), YouTube (20 req/min), GitHub (40 req/min)
+- **Minimum delays**: Reddit (5s), GitHub (1s), Default (500ms)
+- **User-configurable**: Adjust limits per chat via `/settings ratelimit`
+
+### User-Agent & Headers
+- **Browser rotation**: Chrome, Firefox, Safari, Edge profiles
+- **Realistic headers**: Accept, Accept-Language, Sec-Ch-Ua, etc.
+- **Domain-specific**: Referer headers for Reddit, YouTube, GitHub
+
+### Caching & Performance
+- **Smart TTL**: Domain-specific cache times
+- **Automatic cleanup**: Expired entries removed
+- **Hit/miss tracking**: Performance monitoring
+
+### Retry & Error Handling
+- **Exponential backoff**: Increasing delays on failures
+- **Non-retryable errors**: 404, 401, 403, parse errors
+- **Rate limit detection**: Recognizes 429 responses
+
+### Input Validation
+- **URL validation**: Format and structure checks
+- **Regex validation**: Pattern testing before application
+- **Sanitization**: Control character removal
+- **Length limits**: Maximum patterns and field sizes
 
 ## 🐛 Troubleshooting
 
@@ -532,6 +577,17 @@ The bot tracks usage statistics:
 - Top performing feeds
 
 Access via: `@yourbotname /stats`
+
+### Feed Processing Intervals
+- **Reddit**: Every 15 minutes
+- **YouTube**: Every 10 minutes
+- **Twitter/X**: Every 5 minutes
+- **GitHub**: Every 30 minutes
+- **Medium**: Every 15 minutes
+- **Dev.to**: Every 10 minutes
+- **Hacker News**: Every 5 minutes
+- **TechCrunch**: Every 5 minutes
+- **Default sites**: Every 5 minutes
 
 ## 🔮 Future Plans
 

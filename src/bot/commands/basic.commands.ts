@@ -153,6 +153,7 @@ export class PingCommand extends BaseCommandHandler {
   }
 }
 
+
 /**
  * Secret reset command to clear all feeds and data
  */
@@ -170,62 +171,48 @@ export class ResetCommand extends BaseCommandHandler {
 
   protected async execute(ctx: CommandContext): Promise<void> {
     try {
-      await ctx.reply('🔄 Resetando todos os feeds e dados...');
+      await ctx.reply('⚠️ ATENÇÃO: Resetando TODOS os dados do banco de dados...\n\n🔄 Isso inclui:\n• Todos os feeds de todos os chats\n• Todos os filtros\n• Todas as configurações\n• Todas as estatísticas\n\n⏳ Processando...');
 
       // Import database service
       const { DatabaseService } = await import('../../database/database.service.js');
       const database = new DatabaseService();
       await database.connect();
-
-      // Get chat ID
-      const chatId = ctx.chatIdString;
       
-      logger.info('Reset command starting', {
-        chatId,
+      logger.info('FULL DATABASE RESET command starting', {
+        chatId: ctx.chatIdString,
         userId: ctx.userId,
         chatType: ctx.chat?.type,
       });
 
-      // First, check how many feeds exist for this chat
-      const existingFeeds = await database.client.feed.findMany({
-        where: { chatId },
-        select: { id: true, name: true }
-      });
+      // Get counts before deletion for logging
+      const totalFeeds = await database.client.feed.count();
+      const totalFilters = await database.client.feedFilter.count();
+      const totalSettings = await database.client.chatSettings.count();
+      const totalStats = await database.client.statistic.count();
       
-      logger.info('Feeds found before deletion', {
-        chatId,
-        feedCount: existingFeeds.length,
-        feeds: existingFeeds.map(f => ({ id: f.id, name: f.name }))
+      logger.info('Database contents before FULL reset', {
+        totalFeeds,
+        totalFilters,
+        totalSettings,
+        totalStats,
       });
 
-      // Delete all filters first (foreign key constraint)
-      const deletedFilters = await database.client.feedFilter.deleteMany({
-        where: {
-          feed: {
-            chatId,
-          },
-        },
-      });
+      // Delete ALL filters first (foreign key constraint)
+      const deletedFilters = await database.client.feedFilter.deleteMany({});
 
-      // Delete all feeds for this chat
-      const deletedFeeds = await database.client.feed.deleteMany({
-        where: { chatId },
-      });
+      // Delete ALL feeds
+      const deletedFeeds = await database.client.feed.deleteMany({});
 
-      // Delete chat settings
-      const deletedSettings = await database.client.chatSettings.deleteMany({
-        where: { chatId },
-      });
+      // Delete ALL chat settings
+      const deletedSettings = await database.client.chatSettings.deleteMany({});
 
-      // Delete statistics
-      const deletedStats = await database.client.statistic.deleteMany({
-        where: { chatId },
-      });
+      // Delete ALL statistics
+      const deletedStats = await database.client.statistic.deleteMany({});
 
       await database.disconnect();
 
-      logger.info('Reset command executed successfully', {
-        chatId,
+      logger.info('FULL DATABASE RESET executed successfully', {
+        chatId: ctx.chatIdString,
         userId: ctx.userId,
         chatType: ctx.chat?.type,
         deletedFeeds: deletedFeeds.count,
@@ -234,10 +221,10 @@ export class ResetCommand extends BaseCommandHandler {
         deletedStats: deletedStats.count,
       });
 
-      await ctx.reply(`✅ Reset concluído!\n\n📊 Dados removidos:\n• ${deletedFeeds.count} feeds\n• ${deletedFilters.count} filtros\n• ${deletedSettings.count} configurações\n• ${deletedStats.count} estatísticas`);
+      await ctx.reply(`✅ FULL RESET COMPLETED!\n\n📊 Data removed from ENTIRE database:\n• ${deletedFeeds.count} feeds\n• ${deletedFilters.count} filters\n• ${deletedSettings.count} settings\n• ${deletedStats.count} statistics\n\n🗑️ Database completely cleaned!`);
     } catch (error) {
-      logger.error('Error in reset command:', error);
-      await ctx.reply('❌ Erro interno ao executar comando.');
+      logger.error('Error in FULL DATABASE RESET command:', error);
+      await ctx.reply('❌ Internal error executing full reset.');
     }
   }
 }
@@ -259,7 +246,7 @@ export class FixFeedsCommand extends BaseCommandHandler {
 
   protected async execute(ctx: CommandContext): Promise<void> {
     try {
-      await ctx.reply('🔍 Verificando feeds problemáticos...');
+      await ctx.reply('🔍 Checking problematic feeds...');
 
       // Import database service
       const { DatabaseService } = await import('../../database/database.service.js');
@@ -281,7 +268,7 @@ export class FixFeedsCommand extends BaseCommandHandler {
       });
 
       if (problematicFeeds.length === 0) {
-        await ctx.reply('✅ Nenhum feed problemático encontrado!');
+        await ctx.reply('✅ No problematic feeds found!');
         await database.disconnect();
         return;
       }
@@ -320,10 +307,10 @@ export class FixFeedsCommand extends BaseCommandHandler {
         deletedFilters: deletedFilters.count,
       });
 
-      await ctx.reply(`✅ Feeds problemáticos removidos!\n\n📊 Dados removidos:\n• ${deletedFeeds.count} feeds\n• ${deletedFilters.count} filtros\n\n🔗 Feeds removidos:\n${problematicFeeds.map(f => `• ${f.name} (${f.rssUrl})`).join('\n')}`);
+      await ctx.reply(`✅ Problematic feeds removed!\n\n📊 Data removed:\n• ${deletedFeeds.count} feeds\n• ${deletedFilters.count} filters\n\n🔗 Removed feeds:\n${problematicFeeds.map(f => `• ${f.name} (${f.rssUrl})`).join('\n')}`);
     } catch (error) {
       logger.error('Error in fixfeeds command:', error);
-      await ctx.reply('❌ Erro interno ao executar comando.');
+      await ctx.reply('❌ Internal error executing command.');
     }
   }
 }

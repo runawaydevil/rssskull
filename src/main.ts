@@ -68,6 +68,10 @@ async function bootstrap() {
     logger.info('⚙️ Job service initialized successfully');
     console.log('⚙️ Job service initialized successfully');
 
+    // Initialize feed queue service (this creates workers)
+    logger.info('📋 Feed queue service initialized');
+    console.log('📋 Feed queue service initialized');
+
     // Initialize bot with timeout
     logger.info('🤖 Creating BotService instance...');
     console.log('🤖 Creating BotService instance...');

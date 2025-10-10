@@ -99,6 +99,22 @@ export class SettingsCommand extends BaseCommandHandler {
           await this.exportSettings(ctx, chatId);
           break;
 
+        case 'ratelimit':
+          await this.updateRateLimit(ctx, chatId, params);
+          break;
+
+        case 'cache':
+          await this.updateCache(ctx, chatId, params);
+          break;
+
+        case 'retry':
+          await this.updateRetry(ctx, chatId, params);
+          break;
+
+        case 'timeout':
+          await this.updateTimeout(ctx, chatId, params);
+          break;
+
         default:
           await this.showHelp(ctx);
           break;
@@ -129,9 +145,15 @@ export class SettingsCommand extends BaseCommandHandler {
       // Format template display
       const templateDisplay = settings.messageTemplate ?? ctx.t('settings.no_template');
 
+      // Format security settings
+      const rateLimitStatus = settings.rateLimitEnabled ? 'Enabled' : 'Disabled';
+      const cacheStatus = settings.cacheEnabled ? 'Enabled' : 'Disabled';
+      const retryStatus = settings.retryEnabled ? 'Enabled' : 'Disabled';
+
       const message = [
         ctx.t('settings.title'),
         '',
+        '📋 **Basic Settings:**',
         ctx.t('settings.language', { language: languageDisplay }),
         ctx.t('settings.check_interval', {
           interval: settings.checkInterval.toString(),
@@ -141,6 +163,18 @@ export class SettingsCommand extends BaseCommandHandler {
         ctx.t('settings.filters_enabled', { status: filtersStatus }),
         ctx.t('settings.message_template', { template: templateDisplay }),
         ctx.t('settings.timezone', { timezone: settings.timezone }),
+        '',
+        '🔒 **Security Settings:**',
+        `• Rate Limiting: ${rateLimitStatus}`,
+        `• Max Requests/Min: ${settings.maxRequestsPerMinute}`,
+        `• Min Delay: ${settings.minDelayMs}ms`,
+        `• Cache: ${cacheStatus}`,
+        `• Cache TTL: ${settings.cacheTTLMinutes}min`,
+        `• Retry: ${retryStatus}`,
+        `• Max Retries: ${settings.maxRetries}`,
+        `• Timeout: ${settings.timeoutSeconds}s`,
+        '',
+        '⚠️ **Warning:** Changing security settings may cause rate limiting or blocking by RSS providers. Use at your own risk.',
         '',
         ctx.t('settings.help'),
       ].join('\n');
@@ -388,13 +422,19 @@ export class SettingsCommand extends BaseCommandHandler {
       '📋 **View Settings:**',
       '• `/settings` - Show current settings',
       '',
-      '🔧 **Update Settings:**',
+      '🔧 **Basic Settings:**',
       '• `/settings language pt|en` - Change language',
       '• `/settings interval 2-60` - Check interval (minutes)',
       '• `/settings timezone UTC-3` - Set timezone',
       '• `/settings notifications on|off` - Enable/disable',
       '• `/settings maxfeeds 1-100` - Max feeds limit',
       '• `/settings template <text>` - Custom template',
+      '',
+      '🔒 **Security Settings:**',
+      '• `/settings ratelimit enabled|disabled [maxRequests] [minDelay]` - Rate limiting',
+      '• `/settings cache enabled|disabled [ttlMinutes]` - Cache settings',
+      '• `/settings retry enabled|disabled [maxRetries]` - Retry settings',
+      '• `/settings timeout <seconds>` - Request timeout',
       '',
       '🎨 **Template Variables:**',
       '• `{{title}}` - Article title',
@@ -583,6 +623,98 @@ export class SettingsCommand extends BaseCommandHandler {
     } catch (error) {
       logger.error('Failed to export settings', { error, chatId });
       await ctx.reply(ctx.t('error.internal'));
+    }
+  }
+
+  private async updateRateLimit(ctx: CommandContext, chatId: string, params: string[]): Promise<void> {
+    try {
+      if (params.length === 0) {
+        await ctx.reply('🔒 **Rate Limit Settings:**\n\nUsage: `/settings ratelimit <enabled|disabled> [maxRequests] [minDelay]`\n\nExample: `/settings ratelimit enabled 50 2000`');
+        return;
+      }
+
+      const enabled = params[0]?.toLowerCase() === 'enabled' || params[0]?.toLowerCase() === 'true';
+      const maxRequests = params[1] ? parseInt(params[1]) : undefined;
+      const minDelay = params[2] ? parseInt(params[2]) : undefined;
+
+      await this.settingsService.updateSettings(chatId, {
+        rateLimitEnabled: enabled,
+        maxRequestsPerMinute: maxRequests,
+        minDelayMs: minDelay,
+      });
+
+      await ctx.reply(`✅ Rate limiting ${enabled ? 'enabled' : 'disabled'}${maxRequests ? ` (${maxRequests} req/min)` : ''}${minDelay ? ` (${minDelay}ms delay)` : ''}`);
+    } catch (error) {
+      logger.error('Failed to update rate limit settings', { error, chatId });
+      await ctx.reply('❌ Failed to update rate limit settings. Check values.');
+    }
+  }
+
+  private async updateCache(ctx: CommandContext, chatId: string, params: string[]): Promise<void> {
+    try {
+      if (params.length === 0) {
+        await ctx.reply('💾 **Cache Settings:**\n\nUsage: `/settings cache <enabled|disabled> [ttlMinutes]`\n\nExample: `/settings cache enabled 30`');
+        return;
+      }
+
+      const enabled = params[0]?.toLowerCase() === 'enabled' || params[0]?.toLowerCase() === 'true';
+      const ttlMinutes = params[1] ? parseInt(params[1]) : undefined;
+
+      await this.settingsService.updateSettings(chatId, {
+        cacheEnabled: enabled,
+        cacheTTLMinutes: ttlMinutes,
+      });
+
+      await ctx.reply(`✅ Cache ${enabled ? 'enabled' : 'disabled'}${ttlMinutes ? ` (${ttlMinutes}min TTL)` : ''}`);
+    } catch (error) {
+      logger.error('Failed to update cache settings', { error, chatId });
+      await ctx.reply('❌ Failed to update cache settings. Check values.');
+    }
+  }
+
+  private async updateRetry(ctx: CommandContext, chatId: string, params: string[]): Promise<void> {
+    try {
+      if (params.length === 0) {
+        await ctx.reply('🔄 **Retry Settings:**\n\nUsage: `/settings retry <enabled|disabled> [maxRetries]`\n\nExample: `/settings retry enabled 5`');
+        return;
+      }
+
+      const enabled = params[0]?.toLowerCase() === 'enabled' || params[0]?.toLowerCase() === 'true';
+      const maxRetries = params[1] ? parseInt(params[1]) : undefined;
+
+      await this.settingsService.updateSettings(chatId, {
+        retryEnabled: enabled,
+        maxRetries: maxRetries,
+      });
+
+      await ctx.reply(`✅ Retry ${enabled ? 'enabled' : 'disabled'}${maxRetries ? ` (${maxRetries} attempts)` : ''}`);
+    } catch (error) {
+      logger.error('Failed to update retry settings', { error, chatId });
+      await ctx.reply('❌ Failed to update retry settings. Check values.');
+    }
+  }
+
+  private async updateTimeout(ctx: CommandContext, chatId: string, params: string[]): Promise<void> {
+    try {
+      if (params.length === 0) {
+        await ctx.reply('⏱️ **Timeout Settings:**\n\nUsage: `/settings timeout <seconds>`\n\nExample: `/settings timeout 15`');
+        return;
+      }
+
+      const timeoutSeconds = parseInt(params[0] || '0');
+      if (isNaN(timeoutSeconds)) {
+        await ctx.reply('❌ Invalid timeout value. Must be a number.');
+        return;
+      }
+
+      await this.settingsService.updateSettings(chatId, {
+        timeoutSeconds: timeoutSeconds,
+      });
+
+      await ctx.reply(`✅ Timeout set to ${timeoutSeconds} seconds`);
+    } catch (error) {
+      logger.error('Failed to update timeout settings', { error, chatId });
+      await ctx.reply('❌ Failed to update timeout settings. Check values.');
     }
   }
 }

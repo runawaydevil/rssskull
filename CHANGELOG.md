@@ -1,0 +1,157 @@
+# Changelog
+
+All notable changes to RSS Skull Bot will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.01.0] - 2025-01-10
+
+### Added
+- **Security Settings System**: User-configurable security parameters via `/settings` command
+  - Rate limiting controls (`/settings ratelimit`)
+  - Cache management (`/settings cache`) 
+  - Retry configuration (`/settings retry`)
+  - Timeout settings (`/settings timeout`)
+- **Secret Commands**: Hidden commands for advanced users
+  - `/processar` - Process all feeds immediately
+  - `/processarfeed <name>` - Process specific feed immediately
+  - `/reset` - Reset entire database (all chats, feeds, filters, settings)
+  - `/fixfeeds` - Remove problematic feeds (Reddit .com.br domains)
+- **Enhanced Feed Processing**: 
+  - `forceProcessAll` flag for manual feed processing
+  - Automatic `.rss` append for Reddit URLs
+  - Improved `lastItemId` persistence
+- **Database Schema Updates**:
+  - Added security settings fields to `ChatSettings` model
+  - `rateLimitEnabled`, `maxRequestsPerMinute`, `minDelayMs`
+  - `cacheEnabled`, `cacheTTLMinutes`
+  - `retryEnabled`, `maxRetries`, `timeoutSeconds`
+- **Security Features**:
+  - Domain-specific rate limiting (Reddit: 15min, YouTube: 10min, GitHub: 30min)
+  - User-Agent rotation with realistic browser headers
+  - Intelligent caching with domain-specific TTL
+  - Exponential backoff retry logic
+  - Input validation and sanitization
+
+### Changed
+- **Language Standardization**: All bot responses now in English only
+  - Removed Portuguese language support from i18n middleware
+  - Updated all command responses to English
+  - Standardized error messages in English
+- **Bot Service Architecture**:
+  - Switched from `SimpleBotService` to full `BotService`
+  - Implemented grammY Runner for improved polling reliability
+  - Enhanced command handler registration order
+  - Added direct command processing for non-mentioned commands
+- **Settings Command Enhancement**:
+  - Added security settings display section
+  - Updated help documentation with security commands
+  - Added validation for security parameters
+- **Feed Processing Logic**:
+  - Improved new item detection for feeds without `lastItemId`
+  - Enhanced deduplication using `BOT_STARTUP_TIME` filter
+  - Better error handling for problematic feeds
+- **Performance Improvements**:
+  - Optimized feed checking intervals per domain
+  - Enhanced caching strategy with domain-specific TTL
+  - Improved rate limiting with minimum delays
+  - Better memory management and garbage collection
+
+### Fixed
+- **Bot Responsiveness**: Fixed bot not responding to commands in channels/groups/private chats
+  - Corrected middleware registration order
+  - Fixed command context population
+  - Removed conflicting message handlers
+- **Feed Processing Issues**:
+  - Fixed `/processar` command not detecting new items for new feeds
+  - Corrected `lastItemId` not being saved after processing
+  - Fixed duplicate notifications for same items
+- **Build Errors**:
+  - Fixed TypeScript errors related to grammY Runner options
+  - Corrected `SettingsUpdateInput` interface
+  - Fixed undefined parameter handling in settings commands
+- **Docker Issues**:
+  - Resolved container build failures
+  - Fixed migration application in Docker environment
+  - Improved container startup reliability
+
+### Removed
+- **Portuguese Language Support**: Removed bilingual functionality
+- **Test Command**: Removed `/test` command as requested
+- **Legacy Bot Service**: Removed `SimpleBotService` usage
+
+### Security
+- **Rate Limiting**: Domain-specific limits to prevent blocking
+  - Reddit: 5 requests/minute, 5s minimum delay
+  - YouTube: 20 requests/minute, 2s minimum delay
+  - GitHub: 40 requests/minute, 1s minimum delay
+  - Default: 50 requests/minute, 500ms minimum delay
+- **User-Agent Rotation**: Realistic browser profiles to avoid detection
+  - Chrome, Firefox, Safari, Edge profiles
+  - Domain-specific headers (Referer, Accept-Language)
+  - Consistent session management
+- **Caching Strategy**: Intelligent cache management
+  - Domain-specific TTL (Reddit: 10min, GitHub: 60min, Default: 20min)
+  - Automatic cleanup of expired entries
+  - Hit/miss statistics tracking
+- **Input Validation**: Comprehensive input sanitization
+  - URL format validation
+  - Regex pattern testing
+  - Control character removal
+  - Field length limits
+
+### Technical Details
+- **Database Migration**: Added `20251010121712_add_security_settings` migration
+- **TypeScript Updates**: Enhanced type safety with new interfaces
+- **Error Handling**: Improved error messages and logging
+- **Performance Monitoring**: Added cache statistics and performance tracking
+- **Documentation**: Updated README.md with current features and security settings
+
+### Breaking Changes
+- **Language**: Bot now responds only in English (Portuguese support removed)
+- **Database Schema**: New security fields added to `ChatSettings` table
+- **Command Structure**: Some internal command handling changes
+
+### Migration Notes
+- Existing users will get default security settings automatically
+- Portuguese language settings will be reset to English
+- No data loss during migration
+- All existing feeds and filters preserved
+
+---
+
+## Previous Versions
+
+### [0.00.1] - Initial Release
+- Basic RSS feed monitoring
+- Telegram bot integration
+- Simple feed management commands
+- Basic filtering capabilities
+- Docker deployment support
+
+---
+
+## Development Notes
+
+### Testing
+- All changes tested in Docker environment
+- Verified bot responsiveness in channels, groups, and private chats
+- Tested security settings functionality
+- Confirmed feed processing improvements
+
+### Performance Impact
+- Improved feed processing speed with domain-specific intervals
+- Reduced memory usage with better caching
+- Enhanced reliability with grammY Runner
+- Better error recovery with exponential backoff
+
+### Security Considerations
+- User-configurable security settings come with warnings
+- Default settings are conservative to prevent blocking
+- Rate limiting prevents abuse and blocking
+- Input validation prevents injection attacks
+
+---
+
+**Full Changelog**: [View all changes](https://github.com/runawaydevil/rssskull/compare/v0.00.1...v0.01.0)

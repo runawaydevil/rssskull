@@ -303,24 +303,8 @@ const messages = {
 export function i18nMiddleware() {
   return async (ctx: Context, next: NextFunction) => {
     try {
-      // Detect language from user's language code or session
+      // Always use English - remove Portuguese support
       let language: 'en' | 'pt' = 'en';
-
-      // Check user's Telegram language
-      const userLanguage = ctx.from?.language_code;
-      if (userLanguage === 'pt' || userLanguage === 'pt-BR') {
-        language = 'pt';
-      }
-
-      // Check if session has language preference (from previous interactions)
-      if (
-        'session' in ctx &&
-        ctx.session &&
-        typeof ctx.session === 'object' &&
-        'language' in ctx.session
-      ) {
-        language = (ctx.session as any).language;
-      }
 
       // Create translation function
       const t = (key: string, params?: Record<string, string | number>): string => {
@@ -345,7 +329,7 @@ export function i18nMiddleware() {
         chatId: ctx.chat?.id,
         userId: ctx.from?.id,
         detectedLanguage: language,
-        userLanguageCode: userLanguage,
+        userLanguageCode: ctx.from?.language_code,
       });
 
       await next();

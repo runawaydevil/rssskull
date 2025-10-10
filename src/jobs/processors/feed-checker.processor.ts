@@ -1,4 +1,5 @@
 import type { Job } from 'bullmq';
+import { database } from '../../database/database.service.js';
 import { parserService } from '../../services/parser.service.js';
 import { logger } from '../../utils/logger/logger.service.js';
 import { jobService } from '../job.service.js';
@@ -10,6 +11,7 @@ export interface FeedCheckJobData extends JobData {
   feedUrl: string;
   lastItemId?: string;
   failureCount?: number;
+  forceProcessAll?: boolean;
 }
 
 export interface FeedCheckJobResult extends JobResult {
@@ -41,13 +43,13 @@ export interface MessageJobData extends JobData {
  * 3. Queuing notification jobs for new items
  */
 export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<FeedCheckJobResult> {
-  const { feedId, chatId, feedUrl, lastItemId, failureCount = 0 } = job.data;
+  const { feedId, chatId, feedUrl, lastItemId, failureCount = 0, forceProcessAll = false } = job.data;
 
   logger.info(`Processing feed check for feed ${feedId} in chat ${chatId}`);
 
   try {
     // Check the feed for new items
-    const checkResult = await parserService.checkFeed(feedUrl, lastItemId, failureCount);
+    const checkResult = await parserService.checkFeed(feedUrl, lastItemId, failureCount, forceProcessAll);
 
     if (!checkResult.success) {
       // Feed check failed, return failure result with exponential backoff
@@ -101,6 +103,15 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
       nextCheckAt,
       failureCount: 0, // Reset failure count on success
     };
+
+    // Update the feed's last check time and last item ID in the database
+    try {
+      await database.feeds.updateLastCheck(feedId, checkResult.lastItemId);
+      logger.debug(`Updated feed ${feedId} last check time and last item ID: ${checkResult.lastItemId}`);
+    } catch (error) {
+      logger.error(`Failed to update feed ${feedId} last check time:`, error);
+      // Don't fail the entire job if database update fails
+    }
 
     logger.info(`Feed check completed for feed ${feedId}: ${newItemsCount} new items`);
     return result;

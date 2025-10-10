@@ -86,24 +86,231 @@ export class BotService {
       await next();
     });
 
-    // Simple message handler for debugging
-    this.bot.on('message', (ctx) => {
-      const text = ctx.message.text || '[non-text message]';
-      const user = ctx.from?.first_name || 'Unknown';
-      const chatType = ctx.chat?.type || 'unknown';
-      
-      logger.info(`📨 Message received: "${text}" from ${user} in ${chatType} chat`);
-      console.log(`📨 Message received: "${text}" from ${user} in ${chatType} chat`);
-    });
+    // Message logging will be handled in setupCommandHandlers
 
-    // Simple test command to verify bot is working
-    this.bot.command('test', async (ctx) => {
-      logger.info('Test command received');
-      console.log('Test command received');
-      await ctx.reply('✅ Bot is working! Test command received.');
-    });
+    // Test command is now handled by CommandRouter
 
     // Note: Mention middleware will be added after bot initialization when we have bot info
+  }
+
+  private setupCommandHandlers(): void {
+    logger.info('🔧 Setting up command handlers...');
+    console.log('🔧 Setting up command handlers...');
+    
+    // Handle commands through the command router
+    this.bot.on('message:text', async (ctx, next) => {
+      const text = ctx.message.text;
+      const authCtx = ctx as CommandContext;
+      
+      // Debug logging for all text messages
+      const user = ctx.from?.first_name || 'Unknown';
+      const chatType = ctx.chat?.type || 'unknown';
+      logger.info(`📨 Text message received: "${text}" from ${user} in ${chatType} chat`);
+      console.log(`📨 Text message received: "${text}" from ${user} in ${chatType} chat`);
+
+      // Apply mention processing directly if bot info is available
+      if (this.botUsername && this.botId && ctx.message?.text && ctx.message?.entities) {
+        const mentionProcessor = MentionProcessor.create(this.botUsername, this.botId, false);
+        const mentionContext = mentionProcessor.extractMentionCommand(text, ctx.message.entities);
+        
+        // Add mention context to the context object
+        Object.assign(ctx, {
+          mentionContext,
+        });
+
+        if (mentionContext.isMentioned) {
+          logger.info('Bot mentioned in message (direct processing)', {
+            chatId: authCtx.chatIdString,
+            userId: authCtx.userId,
+            chatType: ctx.chat?.type,
+            mentionText: mentionContext.mentionText,
+            extractedCommand: mentionContext.commandFromMention,
+            argsCount: mentionContext.argsFromMention?.length || 0,
+          });
+        }
+      }
+
+      // Debug logging for text messages
+      logger.info('Text message received', {
+        chatId: authCtx.chatIdString,
+        chatType: ctx.chat?.type,
+        text: text?.substring(0, 100),
+        hasEntities: !!(ctx.message as any).entities?.length,
+        mentionContext: authCtx.mentionContext,
+        hasMentionContext: !!authCtx.mentionContext,
+        isMentioned: authCtx.mentionContext?.isMentioned,
+      });
+
+      // Auto-register chat when any message is received
+      await this.autoRegisterChat(ctx);
+
+      // Process direct commands (starting with /)
+      if (text.startsWith('/')) {
+        const { command, args } = parseCommand(text);
+
+        // Check if auth context is properly set up
+        if (!authCtx.chatIdString || !authCtx.userId) {
+          logger.warn('Auth context not properly set up for command processing', {
+            chatId: authCtx.chatIdString,
+            userId: authCtx.userId,
+            command,
+            chatType: ctx.chat?.type,
+          });
+          return;
+        }
+
+        logger.info('Processing direct command', {
+          chatId: authCtx.chatIdString,
+          chatType: ctx.chat?.type,
+          command,
+          argsCount: args.length,
+          isChannel: authCtx.isChannel,
+        });
+
+        try {
+          // Execute the command through the router
+          logger.info('Attempting to execute direct command', {
+            chatId: authCtx.chatIdString,
+            command,
+            args,
+            chatType: ctx.chat?.type,
+          });
+
+          const executed = await this.commandRouter.execute(authCtx, command, args);
+
+          logger.info('Direct command execution result', {
+            chatId: authCtx.chatIdString,
+            command,
+            executed,
+            chatType: ctx.chat?.type,
+          });
+
+          if (!executed) {
+            // Unknown command - provide helpful feedback
+            const helpText = authCtx.isChannel
+              ? `${ctx.t('error.unknown_command')}\n\n${ctx.t('help.mention_help')}`
+              : ctx.t('error.unknown_command');
+
+            await ctx.reply(helpText);
+
+            logger.warn('Unknown direct command', {
+              chatId: authCtx.chatIdString,
+              command,
+              chatType: ctx.chat?.type,
+            });
+          }
+        } catch (error) {
+          logger.error('Direct command execution error', {
+            chatId: authCtx.chatIdString,
+            command,
+            error: error instanceof Error ? error.message : String(error),
+          });
+
+          await ctx.reply(ctx.t('error.internal'));
+        }
+
+        return;
+      }
+
+      // Enhanced mention detection and processing for channels and groups
+      if (authCtx.mentionContext?.isMentioned) {
+        logger.info('Bot mentioned in message', {
+          chatId: authCtx.chatIdString,
+          chatType: ctx.chat?.type,
+          userId: authCtx.userId,
+          isAnonymousAdmin: authCtx.isAnonymousAdmin,
+          mentionText: authCtx.mentionContext.mentionText,
+          hasCommand: !!authCtx.mentionContext.commandFromMention,
+        });
+
+        // For channels, validate permissions before processing commands
+        if (authCtx.isChannel) {
+          const hasPermissions = await this.validateChannelPermissions(ctx);
+          if (!hasPermissions) {
+            logger.warn('Insufficient permissions for channel operation', {
+              chatId: authCtx.chatIdString,
+              command: authCtx.mentionContext.commandFromMention,
+            });
+
+            const i18nCtx = ctx as any;
+            const permissionMessage =
+              i18nCtx.t('error.channel_permissions') ||
+              'I need administrator permissions to work properly in this channel.';
+            await ctx.reply(permissionMessage).catch(() => { });
+            return;
+          }
+        }
+
+        // Bot was mentioned - process the command from mention
+        if (authCtx.mentionContext.commandFromMention) {
+          const command = authCtx.mentionContext.commandFromMention;
+          const args = authCtx.mentionContext.argsFromMention || [];
+
+          logger.info('Processing command from mention', {
+            chatId: authCtx.chatIdString,
+            chatType: ctx.chat?.type,
+            command,
+            argsCount: args.length,
+            isChannel: authCtx.isChannel,
+          });
+
+          try {
+            // Execute the command through the router
+            logger.info('Attempting to execute command from mention', {
+              chatId: authCtx.chatIdString,
+              command,
+              args,
+              chatType: ctx.chat?.type,
+            });
+
+            const executed = await this.commandRouter.execute(authCtx, command, args);
+
+            logger.info('Command execution result', {
+              chatId: authCtx.chatIdString,
+              command,
+              executed,
+              chatType: ctx.chat?.type,
+            });
+
+            if (!executed) {
+              // Unknown command from mention - provide helpful feedback
+              const helpText = authCtx.isChannel
+                ? `${ctx.t('error.unknown_command')}\n\n${ctx.t('help.mention_help')}`
+                : ctx.t('error.unknown_command');
+
+              await ctx.reply(helpText);
+
+              logger.warn('Unknown command from mention', {
+                chatId: authCtx.chatIdString,
+                command,
+                chatType: ctx.chat?.type,
+              });
+            }
+          } catch (error) {
+            logger.error('Error executing command from mention', {
+              chatId: authCtx.chatIdString,
+              command,
+              error: error instanceof Error ? error.message : String(error),
+            });
+
+            // Use channel-specific error handling
+            if (authCtx.isChannel) {
+              await this.handleChannelError(ctx, error, {
+                chatId: authCtx.chatIdString,
+                command,
+                userId: authCtx.userId,
+              });
+            } else {
+              await this.handleStandardError(ctx, error);
+            }
+          }
+
+          return;
+        }
+      }
+
+      await next();
+    });
   }
 
   private setupCommands(): void {
@@ -205,6 +412,17 @@ export class BotService {
       // Process direct commands (starting with /)
       if (text.startsWith('/')) {
         const { command, args } = parseCommand(text);
+
+        // Check if auth context is properly set up
+        if (!authCtx.chatIdString || !authCtx.userId) {
+          logger.warn('Auth context not properly set up for command processing', {
+            chatId: authCtx.chatIdString,
+            userId: authCtx.userId,
+            command,
+            chatType: ctx.chat?.type,
+          });
+          return;
+        }
 
         logger.info('Processing direct command', {
           chatId: authCtx.chatIdString,
@@ -771,6 +989,9 @@ export class BotService {
       await this.setBotCommands();
       logger.info('✅ Bot commands registered');
       console.log('✅ Bot commands registered');
+
+      // Add command processing handler after middleware setup
+      this.setupCommandHandlers();
 
       logger.info('🔧 Step 4: Starting bot polling (this might take a moment)...');
       console.log('🔧 Step 4: Starting bot polling (this might take a moment)...');

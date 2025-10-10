@@ -20,13 +20,14 @@ export class ParserService {
   async checkFeed(
     feedUrl: string,
     lastItemId?: string,
-    failureCount = 0
+    failureCount = 0,
+    forceProcessAll = false
   ): Promise<FeedCheckResult> {
     try {
       logger.debug(`Checking feed for new items: ${feedUrl}`);
 
       // Get new items from the RSS feed
-      const newItems = await rssService.getNewItems(feedUrl, lastItemId);
+      const newItems = await rssService.getNewItems(feedUrl, lastItemId, forceProcessAll);
 
       // Determine the new last item ID
       const newLastItemId = newItems.length > 0 ? newItems[0]?.id : lastItemId;

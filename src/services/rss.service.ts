@@ -137,7 +137,7 @@ export class RSSService {
   /**
    * Get new items from a feed based on the last known item ID
    */
-  async getNewItems(url: string, lastItemId?: string): Promise<RSSItem[]> {
+  async getNewItems(url: string, lastItemId?: string, forceProcessAll = false): Promise<RSSItem[]> {
     const result = await this.fetchFeed(url);
 
     if (!result.success || !result.feed) {
@@ -147,7 +147,13 @@ export class RSSService {
     const items = result.feed.items;
 
     // If no last item ID, return only items from bot startup time onwards
+    // Unless forceProcessAll is true, then return all items
     if (!lastItemId) {
+      if (forceProcessAll) {
+        logger.debug(`Force processing all items for ${url}, returning ${items.length} items`);
+        return items;
+      }
+      
       const botStartupTime = new Date(process.env.BOT_STARTUP_TIME || Date.now());
       const startupItems = items.filter(item => {
         if (!item.pubDate) return false;

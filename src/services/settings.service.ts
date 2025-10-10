@@ -10,6 +10,15 @@ export interface SettingsUpdateInput {
   enableFilters?: boolean;
   messageTemplate?: string | null;
   timezone?: string;
+  // Security settings
+  rateLimitEnabled?: boolean;
+  maxRequestsPerMinute?: number;
+  minDelayMs?: number;
+  cacheEnabled?: boolean;
+  cacheTTLMinutes?: number;
+  retryEnabled?: boolean;
+  maxRetries?: number;
+  timeoutSeconds?: number;
 }
 
 export interface SettingsValidationError {
@@ -40,6 +49,15 @@ export class SettingsService {
           maxFeeds: 50,
           enableFilters: true,
           timezone: 'UTC',
+          // Security defaults
+          rateLimitEnabled: true,
+          maxRequestsPerMinute: 30,
+          minDelayMs: 1000,
+          cacheEnabled: true,
+          cacheTTLMinutes: 20,
+          retryEnabled: true,
+          maxRetries: 3,
+          timeoutSeconds: 10,
         });
       }
 
@@ -51,6 +69,15 @@ export class SettingsService {
           maxFeeds: 50,
           enableFilters: true,
           timezone: 'UTC',
+          // Security defaults
+          rateLimitEnabled: true,
+          maxRequestsPerMinute: 30,
+          minDelayMs: 1000,
+          cacheEnabled: true,
+          cacheTTLMinutes: 20,
+          retryEnabled: true,
+          maxRetries: 3,
+          timeoutSeconds: 10,
         });
       }
 
@@ -118,8 +145,17 @@ export class SettingsService {
       checkInterval: 120, // 2 minutes max
       maxFeeds: 50,
       enableFilters: true,
-      messageTemplate: null,
       timezone: 'UTC',
+      // Security defaults
+      rateLimitEnabled: true,
+      maxRequestsPerMinute: 30,
+      minDelayMs: 1000,
+      cacheEnabled: true,
+      cacheTTLMinutes: 20,
+      retryEnabled: true,
+      maxRetries: 3,
+      timeoutSeconds: 10,
+      messageTemplate: null,
     });
   }
 
@@ -195,6 +231,72 @@ export class SettingsService {
         errors.push({
           field: 'timezone',
           message: 'Invalid timezone identifier',
+        });
+      }
+    }
+
+    // Validate security settings
+    if (settings.maxRequestsPerMinute !== undefined) {
+      if (
+        !Number.isInteger(settings.maxRequestsPerMinute) ||
+        settings.maxRequestsPerMinute < 1 ||
+        settings.maxRequestsPerMinute > 1000
+      ) {
+        errors.push({
+          field: 'maxRequestsPerMinute',
+          message: 'Max requests per minute must be between 1 and 1000',
+        });
+      }
+    }
+
+    if (settings.minDelayMs !== undefined) {
+      if (
+        !Number.isInteger(settings.minDelayMs) ||
+        settings.minDelayMs < 0 ||
+        settings.minDelayMs > 30000
+      ) {
+        errors.push({
+          field: 'minDelayMs',
+          message: 'Minimum delay must be between 0 and 30000 milliseconds',
+        });
+      }
+    }
+
+    if (settings.cacheTTLMinutes !== undefined) {
+      if (
+        !Number.isInteger(settings.cacheTTLMinutes) ||
+        settings.cacheTTLMinutes < 1 ||
+        settings.cacheTTLMinutes > 1440
+      ) {
+        errors.push({
+          field: 'cacheTTLMinutes',
+          message: 'Cache TTL must be between 1 and 1440 minutes (24 hours)',
+        });
+      }
+    }
+
+    if (settings.maxRetries !== undefined) {
+      if (
+        !Number.isInteger(settings.maxRetries) ||
+        settings.maxRetries < 0 ||
+        settings.maxRetries > 10
+      ) {
+        errors.push({
+          field: 'maxRetries',
+          message: 'Max retries must be between 0 and 10',
+        });
+      }
+    }
+
+    if (settings.timeoutSeconds !== undefined) {
+      if (
+        !Number.isInteger(settings.timeoutSeconds) ||
+        settings.timeoutSeconds < 1 ||
+        settings.timeoutSeconds > 300
+      ) {
+        errors.push({
+          field: 'timeoutSeconds',
+          message: 'Timeout must be between 1 and 300 seconds',
         });
       }
     }

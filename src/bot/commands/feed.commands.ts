@@ -32,12 +32,15 @@ export class AddFeedCommand extends BaseCommandHandler {
   protected async execute(ctx: CommandContext, args: [string, string]): Promise<void> {
     const [name, url] = args;
 
+    // Auto-fix Reddit URLs by adding .rss if missing
+    const fixedUrl = this.fixRedditUrl(url);
+
     await ctx.reply(ctx.t('status.processing'));
 
     const result = await this.feedService.addFeed({
       chatId: ctx.chatIdString,
       name,
-      url,
+      url: fixedUrl,
     });
 
     if (result.success) {
@@ -57,6 +60,24 @@ export class AddFeedCommand extends BaseCommandHandler {
         await ctx.reply(ctx.t('error.internal'));
       }
     }
+  }
+
+  /**
+   * Fix Reddit URLs by adding .rss if missing
+   */
+  private fixRedditUrl(url: string): string {
+    // Check if it's a Reddit URL
+    if (url.includes('reddit.com/r/')) {
+      // Remove trailing slash if present
+      const cleanUrl = url.replace(/\/$/, '');
+      
+      // Check if it already ends with .rss
+      if (!cleanUrl.endsWith('.rss')) {
+        return `${cleanUrl}.rss`;
+      }
+    }
+    
+    return url;
   }
 }
 
