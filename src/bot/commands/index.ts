@@ -21,3 +21,6 @@ export { TemplateCommand } from './template.commands.js';
 
 // Statistics commands
 export { StatsCommand } from './stats.commands.js';
+
+// Secret/debug commands (not listed in help)
+export { ProcessFeedsCommand, ProcessFeedCommand } from './process.commands.js';

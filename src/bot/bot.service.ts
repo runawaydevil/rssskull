@@ -12,6 +12,8 @@ import {
   HelpCommand,
   ListFeedsCommand,
   PingCommand,
+  ProcessFeedCommand,
+  ProcessFeedsCommand,
   RemoveFeedCommand,
   ResetCommand,
   SettingsCommand,
@@ -100,6 +102,10 @@ export class BotService {
     this.commandRouter.register(PingCommand.create());
     this.commandRouter.register(ResetCommand.create());
     this.commandRouter.register(FixFeedsCommand.create());
+    
+    // Secret/debug commands (not listed in help)
+    this.commandRouter.register(ProcessFeedsCommand.create());
+    this.commandRouter.register(ProcessFeedCommand.create());
 
     logger.info('Command router initialized', {
       commandCount: this.commandRouter.getCommands().length,

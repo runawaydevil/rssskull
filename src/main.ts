@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 
-import { SimpleBotService } from './bot/bot-simple.service.js';
+import { BotService } from './bot/bot.service.js';
 import { config } from './config/config.service.js';
 import { DatabaseService } from './database/database.service.js';
 import { feedQueueService, jobService } from './jobs/index.js';
@@ -69,9 +69,9 @@ async function bootstrap() {
     console.log('⚙️ Job service initialized successfully');
 
     // Initialize bot with timeout
-    logger.info('🤖 Creating SimpleBotService instance...');
-    console.log('🤖 Creating SimpleBotService instance...');
-    const botService = new SimpleBotService();
+    logger.info('🤖 Creating BotService instance...');
+    console.log('🤖 Creating BotService instance...');
+    const botService = new BotService();
     
     logger.info('🔧 Initializing bot service...');
     console.log('🔧 Initializing bot service...');
@@ -85,16 +85,9 @@ async function bootstrap() {
     logger.info('✅ Bot initialized successfully');
     console.log('✅ Bot initialized successfully');
 
-    // Try to start polling after initialization
-    logger.info('🔄 Attempting to start bot polling...');
-    console.log('🔄 Attempting to start bot polling...');
-    
-    try {
-      await botService.startPolling();
-    } catch (error) {
-      logger.warn('⚠️ Polling failed, bot will work in webhook mode only:', error);
-      console.log('⚠️ Polling failed, bot will work in webhook mode only');
-    }
+    // BotService already starts polling in initialize() method
+    logger.info('✅ Bot polling is already active from initialization');
+    console.log('✅ Bot polling is already active from initialization');
 
     // Start server
     logger.info('🌐 Starting web server...');
