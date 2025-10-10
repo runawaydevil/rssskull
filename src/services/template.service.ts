@@ -17,7 +17,7 @@ export interface TemplateValidationError {
 
 export class TemplateService {
   private static readonly DEFAULT_TEMPLATE =
-    '🔗 *{{title}}*\n\n[Read more]({{link}})';
+    '🔗 *{{title}}*\n\n{{description}}\n\n[Read more]({{link}})';
 
   private static readonly AVAILABLE_VARIABLES = [
     'title',
