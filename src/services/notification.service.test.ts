@@ -45,7 +45,7 @@ describe('NotificationService', () => {
       const result = notificationService.formatMessage(items, 'Test Feed');
 
       expect(result).toContain('🔗 *Test Article*');
-      expect(result).toContain('[Read more](https://example.com/article)');
+      expect(result).toContain('[Link](https://example.com/article)');
     });
 
     it('should format multiple RSS items', () => {

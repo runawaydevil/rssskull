@@ -243,12 +243,12 @@ export class TemplateService {
         name: 'Detailed',
         description: 'Full information including author and date',
         template:
-          '📰 **{{title}}**\n\n{{description}}\n\n👤 Author: {{author}}\n📅 Published: {{pubDate}}\n🏷️ Categories: {{categories}}\n\n[Read more]({{link}})',
+          '📰 **{{title}}**\n\n{{description}}\n\n👤 Author: {{author}}\n📅 Published: {{pubDate}}\n🏷️ Categories: {{categories}}\n\n[Link]({{link}})',
       },
       {
         name: 'Feed-focused',
         description: 'Emphasizes the feed source',
-        template: '📡 **{{feedName}}**\n\n🔗 {{title}}\n{{description}}\n\n[Read more]({{link}})',
+        template: '📡 **{{feedName}}**\n\n🔗 {{title}}\n{{description}}\n\n[Link]({{link}})',
       },
       {
         name: 'Compact',
