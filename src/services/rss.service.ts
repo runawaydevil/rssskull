@@ -149,18 +149,24 @@ export class RSSService {
     // If no last item ID, return only items from bot startup time onwards
     // Unless forceProcessAll is true, then return all items
     if (!lastItemId) {
+      logger.info(`No lastItemId for ${url}, forceProcessAll: ${forceProcessAll}, BOT_STARTUP_TIME: ${process.env.BOT_STARTUP_TIME}`);
+      
       if (forceProcessAll) {
-        logger.debug(`Force processing all items for ${url}, returning ${items.length} items`);
+        logger.info(`Force processing all items for ${url}, returning ${items.length} items`);
         return items;
       }
       
       const botStartupTime = new Date(process.env.BOT_STARTUP_TIME || Date.now());
+      logger.info(`Bot startup time: ${botStartupTime.toISOString()}`);
+      
       const startupItems = items.filter(item => {
         if (!item.pubDate) return false;
-        return item.pubDate > botStartupTime;
+        const isAfterStartup = item.pubDate > botStartupTime;
+        logger.debug(`Item ${item.id} pubDate: ${item.pubDate?.toISOString()}, after startup: ${isAfterStartup}`);
+        return isAfterStartup;
       });
       
-      logger.debug(`No last item ID for ${url}, returning ${startupItems.length} items from bot startup onwards out of ${items.length} total`);
+      logger.info(`No last item ID for ${url}, returning ${startupItems.length} items from bot startup onwards out of ${items.length} total`);
       return startupItems;
     }
 
