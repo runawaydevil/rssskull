@@ -194,6 +194,12 @@ export class SimpleBotService {
       // Skip bot.start() for now - it's causing timeout issues in Docker
       logger.info('⚠️ Skipping bot.start() due to Docker network timeout issues');
       console.log('⚠️ Skipping bot.start() due to Docker network timeout issues');
+      
+      // Load existing feeds for processing
+      logger.info('🔄 Loading existing feeds for processing...');
+      console.log('🔄 Loading existing feeds for processing...');
+      await this.loadExistingFeeds();
+      
       logger.info('✅ Bot initialized successfully (webhook mode ready)');
       console.log('✅ Bot initialized successfully (webhook mode ready)');
 
@@ -201,6 +207,65 @@ export class SimpleBotService {
       logger.error('❌ Failed to initialize simple bot:', error);
       console.error('❌ Failed to initialize simple bot:', error);
       throw error;
+    }
+  }
+
+  async loadExistingFeeds(): Promise<void> {
+    try {
+      // Import services
+      const { database } = await import('../database/database.service.js');
+      const { feedQueueService } = await import('../jobs/index.js');
+      const { feedIntervalService } = await import('../utils/feed-interval.service.js');
+
+      // Get all chats with their feeds
+      const chats = await database.client.chat.findMany({
+        include: {
+          feeds: {
+            where: { enabled: true },
+            include: { filters: true },
+          },
+        },
+      });
+
+      let totalScheduled = 0;
+      let totalErrors = 0;
+
+      for (const chat of chats) {
+        if (chat.feeds.length === 0) continue;
+
+        logger.info(`Loading ${chat.feeds.length} feeds for chat ${chat.id}`);
+        console.log(`Loading ${chat.feeds.length} feeds for chat ${chat.id}`);
+
+        for (const feed of chat.feeds) {
+          try {
+            const intervalMinutes = feedIntervalService.getIntervalForUrl(feed.rssUrl);
+
+            await feedQueueService.scheduleRecurringFeedCheck({
+              feedId: feed.id,
+              chatId: feed.chatId,
+              feedUrl: feed.rssUrl,
+              lastItemId: feed.lastItemId ?? undefined,
+            }, intervalMinutes);
+
+            totalScheduled++;
+            logger.debug(`Scheduled feed: ${feed.name} (${intervalMinutes}min interval)`);
+          } catch (error) {
+            totalErrors++;
+            logger.error(`Failed to schedule feed ${feed.name}:`, error);
+          }
+        }
+      }
+
+      logger.info(`✅ Scheduled ${totalScheduled} feeds with rate limiting`);
+      console.log(`✅ Scheduled ${totalScheduled} feeds with rate limiting`);
+      
+      if (totalErrors > 0) {
+        logger.warn(`⚠️ ${totalErrors} feeds failed to schedule`);
+        console.log(`⚠️ ${totalErrors} feeds failed to schedule`);
+      }
+    } catch (error) {
+      logger.error('Failed to load existing feeds:', error);
+      console.error('Failed to load existing feeds:', error);
     }
   }
 
