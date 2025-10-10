@@ -9,12 +9,7 @@ export class SimpleBotService {
   private botId?: number;
 
   constructor() {
-    this.bot = new Bot(config.bot.token, {
-      client: {
-        timeout: 30000, // 30 seconds timeout
-        apiRoot: 'https://api.telegram.org',
-      },
-    });
+    this.bot = new Bot(config.bot.token);
     this.setupCommands();
   }
 
