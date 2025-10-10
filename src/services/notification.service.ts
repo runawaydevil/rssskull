@@ -227,9 +227,18 @@ export class NotificationService {
    * Format a single RSS item using a template
    */
   private formatSingleItem(item: RSSItem, feedName: string, template?: string | null): string {
+    // Clean and limit description
+    let description = item.description || '';
+    if (description) {
+      // Limit description to 200 characters and add ellipsis if truncated
+      if (description.length > 200) {
+        description = description.substring(0, 200).trim() + '...';
+      }
+    }
+
     const variables: TemplateVariables = {
       title: item.title || 'Untitled',
-      description: item.description || '',
+      description: description,
       link: item.link || '',
       author: item.author || '',
       pubDate: item.pubDate ? this.formatDate(item.pubDate) : '',

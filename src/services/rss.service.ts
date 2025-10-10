@@ -339,6 +339,8 @@ export class RSSService {
       .replace(/&gt;/g, '>') // Replace &gt; with >
       .replace(/&quot;/g, '"') // Replace &quot; with "
       .replace(/&#39;/g, "'") // Replace &#39; with '
+      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+      .replace(/\n\s*\n/g, '\n') // Remove empty lines
       .trim();
   }
 

@@ -17,7 +17,7 @@ export interface TemplateValidationError {
 
 export class TemplateService {
   private static readonly DEFAULT_TEMPLATE =
-    '🔗 *{{title}}*\n\n{{description}}\n\n[Read more]({{link}})';
+    '🔗 *{{title}}*\n\n{{description}}\n\n[Link]({{link}})';
 
   private static readonly AVAILABLE_VARIABLES = [
     'title',
@@ -74,10 +74,19 @@ export class TemplateService {
         TemplateService.escapeMarkdown(variables.title)
       );
       rendered = rendered.replace(/\{\{link\}\}/g, variables.link);
-      rendered = rendered.replace(
-        /\{\{description\}\}/g,
-        TemplateService.escapeMarkdown(variables.description || '')
-      );
+      
+      // Handle description - if empty, remove the entire line
+      if (variables.description && variables.description.trim()) {
+        rendered = rendered.replace(
+          /\{\{description\}\}/g,
+          TemplateService.escapeMarkdown(variables.description)
+        );
+      } else {
+        // Remove description line if empty
+        rendered = rendered.replace(/\n\s*\{\{description\}\}\s*\n/g, '\n');
+        rendered = rendered.replace(/\{\{description\}\}/g, '');
+      }
+      
       rendered = rendered.replace(
         /\{\{author\}\}/g,
         TemplateService.escapeMarkdown(variables.author || '')
