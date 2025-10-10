@@ -202,6 +202,63 @@ export class BotService {
       // Auto-register chat when any message is received
       await this.autoRegisterChat(ctx);
 
+      // Process direct commands (starting with /)
+      if (text.startsWith('/')) {
+        const { command, args } = parseCommand(text);
+
+        logger.info('Processing direct command', {
+          chatId: authCtx.chatIdString,
+          chatType: ctx.chat?.type,
+          command,
+          argsCount: args.length,
+          isChannel: authCtx.isChannel,
+        });
+
+        try {
+          // Execute the command through the router
+          logger.info('Attempting to execute direct command', {
+            chatId: authCtx.chatIdString,
+            command,
+            args,
+            chatType: ctx.chat?.type,
+          });
+
+          const executed = await this.commandRouter.execute(authCtx, command, args);
+
+          logger.info('Direct command execution result', {
+            chatId: authCtx.chatIdString,
+            command,
+            executed,
+            chatType: ctx.chat?.type,
+          });
+
+          if (!executed) {
+            // Unknown command - provide helpful feedback
+            const helpText = authCtx.isChannel
+              ? `${ctx.t('error.unknown_command')}\n\n${ctx.t('help.mention_help')}`
+              : ctx.t('error.unknown_command');
+
+            await ctx.reply(helpText);
+
+            logger.warn('Unknown direct command', {
+              chatId: authCtx.chatIdString,
+              command,
+              chatType: ctx.chat?.type,
+            });
+          }
+        } catch (error) {
+          logger.error('Direct command execution error', {
+            chatId: authCtx.chatIdString,
+            command,
+            error: error instanceof Error ? error.message : String(error),
+          });
+
+          await ctx.reply(ctx.t('error.internal'));
+        }
+
+        return;
+      }
+
       // Enhanced mention detection and processing for channels and groups
       if (authCtx.mentionContext?.isMentioned) {
         logger.info('Bot mentioned in message', {
