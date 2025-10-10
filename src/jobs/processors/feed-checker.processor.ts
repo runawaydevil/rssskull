@@ -1,5 +1,6 @@
 import type { Job } from 'bullmq';
 import { database } from '../../database/database.service.js';
+import { FeedRepository } from '../../database/repositories/feed.repository.js';
 import { parserService } from '../../services/parser.service.js';
 import { logger } from '../../utils/logger/logger.service.js';
 import { jobService } from '../job.service.js';
@@ -48,6 +49,21 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
   logger.info(`Processing feed check for feed ${feedId} in chat ${chatId}`);
 
   try {
+    // Get feed information from database
+    const feedRepository = new FeedRepository(database.client);
+    const feed = await feedRepository.findById(feedId);
+    
+    if (!feed) {
+      logger.error(`Feed ${feedId} not found in database`);
+      return {
+        success: false,
+        message: `Feed ${feedId} not found`,
+        failureCount: failureCount + 1,
+      };
+    }
+
+    const feedName = feed.name;
+
     // Check the feed for new items
     const checkResult = await parserService.checkFeed(feedUrl, lastItemId, failureCount, forceProcessAll);
 
@@ -78,7 +94,7 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
       await queueMessageJob({
         chatId,
         feedId,
-        feedName: feedId, // TODO: Get actual feed name from database
+        feedName: feedName, // Use actual feed name from database
         items: processedItems.map((item) => ({
           id: item.id,
           title: item.title,
