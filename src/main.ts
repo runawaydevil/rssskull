@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 
-import { BotService } from './bot/bot.service.js';
+import { SimpleBotService } from './bot/bot-simple.service.js';
 import { config } from './config/config.service.js';
 import { DatabaseService } from './database/database.service.js';
 import { feedQueueService, jobService } from './jobs/index.js';
@@ -69,9 +69,9 @@ async function bootstrap() {
     console.log('⚙️ Job service initialized successfully');
 
     // Initialize bot with timeout
-    logger.info('🤖 Creating BotService instance...');
-    console.log('🤖 Creating BotService instance...');
-    const botService = new BotService();
+    logger.info('🤖 Creating SimpleBotService instance...');
+    console.log('🤖 Creating SimpleBotService instance...');
+    const botService = new SimpleBotService();
     
     logger.info('🔧 Initializing bot service...');
     console.log('🔧 Initializing bot service...');

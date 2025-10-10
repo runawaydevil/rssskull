@@ -1,4 +1,8 @@
+import { config as dotenvConfig } from 'dotenv';
 import { z } from 'zod';
+
+// Load environment variables from .env file
+dotenvConfig();
 
 const configSchema = z.object({
   bot: z.object({
