@@ -238,53 +238,21 @@ export class RSSService {
         return todayItems;
       }
       
-      // Try multiple approaches to parse BOT_STARTUP_TIME with fallback
-      let botStartupTime: Date;
-      const startupTimeStr = process.env.BOT_STARTUP_TIME;
+      // When no lastItemId, only return items from today to avoid processing old posts after restart
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       
-      if (startupTimeStr) {
-        // First try: Use our parseDate function (handles ISO strings)
-        const parsedStartupTime = parseDate(startupTimeStr);
-        if (parsedStartupTime) {
-          botStartupTime = parsedStartupTime;
-          logger.debug(`BOT_STARTUP_TIME parsed successfully with parseDate: ${startupTimeStr} -> ${botStartupTime.toISOString()}`);
-        } else {
-          // Second try: Direct Date constructor (handles timestamps)
-          try {
-            botStartupTime = new Date(startupTimeStr);
-            if (isNaN(botStartupTime.getTime())) {
-              throw new Error('Invalid date');
-            }
-            logger.debug(`BOT_STARTUP_TIME parsed successfully with new Date: ${startupTimeStr} -> ${botStartupTime.toISOString()}`);
-          } catch (error) {
-            // Third try: Parse as timestamp (number)
-            const timestamp = parseInt(startupTimeStr, 10);
-            if (!isNaN(timestamp)) {
-              botStartupTime = new Date(timestamp);
-              logger.debug(`BOT_STARTUP_TIME parsed successfully as timestamp: ${startupTimeStr} -> ${botStartupTime.toISOString()}`);
-            } else {
-              // Final fallback: Current time
-              botStartupTime = new Date();
-              logger.warn(`BOT_STARTUP_TIME failed to parse, using current time: ${startupTimeStr}`);
-            }
-          }
-        }
-      } else {
-        // No BOT_STARTUP_TIME set, use current time
-        botStartupTime = new Date();
-        logger.debug('No BOT_STARTUP_TIME set, using current time');
-      }
-      logger.info(`Bot startup time: ${botStartupTime.toISOString()}`);
+      logger.info(`No lastItemId for ${url}, filtering items from today onwards (${startOfDay.toISOString()})`);
       
-      const startupItems = items.filter(item => {
+      const todayItems = items.filter(item => {
         if (!item.pubDate) return false;
-        const isAfterStartup = item.pubDate > botStartupTime;
-        logger.debug(`Item ${item.id} pubDate: ${item.pubDate?.toISOString()}, after startup: ${isAfterStartup}`);
-        return isAfterStartup;
+        const isFromToday = item.pubDate >= startOfDay;
+        logger.debug(`Item ${item.id} pubDate: ${item.pubDate?.toISOString()}, from today: ${isFromToday}`);
+        return isFromToday;
       });
       
-      logger.info(`No last item ID for ${url}, returning ${startupItems.length} items from bot startup onwards out of ${items.length} total`);
-      return startupItems;
+      logger.info(`No last item ID for ${url}, returning ${todayItems.length} items from today onwards out of ${items.length} total`);
+      return todayItems;
     }
 
     // Find the index of the last known item
