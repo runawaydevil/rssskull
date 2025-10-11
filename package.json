@@ -1,6 +1,6 @@
 {
   "name": "rss-skull-bot",
-  "version": "0.02.1",
+  "version": "0.02.2",
   "description": "Modern RSS to Telegram Bot with Reddit support and bilingual commands",
   "main": "dist/main.js",
   "type": "module",

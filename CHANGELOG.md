@@ -5,6 +5,14 @@ All notable changes to RSS Skull Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.02.2] - 2025-01-11
+
+### Fixed
+- **GitHub Actions**: Corrected Slack webhook configuration
+  - Removed unsupported webhook_url parameter
+  - Use SLACK_WEBHOOK_URL environment variable instead
+  - Resolves deployment workflow errors
+
 ## [0.02.1] - 2025-01-11
 
 ### Fixed
