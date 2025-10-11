@@ -46,7 +46,7 @@ export interface MessageJobData extends JobData {
 export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<FeedCheckJobResult> {
   const { feedId, chatId, feedUrl, lastItemId, failureCount = 0, forceProcessAll = false } = job.data;
 
-  logger.info(`Processing feed check for feed ${feedId} in chat ${chatId}`);
+  logger.info(`Processing feed check for feed ${feedId} in chat ${chatId} (lastItemId from job: ${lastItemId || 'none'})`);
 
   try {
     // Get feed information from database
@@ -64,8 +64,13 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
 
     const feedName = feed.name;
 
+    // Use the lastItemId from database instead of job data to ensure we have the most recent value
+    const currentLastItemId = feed.lastItemId || lastItemId;
+    
+    logger.debug(`Using lastItemId from database: ${currentLastItemId} (job data had: ${lastItemId})`);
+
     // Check the feed for new items
-    const checkResult = await parserService.checkFeed(feedUrl, lastItemId, failureCount, forceProcessAll);
+    const checkResult = await parserService.checkFeed(feedUrl, currentLastItemId, failureCount, forceProcessAll);
 
     if (!checkResult.success) {
       // Feed check failed, return failure result with exponential backoff
