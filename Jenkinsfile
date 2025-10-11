@@ -249,7 +249,7 @@ pipeline {
                     slackSend(
                         channel: '#deployments',
                         color: 'good',
-                        message: "✅ RSS Skull Bot v2 deployed successfully to production!\nCommit: ${GIT_COMMIT_SHORT}\nBuild: ${BUILD_NUMBER}"
+                        message: "✅ RSS Skull Bot v0.02.5 deployed successfully to production!\nCommit: ${GIT_COMMIT_SHORT}\nBuild: ${BUILD_NUMBER}"
                     )
                 }
             }
@@ -262,7 +262,7 @@ pipeline {
             slackSend(
                 channel: '#deployments',
                 color: 'danger',
-                message: "❌ RSS Skull Bot v2 pipeline failed!\nBranch: ${env.BRANCH_NAME}\nCommit: ${GIT_COMMIT_SHORT}\nBuild: ${BUILD_NUMBER}\nCheck: ${BUILD_URL}"
+                message: "❌ RSS Skull Bot v0.02.5 pipeline failed!\nBranch: ${env.BRANCH_NAME}\nCommit: ${GIT_COMMIT_SHORT}\nBuild: ${BUILD_NUMBER}\nCheck: ${BUILD_URL}"
             )
         }
         

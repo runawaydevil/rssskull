@@ -27,7 +27,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
-    image: rss-skull-bot:latest
+    image: rss-skull-bot:0.02.5
     container_name: rss-skull-bot-prod
     ports:
       - "127.0.0.1:8916:8916"  # Bind to localhost only, use reverse proxy
