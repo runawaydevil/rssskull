@@ -2,6 +2,7 @@ import type { Job } from 'bullmq';
 import { notificationService } from '../../services/notification.service.js';
 import type { RSSItem } from '../../services/rss.service.js';
 import { logger } from '../../utils/logger/logger.service.js';
+import { parseDate } from '../../utils/date-parser.js';
 import type { JobData, JobResult } from '../job.service.js';
 
 export interface MessageSendJobData extends JobData {
@@ -48,7 +49,7 @@ export async function processMessageSend(
       link: item.link,
       description: item.description,
       author: item.author,
-      pubDate: item.pubDate ? new Date(item.pubDate) : undefined,
+      pubDate: parseDate(item.pubDate),
     }));
 
     // Send the RSS items

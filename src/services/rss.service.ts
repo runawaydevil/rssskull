@@ -6,6 +6,7 @@ import { logger } from '../utils/logger/logger.service.js';
 import { rateLimiterService } from '../utils/rate-limiter.service.js';
 import { userAgentService } from '../utils/user-agent.service.js';
 import { cacheService } from '../utils/cache.service.js';
+import { parseDate } from '../utils/date-parser.js';
 
 export interface RSSItem {
   id: string;
@@ -258,7 +259,7 @@ export class RSSService {
         title: this.sanitizeText(item.title || 'Untitled'),
         link: originalLink || item.link || '',
         description: this.sanitizeText(item.contentSnippet || item.content || item.summary || ''),
-        pubDate: item.pubDate ? new Date(item.pubDate) : undefined,
+        pubDate: parseDate(item.pubDate),
         author: this.sanitizeText(item.creator || item.author || ''),
         categories: item.categories || [],
         guid: item.guid || item.id,
@@ -333,6 +334,7 @@ export class RSSService {
     const pubDate = item.pubDate || new Date().toISOString();
     return `${title}-${pubDate}`.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase();
   }
+
 
   /**
    * Sanitize text content for Telegram
