@@ -8,6 +8,7 @@ export {
   RemoveFeedCommand,
   EnableFeedCommand,
   DisableFeedCommand,
+  DiscoverFeedsCommand,
 } from './feed.commands.js';
 
 // Settings commands

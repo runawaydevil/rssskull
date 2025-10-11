@@ -7,6 +7,8 @@ import { rateLimiterService } from '../utils/rate-limiter.service.js';
 import { userAgentService } from '../utils/user-agent.service.js';
 import { cacheService } from '../utils/cache.service.js';
 import { parseDate } from '../utils/date-parser.js';
+import { FeedTypeDetector, FeedType } from '../utils/feed-type-detector.js';
+import { JsonFeedParser } from '../utils/json-feed-parser.js';
 
 export interface RSSItem {
   id: string;
@@ -24,6 +26,8 @@ export interface RSSFeed {
   description?: string;
   link?: string;
   items: RSSItem[];
+  feedType?: FeedType;
+  detectedFeatures?: string[];
 }
 
 export interface ParseResult {
@@ -109,14 +113,18 @@ export class RSSService {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        // Validate content type
+        // Validate content type (support XML and JSON feeds)
         const contentType = response.headers.get('content-type') || '';
-        if (!contentType.includes('application/atom+xml') && 
-            !contentType.includes('application/rss+xml') && 
-            !contentType.includes('text/xml') &&
-            !contentType.includes('application/xml')) {
-          logger.warn(`Invalid content type for ${url}: ${contentType}`);
-          throw new Error(`Invalid content type: ${contentType}. Expected XML feed.`);
+        const isXmlFeed = contentType.includes('application/atom+xml') || 
+                         contentType.includes('application/rss+xml') || 
+                         contentType.includes('text/xml') ||
+                         contentType.includes('application/xml');
+        const isJsonFeed = contentType.includes('application/json') ||
+                          contentType.includes('application/feed+json');
+        
+        if (!isXmlFeed && !isJsonFeed) {
+          logger.warn(`Unexpected content type for ${url}: ${contentType}`);
+          // Don't throw error, let the content detection handle it
         }
 
         // Extract response headers for conditional caching
@@ -141,21 +149,38 @@ export class RSSService {
           throw new Error('Received HTML page instead of XML feed. Possible redirect or error page.');
         }
 
-        // Log feed type detection
-        if (responseText.includes('xmlns="http://www.w3.org/2005/Atom"')) {
-          logger.debug(`Detected Atom 1.0 feed: ${url}`);
-        } else if (responseText.includes('<rss') || responseText.includes('<channel')) {
-          logger.debug(`Detected RSS 2.0 feed: ${url}`);
-        } else {
-          logger.debug(`Unknown feed format: ${url}`);
+        // Detect feed type and parse accordingly
+        const feedTypeInfo = FeedTypeDetector.detectFeedType(responseText, contentType, url);
+        
+        logger.info(`Detected feed type: ${FeedTypeDetector.getFeedTypeDescription(feedTypeInfo.type)} (confidence: ${feedTypeInfo.confidence}) for ${url}`);
+        
+        if (feedTypeInfo.features.length > 0) {
+          logger.debug(`Feed features: ${feedTypeInfo.features.join(', ')}`);
         }
-        const domainParser = new Parser({
-          timeout: 10000,
-          headers: browserHeaders,
-        });
+        
+        if (feedTypeInfo.issues && feedTypeInfo.issues.length > 0) {
+          logger.warn(`Feed issues: ${feedTypeInfo.issues.join(', ')}`);
+        }
 
-        const feed = await domainParser.parseString(responseText);
-        const processedFeed = this.processFeed(feed);
+        let processedFeed: RSSFeed;
+
+        // Parse based on detected type
+        if (feedTypeInfo.type === FeedType.JSON_FEED_1_1) {
+          processedFeed = JsonFeedParser.parseJsonFeed(responseText, url);
+        } else {
+          // Use rss-parser for RSS 2.0 and Atom 1.0
+          const domainParser = new Parser({
+            timeout: 10000,
+            headers: browserHeaders,
+          });
+
+          const feed = await domainParser.parseString(responseText);
+          processedFeed = this.processFeed(feed);
+        }
+
+        // Add feed type information
+        processedFeed.feedType = feedTypeInfo.type;
+        processedFeed.detectedFeatures = feedTypeInfo.features;
         
         // Cache the successful result with conditional headers
         cacheService.setWithHeaders(url, processedFeed, responseHeaders);

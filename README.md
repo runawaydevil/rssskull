@@ -1,11 +1,11 @@
 <div align="center">
   <img src="rssskull.png" alt="RSS Skull Bot" width="200" height="200">
   
-  # RSS Skull Bot v0.01
+  # RSS Skull Bot v0.02.5
   
-  *A modern, high-performance RSS to Telegram bot with channel support and bilingual commands*
+  *A modern, high-performance RSS to Telegram bot with intelligent feed discovery and multi-format support*
   
-  [![Version](https://img.shields.io/badge/Version-0.01.0-green.svg)](package.json)
+  [![Version](https://img.shields.io/badge/Version-0.02.5-green.svg)](package.json)
   [![TypeScript](https://img.shields.io/badge/TypeScript-5.6+-blue.svg)](https://www.typescriptlang.org/)
   [![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
   [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
@@ -18,8 +18,9 @@
 ## ✨ Features
 
 - 🚀 **High Performance**: Optimized architecture with efficient resource usage
-- 🌍 **English Only**: All messages and commands in English for consistency
+- 🌍 **Bilingual Support**: Portuguese and English commands and messages
 - 📢 **Channel Support**: Full support for Telegram channels with mention-based commands
+- 🔍 **Intelligent Feed Discovery**: Automatic feed detection from any website URL
 - 🔗 **Smart URL Conversion**: Automatic Reddit and YouTube URL to RSS conversion
 - 🎯 **Advanced Filtering**: Include/exclude patterns with regex support
 - 📊 **Statistics**: Comprehensive usage tracking and analytics
@@ -31,6 +32,10 @@
 - 🔐 **Permission Management**: Automatic permission validation for channel operations
 - 🔒 **Security Settings**: User-configurable rate limiting, cache, retry, and timeout settings
 - 🚀 **Secret Commands**: Hidden commands for advanced users (`/processar`, `/reset`)
+- 🔍 **Multi-Format Support**: RSS 2.0, Atom 1.0, and JSON Feed 1.1 detection
+- 🌐 **URL Normalization**: Automatic handling of various URL formats (with/without https, www)
+- 🚫 **Duplicate Prevention**: Smart duplicate detection for feed names and URLs
+- ⚡ **Conditional HTTP Caching**: Bandwidth-saving with If-Modified-Since and ETag headers
 
 ## 🛠️ Tech Stack
 
@@ -119,6 +124,8 @@ docker-compose down
 1. **Private Chat**: Send `/start` to your bot
 2. **Channel**: Add bot as admin, then use `@yourbotname /start`
 3. **Add a feed**: `/add news https://feeds.feedburner.com/TechCrunch`
+4. **Discover feeds**: `/discover pablo.space`
+5. **Add with auto-discovery**: `/add blog pablo.space`
 
 ## 📢 Channel Support
 
@@ -146,6 +153,12 @@ RSS Skull Bot v0.01 includes **full support for Telegram channels**!
 # Add a feed
 @yourbotname /add tech https://feeds.feedburner.com/TechCrunch
 
+# Discover feeds from a website
+@yourbotname /discover pablo.space
+
+# Add feed with auto-discovery
+@yourbotname /add blog pablo.space
+
 # List all feeds
 @yourbotname /list
 
@@ -156,20 +169,46 @@ RSS Skull Bot v0.01 includes **full support for Telegram channels**!
 @yourbotname /help
 ```
 
+## 🎯 Usage Examples
+
+### Auto-Discovery Examples
+```bash
+# Discover feeds from any website
+/discover pablo.space
+/discover www.example.com
+/discover https://blog.company.com
+
+# Add feeds with automatic discovery
+/add blog pablo.space
+/add news www.cnn.com
+/add tech https://techcrunch.com
+```
+
+### URL Format Examples
+```bash
+# All these formats work the same way:
+/add feed pablo.space
+/add feed www.pablo.space
+/add feed https://pablo.space
+/add feed http://pablo.space
+
+# The bot normalizes them all to: https://pablo.space
+```
+
 ## 🤖 Available Commands
 
 ### Basic Commands
 - `/start` - Initialize the bot and show welcome message
 - `/help` - Display all available commands and usage
 - `/ping` - Test bot response
-- `/add <name> <url>` - Add a new RSS feed to the chat
+- `/add <name> <url>` - Add a new RSS feed to the chat (with auto-discovery)
 - `/list` - List all active feeds in the chat
 - `/remove <name>` - Remove a feed from the chat
 - `/enable <name>` - Enable a disabled feed
 - `/disable <name>` - Temporarily disable a feed
 - `/settings` - View and modify chat settings
 - `/filters <name>` - Manage include/exclude filters for a feed
-- `/stats` - View usage statistics for the last 30 days
+- `/discover <url>` - Discover available feeds from a website
 
 ### Secret Commands (Not listed in /help)
 - `/processar` - Process all feeds immediately (manual trigger)
@@ -208,13 +247,38 @@ src/
 
 ## 🔧 Smart Features
 
+### 🔍 Intelligent Feed Discovery
+The bot can automatically discover feeds from any website:
+
+- **Website URLs**: `pablo.space` → Discovers all available feeds
+- **URL Normalization**: Handles `pablo.space`, `www.pablo.space`, `https://pablo.space`
+- **Multiple Strategies**: HTML `<link>` tags, common paths, WordPress detection
+- **Format Detection**: Automatically detects RSS 2.0, Atom 1.0, and JSON Feed 1.1
+- **Atom Preference**: Prefers Atom over RSS when both are available
+
+### 🌐 URL Normalization
+The bot automatically normalizes various URL formats:
+
+| Input | Output |
+|-------|--------|
+| `pablo.space` | `https://pablo.space` |
+| `www.pablo.space` | `https://pablo.space` |
+| `https://pablo.space` | `https://pablo.space` |
+| `http://pablo.space` | `https://pablo.space` |
+
+### 🚫 Duplicate Prevention
+Smart duplicate detection prevents:
+- **Duplicate names**: Same feed name in the same chat
+- **Duplicate URLs**: Same feed URL (original or RSS)
+- **Discovered feed duplicates**: Prevents adding feeds found via discovery that already exist
+
 ### URL Auto-Conversion
 The bot automatically converts various URL formats to their RSS equivalents:
 
-- **Reddit**: `reddit.com/r/programming` → `reddit.com/r/programming.rss` (automatic .rss append)
+- **Reddit**: `reddit.com/r/programming` → `old.reddit.com/r/programming/.rss`
 - **YouTube Channels**: `youtube.com/channel/UCxxx` → `youtube.com/feeds/videos.xml?channel_id=UCxxx`
 - **YouTube Users**: `youtube.com/user/username` → RSS feed via API lookup
-- **Any RSS Site**: Works with any site that has RSS feeds
+- **Any Website**: Auto-discovery finds feeds automatically
 
 ### Advanced Filtering
 Create powerful filters for your feeds:
@@ -235,16 +299,22 @@ Available variables:
 {{author}} - Article author
 {{pubDate}} - Publication date
 {{feedName}} - Feed name
+{{domain}} - Source domain
 ```
 
-Example template:
+Example templates:
 ```
-🔗 **{{title}}**
-
+Default: 🔥 {{title}}
 {{description}}
+🔗 [Link]({{link}})
 
-👤 By {{author}} | 📅 {{pubDate}}
-[Read more]({{link}})
+Compact: 📰 {{title}} - 🔗 [Link]({{link}}) ({{feedName}})
+
+Full: 🔥 **{{title}}**
+👤 {{author}}
+📅 {{pubDate}}
+{{description}}
+🔗 [Link]({{link}})
 ```
 
 ## ⚙️ Configuration
@@ -266,11 +336,13 @@ Example template:
 
 The bot includes several configurable settings per chat:
 
-- **Check Interval**: 90s to 15min (default: 2min)
+- **Check Interval**: 2min to 60min (default: 5min)
 - **Max Feeds**: Up to 50 feeds per chat
-- **Language**: English only
+- **Language**: Portuguese and English
+- **Timezone**: Configurable timezone (default: America/Sao_Paulo)
 - **Filters**: Include/exclude patterns with regex
 - **Message Templates**: Custom notification formats
+- **Notifications**: Enable/disable feed notifications
 
 ### Security Settings (User Configurable)
 
@@ -418,15 +490,19 @@ For custom deployment scenarios:
 
 ## 📈 Performance Improvements
 
-RSS Skull Bot v0.01 delivers significant performance improvements:
+RSS Skull Bot v0.02.5 delivers significant performance improvements:
 
-- **Smart Rate Limiting**: Domain-specific rate limiting (Reddit: 15min, YouTube: 10min, Default: 5min)
+- **Smart Rate Limiting**: Domain-specific rate limiting (Reddit: 10min, YouTube: 10min, Default: 5min)
 - **Intelligent Caching**: Domain-specific cache TTL (Reddit: 10min, GitHub: 60min, Default: 20min)
+- **Conditional HTTP Caching**: Bandwidth-saving with If-Modified-Since and ETag headers
 - **Background Processing**: Non-blocking job queue system with Redis
 - **Connection Pooling**: Optimized database and Redis connections
 - **User-Agent Rotation**: Realistic browser headers to avoid blocking
 - **Exponential Backoff**: Smart retry logic with increasing delays
 - **Deduplication**: Prevents duplicate items using lastItemId tracking
+- **Multi-Format Support**: Automatic detection and parsing of RSS 2.0, Atom 1.0, and JSON Feed 1.1
+- **Intelligent Feed Discovery**: Automatic feed detection from any website URL
+- **URL Normalization**: Handles various URL formats automatically
 
 ## 🔧 Migration from v1
 
@@ -579,7 +655,7 @@ The bot tracks usage statistics:
 Access via: `@yourbotname /stats`
 
 ### Feed Processing Intervals
-- **Reddit**: Every 15 minutes
+- **Reddit**: Every 10 minutes (optimized for rate limits)
 - **YouTube**: Every 10 minutes
 - **Twitter/X**: Every 5 minutes
 - **GitHub**: Every 30 minutes

@@ -155,3 +155,91 @@ nginx/ssl/*.crt
 
 # Kiro specs (development files)
 .kiro/specs/bot-diagnosis-and-fix/
+
+# Test files and scripts
+scripts/test-*.js
+scripts/*-test.js
+scripts/simple-*.js
+scripts/final-*.js
+test-*.js
+*-test.js
+
+# Development and testing utilities
+src/test/
+test/
+tests/
+__tests__/
+
+# Temporary development files
+*.tmp
+*.temp
+.cache/
+.temp/
+
+# Development databases
+*.test.db
+*.dev.db
+test.db
+dev.db
+
+# Coverage reports
+coverage/
+.nyc_output/
+*.lcov
+
+# Test results
+test-results/
+junit.xml
+test-output/
+
+# Development logs
+*.dev.log
+*.test.log
+debug.log
+
+# Local development files
+.local/
+local/
+dev/
+development/
+
+# Build artifacts
+build/
+dist/
+out/
+
+# Package files
+*.tgz
+*.tar.gz
+
+# Editor temporary files
+*.swp
+*.swo
+*~
+.#*
+\#*#
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Windows specific
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+
+# Linux specific
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*

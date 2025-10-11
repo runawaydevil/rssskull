@@ -106,13 +106,11 @@ ${ctx.t('cmd.list')}
 ${ctx.t('cmd.remove')}
 ${ctx.t('cmd.enable')}
 ${ctx.t('cmd.disable')}
+${ctx.t('cmd.discover')}
 
 ${ctx.t('help.settings')}
 ${ctx.t('cmd.settings')}
 ${ctx.t('cmd.filters')}
-
-${ctx.t('help.stats')}
-${ctx.t('cmd.stats')}
 
 ${ctx.t('help.other')}
 ${ctx.t('cmd.help')}

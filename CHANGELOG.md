@@ -5,6 +5,77 @@ All notable changes to RSS Skull Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.02.5] - 2025-01-11
+
+### Added
+- **Intelligent Feed Discovery**: Automatic feed detection from any website URL
+  - Multi-strategy discovery: HTML `<link>` tags, common paths, WordPress detection
+  - Support for RSS 2.0, Atom 1.0, and JSON Feed 1.1 format detection
+  - Global preference for Atom over RSS when both are available
+  - Confidence-based feed ranking and selection
+- **URL Normalization**: Automatic handling of various URL formats
+  - Support for `pablo.space`, `www.pablo.space`, `https://pablo.space`
+  - Automatic protocol addition (https) and www removal
+  - Consistent URL handling across all commands
+- **Duplicate Prevention**: Smart duplicate detection system
+  - Prevents duplicate feed names in the same chat
+  - Prevents duplicate URLs (original and RSS)
+  - Prevents adding discovered feeds that already exist
+- **New Commands**:
+  - `/discover <url>` - Discover available feeds from a website
+  - `/descobrir <url>` - Portuguese alias for discover command
+- **Enhanced Help System**: Updated `/help` command with new features
+  - Added `/discover` command to help menu
+  - Bilingual support for all new commands
+  - Clear descriptions of all functionalities
+
+### Enhanced
+- **Auto-Discovery Integration**: `/add` command now includes automatic feed discovery
+  - Falls back to discovery when URL conversion fails
+  - Automatic selection of best feed based on confidence
+  - Detailed feedback about discovery process
+- **Feed Type Detection**: Automatic format detection and parsing
+  - JSON Feed 1.1 support with proper parsing
+  - Enhanced Atom 1.0 support with field mapping
+  - Improved RSS 2.0 compatibility
+- **Message Templates**: Updated default templates with new emojis
+  - Changed from "Read more" to "Link" for better clarity
+  - Added 🔥 emoji for titles and 🔗 for links
+  - Improved template examples and documentation
+
+### Fixed
+- **Conditional HTTP Caching**: Bandwidth-saving implementation
+  - If-Modified-Since header support
+  - ETag header support for efficient caching
+  - Reduced bandwidth usage for unchanged feeds
+- **Date Parsing**: Robust handling of various date formats
+  - Fixed "Invalid time value" errors for Reddit feeds
+  - Better handling of malformed dates (e.g., Reddit's `T0-2:38:00`)
+  - Multiple parsing approaches with fallbacks
+- **Orphaned Jobs**: Fixed "Feed not found in database" errors
+  - Automatic cleanup of orphaned jobs on feed removal
+  - Queue clearing on `/reset` command
+  - Proper job management for deleted feeds
+- **Duplicate Posts**: Fixed duplicate post sending issue
+  - Always fetch latest `lastItemId` from database
+  - Prevent old posts from being re-sent after restart
+  - Improved deduplication logic
+
+### Technical
+- **New Utilities**:
+  - `FeedTypeDetector` - Automatic feed type detection
+  - `JsonFeedParser` - JSON Feed 1.1 parsing
+  - `FeedDiscovery` - Multi-strategy feed discovery
+  - `UrlNormalizer` - URL format normalization
+- **Enhanced Services**:
+  - Updated `RSSService` with multi-format support
+  - Enhanced `FeedService` with discovery integration
+  - Improved `NotificationService` with better formatting
+- **Code Quality**: Comprehensive TypeScript improvements
+  - Fixed all compilation errors
+  - Added proper type definitions
+  - Enhanced error handling and logging
+
 ## [0.02.3] - 2025-01-11
 
 ### Fixed

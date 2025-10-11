@@ -9,6 +9,7 @@ import { ConverterService } from '../utils/converters/converter.service.js';
 import { feedIntervalService } from '../utils/feed-interval.service.js';
 import { logger } from '../utils/logger/logger.service.js';
 import { isValidUrl } from '../utils/validation.js';
+import { FeedDiscovery } from '../utils/feed-discovery.js';
 
 export interface AddFeedInput {
   chatId: string;
@@ -41,6 +42,24 @@ export class FeedService {
     errors?: FeedValidationError[];
     conversionInfo?: { originalUrl: string; rssUrl: string; platform?: string };
   }> {
+    // Check for duplicate feed name and URL first
+    const existingFeeds = await this.listFeeds(input.chatId);
+    const duplicateName = existingFeeds.find(feed => feed.name.toLowerCase() === input.name.toLowerCase());
+    const duplicateUrl = existingFeeds.find(feed => feed.url === input.url || feed.rssUrl === input.url);
+    
+    if (duplicateName) {
+      return {
+        success: false,
+        errors: [{ field: 'name', message: `Já existe um feed com o nome "${input.name}". Use um nome diferente.` }],
+      };
+    }
+    
+    if (duplicateUrl) {
+      return {
+        success: false,
+        errors: [{ field: 'url', message: `Já existe um feed com esta URL: "${input.url}". Verifique sua lista de feeds.` }],
+      };
+    }
     try {
       // Validate input
       const validationErrors = await this.validateFeedInput(input);
@@ -48,27 +67,18 @@ export class FeedService {
         return { success: false, errors: validationErrors };
       }
 
-      // Check for duplicates
-      const existingFeed = await this.feedRepository.findByChatIdAndName(input.chatId, input.name);
-      if (existingFeed) {
-        return {
-          success: false,
-          errors: [{ field: 'name', message: 'Feed with this name already exists in this chat' }],
-        };
-      }
-
       // Determine RSS URL through conversion or direct use
       let rssUrl = input.rssUrl || input.url;
       let conversionInfo: { originalUrl: string; rssUrl: string; platform?: string } | undefined;
 
-      // If no explicit RSS URL provided, try URL conversion
+      // If no explicit RSS URL provided, try URL conversion and feed discovery
       if (!input.rssUrl) {
         // Check if URL is already in RSS format
         if (this.converterService.isRssUrl(input.url)) {
           rssUrl = input.url;
           logger.info(`URL is already in RSS format: ${input.url}`);
         } else {
-          // Attempt URL conversion
+          // First try URL conversion (for social media, etc.)
           const conversionResult = await this.converterService.convertUrl(input.url);
 
           if (conversionResult.success && conversionResult.rssUrl) {
@@ -82,11 +92,47 @@ export class FeedService {
               `URL converted successfully: ${input.url} -> ${rssUrl} (${conversionResult.platform})`
             );
           } else {
-            // Conversion failed, but we can still try to use the original URL as RSS
-            logger.warn(
-              `URL conversion failed for ${input.url}: ${conversionResult.error}. Using original URL as RSS.`
-            );
-            rssUrl = input.url;
+            // Conversion failed, try feed discovery
+            logger.info(`URL conversion failed, trying feed discovery for: ${input.url}`);
+            const discoveryResult = await this.discoverFeeds(input.url);
+
+            if (discoveryResult.success && discoveryResult.feeds.length > 0) {
+              // Use the best feed found
+              const bestFeed = discoveryResult.feeds[0];
+              if (bestFeed) {
+                // Check if the discovered feed URL is already in use
+                const currentFeeds = await this.listFeeds(input.chatId);
+                const duplicateDiscoveredUrl = currentFeeds.find(feed => 
+                  feed.url === bestFeed.url || feed.rssUrl === bestFeed.url
+                );
+                
+                if (duplicateDiscoveredUrl) {
+                  return {
+                    success: false,
+                    errors: [{ 
+                      field: 'url', 
+                      message: `O feed descoberto "${bestFeed.url}" já está sendo usado pelo feed "${duplicateDiscoveredUrl.name}".` 
+                    }],
+                  };
+                }
+                
+                rssUrl = bestFeed.url;
+                conversionInfo = {
+                  originalUrl: input.url,
+                  rssUrl: bestFeed.url,
+                  platform: `discovered-${bestFeed.source}`,
+                };
+                logger.info(
+                  `Feed discovered: ${input.url} -> ${rssUrl} (${bestFeed.type}, confidence: ${bestFeed.confidence})`
+                );
+              }
+            } else {
+              // Both conversion and discovery failed, use original URL as fallback
+              logger.warn(
+                `Both URL conversion and feed discovery failed for ${input.url}. Using original URL as RSS.`
+              );
+              rssUrl = input.url;
+            }
           }
         }
       }
@@ -250,6 +296,59 @@ export class FeedService {
    */
   getConverterService(): ConverterService {
     return this.converterService;
+  }
+
+  /**
+   * Discover available feeds from a website URL
+   */
+  async discoverFeeds(websiteUrl: string): Promise<{
+    success: boolean;
+    feeds: Array<{
+      url: string;
+      type: string;
+      title?: string;
+      confidence: number;
+      source: string;
+    }>;
+    errors: string[];
+  }> {
+    try {
+      logger.info(`Starting feed discovery for website: ${websiteUrl}`);
+
+      const discoveryResult = await FeedDiscovery.discoverFeeds(websiteUrl);
+
+      if (!discoveryResult.success) {
+        return {
+          success: false,
+          feeds: [],
+          errors: discoveryResult.errors,
+        };
+      }
+
+      // Convert to our format
+      const feeds = discoveryResult.feeds.map(feed => ({
+        url: feed.url,
+        type: feed.type,
+        title: feed.title,
+        confidence: feed.confidence,
+        source: feed.source,
+      }));
+
+      logger.info(`Feed discovery completed: found ${feeds.length} feeds for ${websiteUrl}`);
+
+      return {
+        success: true,
+        feeds,
+        errors: discoveryResult.errors,
+      };
+    } catch (error) {
+      logger.error('Error during feed discovery:', error);
+      return {
+        success: false,
+        feeds: [],
+        errors: [error instanceof Error ? error.message : 'Unknown error during discovery'],
+      };
+    }
   }
 
 

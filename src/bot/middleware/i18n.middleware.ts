@@ -17,7 +17,6 @@ const messages = {
     'help.title': '📚 *Available Commands:*',
     'help.feeds': '🔗 *Feed Management:*',
     'help.settings': '⚙️ *Settings:*',
-    'help.stats': '📊 *Statistics:*',
     'help.other': 'ℹ️ *Other:*',
     'help.developer': '👨‍💻 *Developer:* Pablo Murad - https://github.com/runawaydevil',
 
@@ -27,9 +26,9 @@ const messages = {
     'cmd.remove': '/remove <name> - Remove feed',
     'cmd.enable': '/enable <name> - Enable feed',
     'cmd.disable': '/disable <name> - Disable feed',
+    'cmd.discover': '/discover <url> - Discover feeds from website',
     'cmd.settings': '/settings - View chat settings',
     'cmd.filters': '/filters <name> - Manage feed filters',
-    'cmd.stats': '/stats - View usage statistics',
     'cmd.help': '/help - Show this message',
 
     // Error messages
@@ -159,7 +158,6 @@ const messages = {
     'help.title': '📚 *Comandos Disponíveis:*',
     'help.feeds': '🔗 *Gerenciamento de Feeds:*',
     'help.settings': '⚙️ *Configurações:*',
-    'help.stats': '📊 *Estatísticas:*',
     'help.other': 'ℹ️ *Outros:*',
     'help.developer': '👨‍💻 *Desenvolvedor:* Pablo Murad - https://github.com/runawaydevil',
 
@@ -169,9 +167,9 @@ const messages = {
     'cmd.remove': '/remover <nome> - Remover feed',
     'cmd.enable': '/habilitar <nome> - Habilitar feed',
     'cmd.disable': '/desabilitar <nome> - Desabilitar feed',
+    'cmd.discover': '/descobrir <url> - Descobrir feeds de um site',
     'cmd.settings': '/configuracoes - Ver configurações do chat',
     'cmd.filters': '/filtros <nome> - Gerenciar filtros do feed',
-    'cmd.stats': '/estatisticas - Ver estatísticas de uso',
     'cmd.help': '/ajuda - Mostrar esta mensagem',
 
     // Error messages

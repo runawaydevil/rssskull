@@ -1,5 +1,6 @@
 import { database } from '../../database/database.service.js';
 import { FeedService } from '../../services/feed.service.js';
+import { UrlNormalizer } from '../../utils/url-normalizer.js';
 import {
   BaseCommandHandler,
   type CommandContext,
@@ -32,8 +33,17 @@ export class AddFeedCommand extends BaseCommandHandler {
   protected async execute(ctx: CommandContext, args: [string, string]): Promise<void> {
     const [name, url] = args;
 
+    // Normalize URL first
+    let normalizedUrl: string;
+    try {
+      normalizedUrl = UrlNormalizer.normalizeUrl(url);
+    } catch (error) {
+      await ctx.reply('❌ **URL inválida:** Por favor, forneça uma URL válida.\n\n**Exemplos:**\n• `pablo.space`\n• `www.pablo.space`\n• `https://pablo.space`', { parse_mode: 'Markdown' });
+      return;
+    }
+
     // Auto-fix Reddit URLs by adding .rss if missing
-    const fixedUrl = this.fixRedditUrl(url);
+    const fixedUrl = this.fixRedditUrl(normalizedUrl);
 
     await ctx.reply(ctx.t('status.processing'));
 
@@ -44,39 +54,40 @@ export class AddFeedCommand extends BaseCommandHandler {
     });
 
     if (result.success) {
-      await ctx.reply(ctx.t('feed.added', { name }));
+      let message = `✅ **Feed adicionado com sucesso!**\n\n📝 **Nome:** ${name}`;
+      
+      // Add discovery/conversion info if available
+      if (result.conversionInfo) {
+        const { originalUrl, rssUrl, platform } = result.conversionInfo;
+        
+        if (platform?.startsWith('discovered-')) {
+          message += `\n🔍 **Descoberta automática:** Encontrei feeds em ${originalUrl}`;
+          message += `\n🔗 **Feed usado:** ${rssUrl}`;
+          message += `\n📊 **Fonte:** ${platform.replace('discovered-', '')}`;
+        } else if (platform) {
+          message += `\n🔄 **Conversão:** ${originalUrl} → ${rssUrl}`;
+          message += `\n🏷️ **Plataforma:** ${platform}`;
+        }
+      }
+      
+      message += `\n\n🎯 O feed será verificado automaticamente a cada 10 minutos.`;
+      
+      await ctx.reply(message, { parse_mode: 'Markdown' });
     } else {
       if (result.errors) {
-        for (const error of result.errors) {
-          if (error.field === 'name' && error.message.includes('already exists')) {
-            await ctx.reply(ctx.t('feed.already_exists', { name }));
-          } else {
-            await ctx.reply(
-              ctx.t('feed.validation_error', { field: error.field, message: error.message })
-            );
-          }
-        }
+        const errorMessages = result.errors.map(error => `• ${error.message}`).join('\n');
+        await ctx.reply(`❌ **Falha ao adicionar feed:**\n${errorMessages}`, { parse_mode: 'Markdown' });
       } else {
         await ctx.reply(ctx.t('error.internal'));
       }
     }
   }
 
-  /**
-   * Fix Reddit URLs by adding .rss if missing
-   */
   private fixRedditUrl(url: string): string {
-    // Check if it's a Reddit URL
-    if (url.includes('reddit.com/r/')) {
-      // Remove trailing slash if present
-      const cleanUrl = url.replace(/\/$/, '');
-      
-      // Check if it already ends with .rss
-      if (!cleanUrl.endsWith('.rss')) {
-        return `${cleanUrl}.rss`;
-      }
+    // Auto-fix Reddit URLs by adding .rss if missing
+    if (url.includes('reddit.com/r/') && !url.includes('.rss')) {
+      return url.endsWith('/') ? url + '.rss' : url + '/.rss';
     }
-    
     return url;
   }
 }
@@ -107,23 +118,20 @@ export class ListFeedsCommand extends BaseCommandHandler {
     const feeds = await this.feedService.listFeeds(ctx.chatIdString);
 
     if (feeds.length === 0) {
-      await ctx.reply(ctx.t('feed.list_empty'));
+      await ctx.reply(ctx.t('feed.empty'));
       return;
     }
 
     const feedList = feeds
-      .map((feed) => {
+      .map((feed, index) => {
         const status = feed.enabled ? '✅' : '❌';
-        return ctx.t('feed.list_item', {
-          status,
-          name: feed.name,
-          url: feed.url,
-        });
+        return `${index + 1}. ${status} **${feed.name}**\n   🔗 ${feed.url}`;
       })
-      .join('\n');
+      .join('\n\n');
 
-    const message = `${ctx.t('feed.list_title', { count: feeds.length })}\n\n${feedList}`;
-    await ctx.reply(message, { parse_mode: 'Markdown' });
+    await ctx.reply(`📋 **Your RSS Feeds (${feeds.length}):**\n\n${feedList}`, {
+      parse_mode: 'Markdown',
+    });
   }
 }
 
@@ -181,7 +189,7 @@ export class EnableFeedCommand extends BaseCommandHandler {
     const instance = new EnableFeedCommand();
     return {
       name: 'enable',
-      aliases: ['habilitar'],
+      aliases: ['ativar'],
       description: 'Enable an RSS feed',
       schema: CommandSchemas.singleString,
       handler: instance.validateAndExecute.bind(instance),
@@ -222,7 +230,7 @@ export class DisableFeedCommand extends BaseCommandHandler {
     const instance = new DisableFeedCommand();
     return {
       name: 'disable',
-      aliases: ['desabilitar'],
+      aliases: ['desativar'],
       description: 'Disable an RSS feed',
       schema: CommandSchemas.singleString,
       handler: instance.validateAndExecute.bind(instance),
@@ -244,6 +252,79 @@ export class DisableFeedCommand extends BaseCommandHandler {
       } else {
         await ctx.reply(ctx.t('error.internal'));
       }
+    }
+  }
+}
+
+/**
+ * Discover feeds command handler
+ */
+export class DiscoverFeedsCommand extends BaseCommandHandler {
+  private feedService: FeedService;
+
+  constructor() {
+    super();
+    this.feedService = new FeedService(database.client);
+  }
+
+  static create(): CommandHandler {
+    const instance = new DiscoverFeedsCommand();
+    return {
+      name: 'discover',
+      aliases: ['descobrir', 'find'],
+      description: 'Discover available feeds from a website',
+      schema: CommandSchemas.singleString,
+      handler: instance.validateAndExecute.bind(instance),
+    };
+  }
+
+  protected async execute(ctx: CommandContext, args: string[]): Promise<void> {
+    const [websiteUrl] = args;
+
+    if (!websiteUrl) {
+      await ctx.reply('❌ Please provide a website URL to discover feeds from.\n\n**Usage:** `/discover pablo.space` or `/discover https://pablo.space`');
+      return;
+    }
+
+    // Normalize URL first
+    let normalizedUrl: string;
+    try {
+      normalizedUrl = UrlNormalizer.normalizeUrl(websiteUrl);
+    } catch (error) {
+      await ctx.reply('❌ **URL inválida:** Por favor, forneça uma URL válida.\n\n**Exemplos:**\n• `pablo.space`\n• `www.pablo.space`\n• `https://pablo.space`', { parse_mode: 'Markdown' });
+      return;
+    }
+
+    try {
+      await ctx.reply('🔍 Discovering feeds... This may take a moment.');
+
+      const result = await this.feedService.discoverFeeds(normalizedUrl);
+
+      if (!result.success) {
+        await ctx.reply(`❌ Failed to discover feeds from ${normalizedUrl}\n\n**Errors:**\n${result.errors.join('\n')}`);
+        return;
+      }
+
+      if (result.feeds.length === 0) {
+        await ctx.reply(`❌ No feeds found on ${normalizedUrl}\n\nTry checking if the website has RSS/Atom feeds available.`);
+        return;
+      }
+
+      // Format the results - simplified
+      const feedList = result.feeds.map((feed, index) => {
+        const typeEmoji = feed.type === 'atom-1.0' ? '⚛️' : feed.type === 'rss-2.0' ? '📡' : '📄';
+        
+        return `${index + 1}. ${typeEmoji} **${feed.type.toUpperCase()}**\n` +
+               `   🔗 ${feed.url}` +
+               (feed.title ? `\n   📝 ${feed.title}` : '');
+      }).join('\n\n');
+
+      const message = `🎉 **Found ${result.feeds.length} feeds on ${normalizedUrl}:**\n\n${feedList}\n\n💡 **To add a feed, use:**\n\`/add feedname ${result.feeds[0]?.url || ''}\``;
+
+      await ctx.reply(message, { parse_mode: 'Markdown' });
+
+    } catch (error) {
+      await ctx.reply('❌ An error occurred while discovering feeds. Please try again.');
     }
   }
 }
