@@ -127,6 +127,24 @@ export class FeedQueueService {
   }
 
   /**
+   * Clear all jobs from both queues (for reset operations)
+   */
+  async clearAllQueues(): Promise<void> {
+    try {
+      // Clear the feed check queue
+      await this.feedCheckQueue.obliterate({ force: true });
+      logger.info('Cleared feed check queue');
+      
+      // Clear the message send queue  
+      await this.messageSendQueue.obliterate({ force: true });
+      logger.info('Cleared message send queue');
+    } catch (error) {
+      logger.error('Failed to clear queues:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Close the service
    */
   async close(): Promise<void> {

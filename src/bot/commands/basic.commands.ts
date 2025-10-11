@@ -211,16 +211,8 @@ export class ResetCommand extends BaseCommandHandler {
 
       // Clear all job queues to remove orphaned jobs
       try {
-        const { FeedQueueService } = await import('../../jobs/feed-queue.service.js');
-        const feedQueueService = new FeedQueueService();
-        
-        // Clear the feed check queue
-        await feedQueueService.feedCheckQueue.obliterate({ force: true });
-        logger.info('Cleared feed check queue');
-        
-        // Clear the message send queue  
-        await feedQueueService.messageSendQueue.obliterate({ force: true });
-        logger.info('Cleared message send queue');
+        const { feedQueueService } = await import('../../jobs/feed-queue.service.js');
+        await feedQueueService.clearAllQueues();
       } catch (error) {
         logger.error('Failed to clear job queues:', error);
         // Don't fail the entire reset if queue clearing fails
