@@ -160,6 +160,15 @@ export class FeedService {
         return { success: false, message: 'Feed not found' };
       }
 
+      // Remove recurring feed check job from queue
+      try {
+        await feedQueueService.removeRecurringFeedCheck(feed.id);
+        logger.info(`Removed recurring job for feed ${feed.id}`);
+      } catch (error) {
+        logger.warn(`Failed to remove recurring job for feed ${feed.id}:`, error);
+        // Don't fail the entire operation if job removal fails
+      }
+
       await this.feedRepository.delete(feed.id);
       logger.info(`Feed removed successfully: ${name} (${feed.id})`);
 

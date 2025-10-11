@@ -209,6 +209,23 @@ export class ResetCommand extends BaseCommandHandler {
       // Delete ALL statistics
       const deletedStats = await database.client.statistic.deleteMany({});
 
+      // Clear all job queues to remove orphaned jobs
+      try {
+        const { FeedQueueService } = await import('../../jobs/feed-queue.service.js');
+        const feedQueueService = new FeedQueueService();
+        
+        // Clear the feed check queue
+        await feedQueueService.feedCheckQueue.obliterate({ force: true });
+        logger.info('Cleared feed check queue');
+        
+        // Clear the message send queue  
+        await feedQueueService.messageSendQueue.obliterate({ force: true });
+        logger.info('Cleared message send queue');
+      } catch (error) {
+        logger.error('Failed to clear job queues:', error);
+        // Don't fail the entire reset if queue clearing fails
+      }
+
       await database.disconnect();
 
       logger.info('FULL DATABASE RESET executed successfully', {
@@ -221,7 +238,7 @@ export class ResetCommand extends BaseCommandHandler {
         deletedStats: deletedStats.count,
       });
 
-      await ctx.reply(`✅ FULL RESET COMPLETED!\n\n📊 Data removed from ENTIRE database:\n• ${deletedFeeds.count} feeds\n• ${deletedFilters.count} filters\n• ${deletedSettings.count} settings\n• ${deletedStats.count} statistics\n\n🗑️ Database completely cleaned!`);
+      await ctx.reply(`✅ FULL RESET COMPLETED!\n\n📊 Data removed from ENTIRE database:\n• ${deletedFeeds.count} feeds\n• ${deletedFilters.count} filters\n• ${deletedSettings.count} settings\n• ${deletedStats.count} statistics\n\n🗑️ Database completely cleaned!\n🔄 Job queues cleared to prevent orphaned jobs`);
     } catch (error) {
       logger.error('Error in FULL DATABASE RESET command:', error);
       await ctx.reply('❌ Internal error executing full reset.');
