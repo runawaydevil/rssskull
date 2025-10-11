@@ -5,6 +5,21 @@ All notable changes to RSS Skull Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.02.3] - 2025-01-11
+
+### Fixed
+- **Reddit Content Formatting**: Improved parsing of Reddit feed content
+  - Fixed HTML entities decoding (&#32;, &#160;, etc.)
+  - Removed Reddit-specific footer text ("submitted by /u/username [link] [comments]")
+  - Better text normalization and space handling
+  - Cleaner content display in messages
+- **Default Timezone**: Changed from UTC to America/Sao_Paulo (Brazil)
+  - New chats will default to Brazilian timezone
+  - Existing chats can change via /settings timezone
+- **Reddit Check Interval**: Updated from 15 to 10 minutes
+  - Better alignment with rate limiting (3 requests per 10 minutes)
+  - More frequent checks while respecting Reddit limits
+
 ## [0.02.2] - 2025-01-11
 
 ### Fixed

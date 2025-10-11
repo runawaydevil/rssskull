@@ -8,8 +8,8 @@ import { logger } from './utils/logger/logger.service.js';
 
 async function bootstrap() {
   try {
-    // Set bot startup time for feed processing
-    process.env.BOT_STARTUP_TIME = Date.now().toString();
+    // Set bot startup time for feed processing (ISO string format)
+    process.env.BOT_STARTUP_TIME = new Date().toISOString();
     
     logger.info('🚀 Starting RSS Skull Bot v0.01 (FULL BOT MODE)...');
     console.log('🚀 Starting RSS Skull Bot v0.01 (FULL BOT MODE)...');

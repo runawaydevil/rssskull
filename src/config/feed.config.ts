@@ -31,7 +31,7 @@ export const FEED_DOMAIN_CONFIGS: Record<string, FeedDomainConfig> = {
       windowMs: 600000, // 10 minutes (600 seconds)
       minDelayMs: 200000, // 200 seconds (3min20s) minimum between requests
     },
-    checkIntervalMinutes: 15, // Check every 15 minutes
+    checkIntervalMinutes: 10, // Check every 10 minutes (matches rate limit window)
     description: 'Reddit feeds (strict rate limiting)',
     flags: {
       requiresUserAgent: true,

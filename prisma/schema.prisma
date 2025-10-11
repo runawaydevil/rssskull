@@ -46,7 +46,7 @@ model ChatSettings {
   maxFeeds         Int      @default(50)
   enableFilters    Boolean  @default(true)
   messageTemplate  String?
-  timezone         String   @default("UTC")
+  timezone         String   @default("America/Sao_Paulo")
   
         // Security settings (user configurable)
         rateLimitEnabled Boolean  @default(true)

@@ -48,7 +48,7 @@ export class SettingsService {
           checkInterval: 120, // 2 minutes max
           maxFeeds: 50,
           enableFilters: true,
-          timezone: 'UTC',
+          timezone: 'America/Sao_Paulo',
           // Security defaults
         rateLimitEnabled: true,
         maxRequestsPerMinute: 3,
@@ -68,7 +68,7 @@ export class SettingsService {
           checkInterval: 120, // 2 minutes max
           maxFeeds: 50,
           enableFilters: true,
-          timezone: 'UTC',
+          timezone: 'America/Sao_Paulo',
           // Security defaults
         rateLimitEnabled: true,
         maxRequestsPerMinute: 3,

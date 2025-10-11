@@ -238,7 +238,42 @@ export class RSSService {
         return todayItems;
       }
       
-      const botStartupTime = new Date(process.env.BOT_STARTUP_TIME || Date.now());
+      // Try multiple approaches to parse BOT_STARTUP_TIME with fallback
+      let botStartupTime: Date;
+      const startupTimeStr = process.env.BOT_STARTUP_TIME;
+      
+      if (startupTimeStr) {
+        // First try: Use our parseDate function (handles ISO strings)
+        const parsedStartupTime = parseDate(startupTimeStr);
+        if (parsedStartupTime) {
+          botStartupTime = parsedStartupTime;
+          logger.debug(`BOT_STARTUP_TIME parsed successfully with parseDate: ${startupTimeStr} -> ${botStartupTime.toISOString()}`);
+        } else {
+          // Second try: Direct Date constructor (handles timestamps)
+          try {
+            botStartupTime = new Date(startupTimeStr);
+            if (isNaN(botStartupTime.getTime())) {
+              throw new Error('Invalid date');
+            }
+            logger.debug(`BOT_STARTUP_TIME parsed successfully with new Date: ${startupTimeStr} -> ${botStartupTime.toISOString()}`);
+          } catch (error) {
+            // Third try: Parse as timestamp (number)
+            const timestamp = parseInt(startupTimeStr, 10);
+            if (!isNaN(timestamp)) {
+              botStartupTime = new Date(timestamp);
+              logger.debug(`BOT_STARTUP_TIME parsed successfully as timestamp: ${startupTimeStr} -> ${botStartupTime.toISOString()}`);
+            } else {
+              // Final fallback: Current time
+              botStartupTime = new Date();
+              logger.warn(`BOT_STARTUP_TIME failed to parse, using current time: ${startupTimeStr}`);
+            }
+          }
+        }
+      } else {
+        // No BOT_STARTUP_TIME set, use current time
+        botStartupTime = new Date();
+        logger.debug('No BOT_STARTUP_TIME set, using current time');
+      }
       logger.info(`Bot startup time: ${botStartupTime.toISOString()}`);
       
       const startupItems = items.filter(item => {
@@ -439,7 +474,7 @@ export class RSSService {
     const content = item.content || item.contentSnippet || item.summary || '';
     let extractedContent = '';
 
-    // Extract text content (remove HTML tags but keep structure)
+    // Extract text content (remove HTML tags and decode entities)
     const textContent = content
       .replace(/<[^>]*>/g, '') // Remove HTML tags
       .replace(/&nbsp;/g, ' ')
@@ -448,6 +483,19 @@ export class RSSService {
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
+      .replace(/&#32;/g, ' ') // Space entity
+      .replace(/&#160;/g, ' ') // Non-breaking space
+      .replace(/&#8217;/g, "'") // Right single quotation mark
+      .replace(/&#8216;/g, "'") // Left single quotation mark
+      .replace(/&#8220;/g, '"') // Left double quotation mark
+      .replace(/&#8221;/g, '"') // Right double quotation mark
+      .replace(/&#8211;/g, '–') // En dash
+      .replace(/&#8212;/g, '—') // Em dash
+      .replace(/&#8230;/g, '…') // Horizontal ellipsis
+      .replace(/&hellip;/g, '…') // Horizontal ellipsis
+      .replace(/&mdash;/g, '—') // Em dash
+      .replace(/&ndash;/g, '–') // En dash
+      .replace(/\s+/g, ' ') // Normalize multiple spaces
       .trim();
 
     // Extract images from Reddit content
@@ -460,12 +508,23 @@ export class RSSService {
 
     // Build enhanced content
     if (textContent && textContent.length > 10) {
-      extractedContent += textContent;
+      // Clean up Reddit-specific formatting
+      let cleanContent = textContent
+        .replace(/submitted by\s+\/u\/\w+\s+\[link\]\s+\[comments\]/gi, '') // Remove Reddit footer
+        .replace(/submitted by\s+\/u\/\w+/gi, '') // Remove author info
+        .replace(/\[link\]\s*\[comments\]/gi, '') // Remove link/comments
+        .replace(/\s+/g, ' ') // Normalize spaces
+        .trim();
+      
+      if (cleanContent && cleanContent.length > 5) {
+        extractedContent += cleanContent;
+      }
     }
 
     // Add images
     if (images.length > 0) {
-      extractedContent += '\n\n🖼️ **Imagens:**\n';
+      if (extractedContent) extractedContent += '\n\n';
+      extractedContent += '🖼️ **Imagens:**\n';
       images.slice(0, 3).forEach((img: string) => {
         extractedContent += `• ${img}\n`;
       });
@@ -473,7 +532,8 @@ export class RSSService {
 
     // Add videos
     if (videos.length > 0) {
-      extractedContent += '\n\n🎥 **Vídeos:**\n';
+      if (extractedContent) extractedContent += '\n\n';
+      extractedContent += '🎥 **Vídeos:**\n';
       videos.slice(0, 2).forEach((video: string) => {
         extractedContent += `• ${video}\n`;
       });
