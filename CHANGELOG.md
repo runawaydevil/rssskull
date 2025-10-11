@@ -5,6 +5,14 @@ All notable changes to RSS Skull Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.02.1] - 2025-01-11
+
+### Fixed
+- **Reddit Rate Limiting**: Updated to 3 requests per 10 minutes (200 seconds between requests)
+  - More conservative rate limiting to prevent Reddit blocking
+  - Balanced distribution: 600 seconds ÷ 3 requests = 200 seconds interval
+  - Updated default security settings to reflect new limits
+
 ## [0.02.0] - 2025-01-11
 
 ### Added

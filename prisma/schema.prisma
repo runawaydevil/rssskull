@@ -48,10 +48,10 @@ model ChatSettings {
   messageTemplate  String?
   timezone         String   @default("UTC")
   
-  // Security settings (user configurable)
-  rateLimitEnabled Boolean  @default(true)
-  maxRequestsPerMinute Int  @default(30)
-  minDelayMs       Int      @default(1000)
+        // Security settings (user configurable)
+        rateLimitEnabled Boolean  @default(true)
+        maxRequestsPerMinute Int  @default(3)
+        minDelayMs       Int      @default(200000)
   cacheEnabled     Boolean  @default(true)
   cacheTTLMinutes  Int      @default(20)
   retryEnabled     Boolean  @default(true)

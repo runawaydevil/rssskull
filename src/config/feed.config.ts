@@ -27,9 +27,9 @@ export const FEED_DOMAIN_CONFIGS: Record<string, FeedDomainConfig> = {
   // Reddit - Very strict rate limiting
   'reddit.com': {
     rateLimit: {
-      maxRequests: 5, // Very conservative
-      windowMs: 60000, // 1 minute
-      minDelayMs: 5000, // 5 seconds minimum between requests
+      maxRequests: 3, // 3 requests per 10 minutes
+      windowMs: 600000, // 10 minutes (600 seconds)
+      minDelayMs: 200000, // 200 seconds (3min20s) minimum between requests
     },
     checkIntervalMinutes: 15, // Check every 15 minutes
     description: 'Reddit feeds (strict rate limiting)',
