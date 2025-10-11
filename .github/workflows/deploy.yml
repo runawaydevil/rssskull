@@ -106,7 +106,7 @@ jobs:
       with:
         status: ${{ job.status }}
         channel: '#deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
         fields: repo,message,commit,author,action,eventName,ref,workflow
         text: |
           RSS Skull Bot deployment to ${{ github.event.inputs.environment || 'production' }} ${{ job.status }}!
@@ -203,7 +203,7 @@ jobs:
       with:
         status: 'warning'
         channel: '#deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
         text: |
           🔄 RSS Skull Bot deployment was rolled back due to health check failure!
           

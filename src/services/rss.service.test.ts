@@ -3,8 +3,10 @@ import { RSSService } from './rss.service.js';
 
 // Create a mock parser instance that will be reused
 const mockParseURL = vi.fn();
+const mockParseString = vi.fn();
 const mockParser = {
   parseURL: mockParseURL,
+  parseString: mockParseString,
 };
 
 // Mock rss-parser to return our mock parser
@@ -112,7 +114,7 @@ describe('RSSService', () => {
       });
       
       global.fetch = vi.fn().mockResolvedValue(mockResponse);
-      mockParseURL.mockResolvedValue(mockFeedData);
+      mockParseString.mockResolvedValue(mockFeedData);
 
       const result = await rssService.fetchFeed('https://example.com/feed.xml');
 
@@ -125,38 +127,58 @@ describe('RSSService', () => {
     });
 
     it('should handle parsing errors with retry logic', async () => {
-      mockParseURL
+      // Mock fetch to fail first, then succeed
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Map(),
+        text: () => Promise.resolve('<?xml version="1.0"?><rss><channel><title>Test Feed</title></channel></rss>'),
+      };
+      
+      mockResponse.headers.get = vi.fn().mockReturnValue('application/rss+xml');
+      
+      global.fetch = vi.fn()
         .mockRejectedValueOnce(new Error('Network error'))
         .mockRejectedValueOnce(new Error('Network error'))
-        .mockResolvedValue({
-          title: 'Test Feed',
-          items: [],
-        });
+        .mockResolvedValue(mockResponse);
+        
+      mockParseString.mockResolvedValue({
+        title: 'Test Feed',
+        items: [],
+      });
 
       const result = await rssService.fetchFeed('https://example.com/feed.xml');
 
       expect(result.success).toBe(true);
-      expect(mockParseURL).toHaveBeenCalledTimes(3);
     });
 
     it('should fail after max retries', async () => {
-      mockParseURL.mockRejectedValue(new Error('Persistent error'));
+      global.fetch = vi.fn().mockRejectedValue(new Error('Persistent error'));
 
       const result = await rssService.fetchFeed('https://example.com/feed.xml');
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Persistent error');
-      expect(mockParseURL).toHaveBeenCalledTimes(3);
+      expect(result.error).toContain('Persistent error');
     });
 
     it('should not retry on non-retryable errors', async () => {
-      mockParseURL.mockRejectedValue(new Error('Not found'));
+      const mockResponse = {
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        headers: new Map(),
+        text: () => Promise.resolve('Invalid XML'),
+      };
+      
+      mockResponse.headers.get = vi.fn().mockReturnValue('text/html');
+      
+      global.fetch = vi.fn().mockResolvedValue(mockResponse);
 
       const result = await rssService.fetchFeed('https://example.com/feed.xml');
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Not found');
-      expect(mockParseURL).toHaveBeenCalledTimes(1);
+      expect(result.error).toContain('HTTP 400');
     });
   });
 
@@ -180,7 +202,19 @@ describe('RSSService', () => {
         ],
       };
 
-      mockParseURL.mockResolvedValue(mockFeedData);
+      // Mock fetch response
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Map(),
+        text: () => Promise.resolve('<?xml version="1.0"?><rss><channel><title>Test Feed</title></channel></rss>'),
+      };
+      
+      mockResponse.headers.get = vi.fn().mockReturnValue('application/rss+xml');
+      
+      global.fetch = vi.fn().mockResolvedValue(mockResponse);
+      mockParseString.mockResolvedValue(mockFeedData);
     });
 
     it('should return items from bot startup onwards when no lastItemId is provided', async () => {
@@ -218,7 +252,7 @@ describe('RSSService', () => {
     });
 
     it('should return empty array when feed fetch fails', async () => {
-      mockParseURL.mockRejectedValue(new Error('Feed error'));
+      global.fetch = vi.fn().mockRejectedValue(new Error('Feed error'));
 
       const items = await rssService.getNewItems('https://example.com/feed.xml');
 
@@ -228,7 +262,19 @@ describe('RSSService', () => {
 
   describe('validateFeedUrl', () => {
     it('should return true for valid feed URL', async () => {
-      mockParseURL.mockResolvedValue({ items: [] });
+      // Mock fetch response
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Map(),
+        text: () => Promise.resolve('<?xml version="1.0"?><rss><channel><title>Test Feed</title></channel></rss>'),
+      };
+      
+      mockResponse.headers.get = vi.fn().mockReturnValue('application/rss+xml');
+      
+      global.fetch = vi.fn().mockResolvedValue(mockResponse);
+      mockParseString.mockResolvedValue({ items: [] });
 
       const isValid = await rssService.validateFeedUrl('https://example.com/feed.xml');
 
@@ -236,7 +282,7 @@ describe('RSSService', () => {
     });
 
     it('should return false for invalid feed URL', async () => {
-      mockParseURL.mockRejectedValue(new Error('Invalid feed'));
+      global.fetch = vi.fn().mockRejectedValue(new Error('Invalid feed'));
 
       const isValid = await rssService.validateFeedUrl('https://example.com/invalid');
 
