@@ -17,7 +17,7 @@ describe('URL Converter Integration', () => {
 
       expect(result.success).toBe(true);
       expect(result.originalUrl).toBe('https://reddit.com/r/programming');
-      expect(result.rssUrl).toBe('https://www.reddit.com/r/programming.rss');
+      expect(result.rssUrl).toBe('https://old.reddit.com/r/programming/.rss');
       expect(result.platform).toBe('reddit');
     });
 
@@ -33,7 +33,7 @@ describe('URL Converter Integration', () => {
       const result = await service.convertUrl('https://reddit.com/u/testuser');
 
       expect(result.success).toBe(true);
-      expect(result.rssUrl).toBe('https://www.reddit.com/u/testuser.rss');
+      expect(result.rssUrl).toBe('https://old.reddit.com/u/testuser/.rss');
       expect(result.platform).toBe('reddit');
     });
 

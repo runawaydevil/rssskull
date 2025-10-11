@@ -5,6 +5,51 @@ All notable changes to RSS Skull Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.02.0] - 2025-01-11
+
+### Added
+- **Atom 1.0 Support**: Full RFC 4287 compliance for Reddit feeds
+  - Support for `<updated>` and `<published>` date fields (ISO 8601)
+  - Support for `<content>` and `<summary>` content fields
+  - Support for `<author><name>` and `<author><email>` author fields
+  - Support for `<subtitle>` feed description field
+- **Enhanced Date Parsing**: Improved date validation and parsing
+  - Specific handling for Atom 1.0 ISO 8601 format (`2025-10-11T03:30:00Z`)
+  - Better error handling for invalid date formats
+  - Debug logging for date parsing operations
+- **Feed Type Detection**: Automatic detection of feed format
+  - Atom 1.0 detection via `xmlns="http://www.w3.org/2005/Atom"`
+  - RSS 2.0 detection via `<rss>` or `<channel>` elements
+  - Debug logging for feed format identification
+- **Conditional HTTP Caching**: Bandwidth optimization
+  - Support for `If-None-Match` (ETag) headers
+  - Support for `If-Modified-Since` headers
+  - Detection of `304 Not Modified` responses
+  - Cache entry storage with conditional headers
+
+### Changed
+- **Reddit URL Format**: Updated to use `old.reddit.com` for better compatibility
+  - Subreddit URLs: `https://old.reddit.com/r/subreddit/.rss`
+  - User URLs: `https://old.reddit.com/u/username/.rss`
+- **User-Agent**: Specific Reddit user-agent for better compliance
+  - `PortalIdeaFeedBot/1.0 (+https://portalidea.com.br)`
+- **Accept Headers**: Prioritize Atom over RSS
+  - `application/atom+xml, application/rss+xml, text/xml;q=0.9, */*;q=0.8`
+- **Content Validation**: Enhanced validation for XML feeds
+  - Reject HTML responses (error pages, redirects)
+  - Validate Content-Type headers
+  - Better error messages for invalid feeds
+
+### Fixed
+- **"Invalid time value" Error**: Resolved date parsing issues with Reddit feeds
+  - Proper handling of Atom 1.0 date formats
+  - Fallback chain: `isoDate` → `updated` → `published` → `pubDate`
+  - Robust date validation with `Date.parse()`
+- **Feed Processing**: Improved content extraction
+  - Better handling of Atom `<content>` vs RSS `<description>`
+  - Enhanced Reddit content extraction with images and videos
+  - Proper author field extraction for both formats
+
 ## [0.01.0] - 2025-01-10
 
 ### Added

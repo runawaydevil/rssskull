@@ -17,7 +17,7 @@ export interface TemplateValidationError {
 
 export class TemplateService {
   private static readonly DEFAULT_TEMPLATE =
-    '🔗 *{{title}}*\n\n{{description}}\n\n[Link]({{link}})';
+    '🔥 *{{title}}*\n\n{{description}}\n\n🔗 [Link]({{link}})';
 
   private static readonly AVAILABLE_VARIABLES = [
     'title',
@@ -243,17 +243,17 @@ export class TemplateService {
         name: 'Detailed',
         description: 'Full information including author and date',
         template:
-          '📰 **{{title}}**\n\n{{description}}\n\n👤 Author: {{author}}\n📅 Published: {{pubDate}}\n🏷️ Categories: {{categories}}\n\n[Link]({{link}})',
+          '📰 **{{title}}**\n\n{{description}}\n\n👤 Author: {{author}}\n📅 Published: {{pubDate}}\n🏷️ Categories: {{categories}}\n\n🔗 [Link]({{link}})',
       },
       {
         name: 'Feed-focused',
         description: 'Emphasizes the feed source',
-        template: '📡 **{{feedName}}**\n\n🔗 {{title}}\n{{description}}\n\n[Link]({{link}})',
+        template: '📡 **{{feedName}}**\n\n🔥 {{title}}\n{{description}}\n\n🔗 [Link]({{link}})',
       },
       {
         name: 'Compact',
         description: 'Single line format',
-        template: '📰 {{title}} - [Link]({{link}}) ({{feedName}})',
+        template: '🔥 {{title}} - 🔗 [Link]({{link}}) ({{feedName}})',
       },
     ];
   }

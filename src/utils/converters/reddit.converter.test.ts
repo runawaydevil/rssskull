@@ -35,17 +35,17 @@ describe('RedditConverter', () => {
   describe('convert', () => {
     it('should convert subreddit URLs to RSS format', async () => {
       const result = await converter.convert('https://reddit.com/r/programming');
-      expect(result).toBe('https://www.reddit.com/r/programming.rss');
+      expect(result).toBe('https://old.reddit.com/r/programming/.rss');
     });
 
     it('should convert user URLs to RSS format', async () => {
       const result = await converter.convert('https://reddit.com/u/testuser');
-      expect(result).toBe('https://www.reddit.com/u/testuser.rss');
+      expect(result).toBe('https://old.reddit.com/u/testuser/.rss');
     });
 
     it('should handle URLs with query parameters', async () => {
       const result = await converter.convert('https://reddit.com/r/programming?sort=hot');
-      expect(result).toBe('https://www.reddit.com/r/programming.rss');
+      expect(result).toBe('https://old.reddit.com/r/programming/.rss');
     });
 
     it('should throw ConversionError for invalid URLs', async () => {

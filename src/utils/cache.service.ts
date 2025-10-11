@@ -8,6 +8,8 @@ export interface CacheEntry {
   ttl: number; // Time to live in milliseconds
   hitCount: number;
   lastAccess: number;
+  etag?: string;
+  lastModified?: string;
 }
 
 export interface CacheStats {
@@ -90,6 +92,13 @@ export class CacheService {
    * Store feed in cache with appropriate TTL
    */
   set(url: string, feed: RSSFeed): void {
+    this.setWithHeaders(url, feed);
+  }
+
+  /**
+   * Store feed in cache with conditional headers
+   */
+  setWithHeaders(url: string, feed: RSSFeed, headers?: { etag?: string; lastModified?: string }): void {
     const now = Date.now();
     const ttl = this.getTTLForUrl(url);
     
@@ -100,6 +109,8 @@ export class CacheService {
       ttl,
       hitCount: 0,
       lastAccess: now,
+      etag: headers?.etag,
+      lastModified: headers?.lastModified,
     };
 
     this.cache.set(url, entry);
@@ -107,13 +118,56 @@ export class CacheService {
     logger.debug(`Cache SET: ${this.extractDomain(url)}`, { 
       url, 
       ttl: ttl / 1000 / 60, // TTL in minutes
-      itemCount: feed.items.length 
+      itemCount: feed.items.length,
+      etag: headers?.etag,
+      lastModified: headers?.lastModified
     });
 
     // Cleanup old entries periodically
     if (this.cache.size % 50 === 0) {
       this.cleanup();
     }
+  }
+
+  /**
+   * Get cache entry with conditional headers
+   */
+  getEntry(url: string): CacheEntry | null {
+    const entry = this.cache.get(url);
+    
+    if (!entry) {
+      this.stats.misses++;
+      logger.debug(`Cache MISS: ${this.extractDomain(url)}`, { url });
+      return null;
+    }
+
+    // Check if expired
+    const now = Date.now();
+    if (now - entry.timestamp > entry.ttl) {
+      this.cache.delete(url);
+      this.stats.misses++;
+      logger.debug(`Cache EXPIRED: ${this.extractDomain(url)}`, { 
+        url, 
+        age: now - entry.timestamp,
+        ttl: entry.ttl 
+      });
+      return null;
+    }
+
+    // Update access stats
+    entry.hitCount++;
+    entry.lastAccess = now;
+    this.stats.hits++;
+
+    logger.debug(`Cache HIT: ${this.extractDomain(url)}`, { 
+      url, 
+      age: now - entry.timestamp,
+      hitCount: entry.hitCount,
+      etag: entry.etag,
+      lastModified: entry.lastModified
+    });
+
+    return entry;
   }
 
   /**
@@ -205,6 +259,13 @@ export class CacheService {
     if (removedCount > 0) {
       logger.info(`Cache cleanup: removed ${removedCount} entries, ${this.cache.size} remaining`);
     }
+  }
+
+  /**
+   * Get all cache entries (for debugging/testing)
+   */
+  getAllEntries(): CacheEntry[] {
+    return Array.from(this.cache.values());
   }
 
   /**

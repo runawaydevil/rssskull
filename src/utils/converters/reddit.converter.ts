@@ -53,14 +53,14 @@ export class RedditConverter implements URLConverter {
       const subredditMatch = url.match(this.SUBREDDIT_PATTERN);
       if (subredditMatch) {
         const subredditName = subredditMatch[1];
-        return `https://www.reddit.com/r/${subredditName}.rss`;
+        return `https://old.reddit.com/r/${subredditName}/.rss`;
       }
 
       // Check for user pattern
       const userMatch = url.match(this.USER_PATTERN);
       if (userMatch) {
         const username = userMatch[1];
-        return `https://www.reddit.com/u/${username}.rss`;
+        return `https://old.reddit.com/u/${username}/.rss`;
       }
 
       throw new ConversionError('URL does not match expected Reddit patterns', url, this.platform);

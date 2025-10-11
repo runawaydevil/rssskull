@@ -71,7 +71,7 @@ describe('ConverterService', () => {
 
       expect(result.success).toBe(true);
       expect(result.platform).toBe('reddit');
-      expect(result.rssUrl).toBe('https://www.reddit.com/r/programming.rss');
+      expect(result.rssUrl).toBe('https://old.reddit.com/r/programming/.rss');
     });
 
     it('should handle invalid URLs', async () => {

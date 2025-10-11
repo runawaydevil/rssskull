@@ -46,12 +46,12 @@ export class RSSService {
    */
   async fetchFeed(url: string): Promise<ParseResult> {
     // Check cache first
-    const cachedFeed = cacheService.get(url);
-    if (cachedFeed) {
-      logger.debug(`Using cached RSS feed: ${url} (${cachedFeed.items.length} items)`);
+    const cachedEntry = cacheService.getEntry(url);
+    if (cachedEntry) {
+      logger.debug(`Using cached RSS feed: ${url} (${cachedEntry.feed.items.length} items)`);
       return {
         success: true,
-        feed: cachedFeed,
+        feed: cachedEntry.feed,
       };
     }
 
@@ -76,17 +76,89 @@ export class RSSService {
         // Get realistic browser headers with User-Agent rotation
         const browserHeaders = userAgentService.getHeaders(url);
         
-        // Create a parser instance with realistic browser headers
+        // Add conditional headers if available (get fresh cache entry for this attempt)
+        const currentCachedEntry = cacheService.getEntry(url);
+        if (currentCachedEntry) {
+          if (currentCachedEntry.etag) {
+            browserHeaders['If-None-Match'] = currentCachedEntry.etag;
+          }
+          if (currentCachedEntry.lastModified) {
+            browserHeaders['If-Modified-Since'] = currentCachedEntry.lastModified;
+          }
+        }
+        
+        // Use fetch API to get response headers for conditional caching
+        const response = await fetch(url, {
+          headers: browserHeaders,
+          signal: AbortSignal.timeout(10000),
+        });
+
+        // Check if we got a 304 Not Modified response
+        if (response.status === 304) {
+          logger.debug(`Received 304 Not Modified for ${url}, using cached feed`);
+          if (currentCachedEntry) {
+            return {
+              success: true,
+              feed: currentCachedEntry.feed,
+            };
+          }
+        }
+
+        // Validate response status
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        // Validate content type
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/atom+xml') && 
+            !contentType.includes('application/rss+xml') && 
+            !contentType.includes('text/xml') &&
+            !contentType.includes('application/xml')) {
+          logger.warn(`Invalid content type for ${url}: ${contentType}`);
+          throw new Error(`Invalid content type: ${contentType}. Expected XML feed.`);
+        }
+
+        // Extract response headers for conditional caching
+        const responseHeaders: { etag?: string; lastModified?: string } = {};
+        const etag = response.headers.get('etag');
+        const lastModified = response.headers.get('last-modified');
+        
+        if (etag) {
+          responseHeaders.etag = etag;
+        }
+        if (lastModified) {
+          responseHeaders.lastModified = lastModified;
+        }
+
+        // Parse the response text with rss-parser
+        const responseText = await response.text();
+        
+        // Check if response is HTML (likely an error page)
+        if (responseText.trim().startsWith('<!DOCTYPE html') || 
+            responseText.trim().startsWith('<html')) {
+          logger.warn(`Received HTML instead of XML feed for ${url}`);
+          throw new Error('Received HTML page instead of XML feed. Possible redirect or error page.');
+        }
+
+        // Log feed type detection
+        if (responseText.includes('xmlns="http://www.w3.org/2005/Atom"')) {
+          logger.debug(`Detected Atom 1.0 feed: ${url}`);
+        } else if (responseText.includes('<rss') || responseText.includes('<channel')) {
+          logger.debug(`Detected RSS 2.0 feed: ${url}`);
+        } else {
+          logger.debug(`Unknown feed format: ${url}`);
+        }
         const domainParser = new Parser({
           timeout: 10000,
           headers: browserHeaders,
         });
 
-        const feed = await domainParser.parseURL(url);
+        const feed = await domainParser.parseString(responseText);
         const processedFeed = this.processFeed(feed);
-
-        // Cache the successful result
-        cacheService.set(url, processedFeed);
+        
+        // Cache the successful result with conditional headers
+        cacheService.setWithHeaders(url, processedFeed, responseHeaders);
 
         logger.debug(`Successfully parsed RSS feed: ${url} (${processedFeed.items.length} items)`);
 
@@ -244,7 +316,8 @@ export class RSSService {
   }
 
   /**
-   * Process raw RSS feed data into our standardized format
+   * Process raw feed data into our standardized format
+   * Handles both RSS 2.0 and Atom 1.0 formats
    */
   private processFeed(rawFeed: any): RSSFeed {
     const items: RSSItem[] = (rawFeed.items || []).map((item: any) => {
@@ -254,13 +327,22 @@ export class RSSService {
       // Extract original link from Reddit posts
       const originalLink = this.extractOriginalLink(item);
 
+      // Handle Atom 1.0 vs RSS 2.0 date fields
+      const pubDate = this.extractItemDate(item);
+
+      // Handle Atom 1.0 vs RSS 2.0 author fields
+      const author = this.extractItemAuthor(item);
+
+      // Handle Atom 1.0 vs RSS 2.0 content fields
+      const description = this.extractItemContent(item);
+
       return {
         id,
         title: this.sanitizeText(item.title || 'Untitled'),
         link: originalLink || item.link || '',
-        description: this.sanitizeText(item.contentSnippet || item.content || item.summary || ''),
-        pubDate: parseDate(item.pubDate),
-        author: this.sanitizeText(item.creator || item.author || ''),
+        description: description,
+        pubDate: pubDate,
+        author: author,
         categories: item.categories || [],
         guid: item.guid || item.id,
       };
@@ -268,10 +350,136 @@ export class RSSService {
 
     return {
       title: this.sanitizeText(rawFeed.title || ''),
-      description: this.sanitizeText(rawFeed.description || ''),
+      description: this.sanitizeText(rawFeed.description || rawFeed.subtitle || ''),
       link: rawFeed.link || '',
       items,
     };
+  }
+
+  /**
+   * Extract date from item, handling both Atom 1.0 and RSS 2.0 formats
+   */
+  private extractItemDate(item: any): Date | undefined {
+    // Atom 1.0: <updated> or <published> (ISO 8601)
+    // RSS 2.0: <pubDate> (RFC 2822)
+    const dateFields = [
+      item.isoDate,        // rss-parser normalized field
+      item.updated,        // Atom 1.0 <updated>
+      item.published,       // Atom 1.0 <published>
+      item.pubDate,        // RSS 2.0 <pubDate>
+    ];
+
+    for (const dateField of dateFields) {
+      if (dateField) {
+        const parsedDate = parseDate(dateField);
+        if (parsedDate) {
+          return parsedDate;
+        }
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Extract author from item, handling both Atom 1.0 and RSS 2.0 formats
+   */
+  private extractItemAuthor(item: any): string {
+    // Atom 1.0: <author><name> or <author><email>
+    // RSS 2.0: <author> (email format) or <dc:creator>
+    if (item.author && typeof item.author === 'object') {
+      // Atom 1.0 author object
+      return this.sanitizeText(item.author.name || item.author.email || '');
+    } else if (item.creator) {
+      // RSS 2.0 dc:creator
+      return this.sanitizeText(item.creator);
+    } else if (item.author) {
+      // RSS 2.0 author or Atom 1.0 author as string
+      return this.sanitizeText(item.author);
+    }
+
+    return '';
+  }
+
+  /**
+   * Extract content from item, handling both Atom 1.0 and RSS 2.0 formats
+   */
+  private extractItemContent(item: any): string {
+    // Atom 1.0: <content> or <summary>
+    // RSS 2.0: <description> or <content:encoded>
+    const contentFields = [
+      item.content,         // Atom 1.0 <content>
+      item.summary,         // Atom 1.0 <summary>
+      item.contentSnippet, // rss-parser processed content
+      item.description,     // RSS 2.0 <description>
+    ];
+
+    for (const contentField of contentFields) {
+      if (contentField && typeof contentField === 'string' && contentField.trim()) {
+        return this.extractRedditContent({ ...item, content: contentField });
+      }
+    }
+
+    return '';
+  }
+
+
+  /**
+   * Extract enhanced content from Reddit posts
+   */
+  private extractRedditContent(item: any): string {
+    const link = item.link || '';
+    
+    // If not a Reddit post, use standard extraction
+    if (!link.includes('reddit.com')) {
+      return this.sanitizeText(item.contentSnippet || item.content || item.summary || '');
+    }
+
+    // Extract Reddit-specific content
+    const content = item.content || item.contentSnippet || item.summary || '';
+    let extractedContent = '';
+
+    // Extract text content (remove HTML tags but keep structure)
+    const textContent = content
+      .replace(/<[^>]*>/g, '') // Remove HTML tags
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .trim();
+
+    // Extract images from Reddit content
+    const imageRegex = /https?:\/\/[^\s<>"{}|\\^`\[\]]*\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s<>"{}|\\^`\[\]]*)?/gi;
+    const images = content.match(imageRegex) || [];
+    
+    // Extract videos from Reddit content
+    const videoRegex = /https?:\/\/[^\s<>"{}|\\^`\[\]]*\.(?:mp4|webm|mov|avi)(?:\?[^\s<>"{}|\\^`\[\]]*)?/gi;
+    const videos = content.match(videoRegex) || [];
+
+    // Build enhanced content
+    if (textContent && textContent.length > 10) {
+      extractedContent += textContent;
+    }
+
+    // Add images
+    if (images.length > 0) {
+      extractedContent += '\n\n🖼️ **Imagens:**\n';
+      images.slice(0, 3).forEach((img: string) => {
+        extractedContent += `• ${img}\n`;
+      });
+    }
+
+    // Add videos
+    if (videos.length > 0) {
+      extractedContent += '\n\n🎥 **Vídeos:**\n';
+      videos.slice(0, 2).forEach((video: string) => {
+        extractedContent += `• ${video}\n`;
+      });
+    }
+
+    return this.sanitizeText(extractedContent);
   }
 
   /**

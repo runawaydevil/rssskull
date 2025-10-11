@@ -37,7 +37,9 @@ vi.mock('../utils/user-agent.service.js', () => ({
 vi.mock('../utils/cache.service.js', () => ({
   cacheService: {
     get: vi.fn().mockReturnValue(null), // Always return cache miss for tests
+    getEntry: vi.fn().mockReturnValue(null), // Always return cache miss for tests
     set: vi.fn(),
+    setWithHeaders: vi.fn(),
   },
 }));
 
@@ -50,6 +52,9 @@ vi.mock('../utils/logger/logger.service.js', () => ({
     error: vi.fn(),
   },
 }));
+
+// Mock global fetch
+global.fetch = vi.fn();
 
 describe('RSSService', () => {
   let rssService: RSSService;
@@ -83,6 +88,30 @@ describe('RSSService', () => {
         ],
       };
 
+      // Mock fetch response
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Map([
+          ['content-type', 'application/rss+xml'],
+          ['etag', 'test-etag'],
+          ['last-modified', 'Wed, 11 Oct 2025 03:00:00 GMT'],
+        ]),
+        text: () => Promise.resolve('<?xml version="1.0"?><rss><channel><title>Test Feed</title></channel></rss>'),
+      };
+      
+      // Mock headers.get method
+      mockResponse.headers.get = vi.fn((key) => {
+        const map = new Map([
+          ['content-type', 'application/rss+xml'],
+          ['etag', 'test-etag'],
+          ['last-modified', 'Wed, 11 Oct 2025 03:00:00 GMT'],
+        ]);
+        return map.get(key) || null;
+      });
+      
+      global.fetch = vi.fn().mockResolvedValue(mockResponse);
       mockParseURL.mockResolvedValue(mockFeedData);
 
       const result = await rssService.fetchFeed('https://example.com/feed.xml');

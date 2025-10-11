@@ -1,6 +1,6 @@
 {
   "name": "rss-skull-bot",
-  "version": "1.0.0",
+  "version": "0.02.0",
   "description": "Modern RSS to Telegram Bot with Reddit support and bilingual commands",
   "main": "dist/main.js",
   "type": "module",
@@ -14,6 +14,7 @@
     "dev": "tsx watch src/main.ts",
     "build": "tsc",
     "start": "node dist/main.js",
+    "test:cache": "npm run build && node scripts/test-conditional-cache.js",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",

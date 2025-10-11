@@ -166,14 +166,16 @@ export class UserAgentService {
     // Headers base da sessão atual
     const headers = { ...this.currentSession!.profile.headers };
 
-    // Adiciona headers específicos para RSS
-    headers['Accept'] = 'application/rss+xml, application/xml, text/xml, application/atom+xml, ' + headers['Accept'];
+    // Adiciona headers específicos para RSS/Atom
+    headers['Accept'] = 'application/atom+xml, application/rss+xml, text/xml;q=0.9, */*;q=0.8';
 
     // Headers específicos por domínio
     if (url.includes('reddit.com')) {
       headers['Referer'] = 'https://www.reddit.com/';
       // Reddit gosta de Accept-Language mais específico
       headers['Accept-Language'] = 'en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7';
+      // User-Agent específico para Reddit
+      headers['User-Agent'] = 'PortalIdeaFeedBot/1.0 (+https://portalidea.com.br)';
     } else if (url.includes('youtube.com')) {
       headers['Referer'] = 'https://www.youtube.com/';
     } else if (url.includes('github.com')) {

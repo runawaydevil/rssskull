@@ -319,9 +319,9 @@ export class SettingsCommand extends BaseCommandHandler {
         '• `{{domain}}` - Source domain',
         '',
         '**Pre-made Templates:**',
-        '• **default:** `🔗 {{title}}\\n{{description}}\\n[Link]({{link}})`',
+        '• **default:** `🔥 {{title}}\\n{{description}}\\n🔗 [Link]({{link}})`',
         '• **compact:** `📰 {{title}} - {{domain}}`',
-        '• **full:** `📰 **{{title}}**\\n👤 {{author}}\\n📅 {{pubDate}}\\n{{description}}\\n🔗 [Link]({{link}})`',
+        '• **full:** `🔥 **{{title}}**\\n👤 {{author}}\\n📅 {{pubDate}}\\n{{description}}\\n🔗 [Link]({{link}})`',
         '',
         '💡 Use `\\n` for line breaks and Markdown formatting.',
       ].join('\n');
@@ -341,7 +341,7 @@ export class SettingsCommand extends BaseCommandHandler {
         break;
       case 'default':
       case 'padrao':
-        template = '🔗 {{title}}\n{{description}}\n[Link]({{link}})';
+        template = '🔥 {{title}}\n{{description}}\n🔗 [Link]({{link}})';
         break;
       case 'compact':
       case 'compacto':
@@ -349,7 +349,7 @@ export class SettingsCommand extends BaseCommandHandler {
         break;
       case 'full':
       case 'completo':
-        template = '📰 **{{title}}**\n👤 {{author}}\n📅 {{pubDate}}\n{{description}}\n🔗 [Link]({{link}})';
+        template = '🔥 **{{title}}**\n👤 {{author}}\n📅 {{pubDate}}\n{{description}}\n🔗 [Link]({{link}})';
         break;
       default:
         // Custom template
@@ -446,9 +446,9 @@ export class SettingsCommand extends BaseCommandHandler {
       '• `{{domain}}` - Source domain',
       '',
       '📝 **Template Examples:**',
-      '• **Default:** `🔗 {{title}}\\n{{description}}\\n[Link]({{link}})`',
+      '• **Default:** `🔥 {{title}}\\n{{description}}\\n🔗 [Link]({{link}})`',
       '• **Compact:** `📰 {{title}} - {{domain}}`',
-      '• **Full:** `📰 **{{title}}**\\n👤 {{author}}\\n📅 {{pubDate}}\\n{{description}}\\n🔗 [Link]({{link}})`',
+      '• **Full:** `🔥 **{{title}}**\\n👤 {{author}}\\n📅 {{pubDate}}\\n{{description}}\\n🔗 [Link]({{link}})`',
       '',
       '🔄 **Other Commands:**',
       '• `/settings reset` - Reset to defaults',
