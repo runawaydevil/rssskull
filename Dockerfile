@@ -9,20 +9,32 @@ COPY tsconfig.json ./
 COPY biome.json ./
 
 # Install all dependencies (including dev dependencies for build)
-RUN npm ci && npm cache clean --force
+# Use retry mechanism for npm registry access
+RUN for i in 1 2 3; do \
+        npm ci && npm cache clean --force && \
+        break || sleep 10; \
+    done
 
 # Copy source code
 COPY src/ ./src/
 COPY prisma/ ./prisma/
 
 # Generate Prisma client with correct binary targets
-RUN npx prisma generate --schema=./prisma/schema.prisma
+# Use retry mechanism for npm registry access
+RUN for i in 1 2 3; do \
+        npx prisma generate --schema=./prisma/schema.prisma && \
+        break || sleep 10; \
+    done
 
 # Build the application
 RUN npm run build
 
 # Install only production dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Use retry mechanism for npm registry access
+RUN for i in 1 2 3; do \
+        npm ci --only=production && npm cache clean --force && \
+        break || sleep 10; \
+    done
 
 # Production stage
 FROM node:20-slim AS production
