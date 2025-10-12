@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-alpine3.19 AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
@@ -25,7 +25,7 @@ RUN npm run build
 RUN npm ci --only=production && npm cache clean --force
 
 # Production stage
-FROM node:20-alpine3.19 AS production
+FROM node:20-slim AS production
 
 # Add metadata labels
 LABEL org.opencontainers.image.title="RSS Skull Bot"
@@ -39,13 +39,13 @@ LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.vendor="runawaydevil"
 
 # Install curl and OpenSSL for health checks and Prisma compatibility
-RUN apk add --no-cache curl openssl openssl-dev
+RUN apt-get update && apt-get install -y curl openssl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+RUN groupadd -g 1001 nodejs && \
+    useradd -r -u 1001 -g nodejs nodejs
 
 # Copy built application
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
