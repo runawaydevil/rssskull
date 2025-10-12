@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:20-alpine3.19 AS builder
 
 WORKDIR /app
 
@@ -25,7 +25,7 @@ RUN npm run build
 RUN npm ci --only=production && npm cache clean --force
 
 # Production stage
-FROM node:20-alpine AS production
+FROM node:20-alpine3.19 AS production
 
 # Add metadata labels
 LABEL org.opencontainers.image.title="RSS Skull Bot"
@@ -39,7 +39,7 @@ LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.vendor="runawaydevil"
 
 # Install curl and OpenSSL for health checks and Prisma compatibility
-RUN apk update && apk add --no-cache curl openssl openssl-dev
+RUN apk add --no-cache curl openssl openssl-dev
 
 WORKDIR /app
 
