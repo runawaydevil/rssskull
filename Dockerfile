@@ -1,5 +1,6 @@
+# syntax=docker/dockerfile:1.6
 # Build stage
-FROM node:20-slim AS builder
+FROM node:20 AS builder
 
 # Configure npm settings for maximum performance and reliability
 RUN npm config set fetch-timeout 300000 && \
@@ -17,19 +18,16 @@ RUN npm config set fetch-timeout 300000 && \
 WORKDIR /app
 
 # Copy package files for better layer caching
-COPY package*.json ./
+COPY package.json package-lock.json ./
 COPY tsconfig.json ./
 COPY biome.json ./
 
-# Create npm cache directory for better performance
-RUN mkdir -p /root/.npm && chmod 777 /root/.npm
-
 # Install all dependencies (including dev dependencies for build)
-# Robust npm ci with retry mechanism for VPS reliability
-RUN for i in 1 2 3; do \
+# Modern cache mount for persistent npm cache across builds
+RUN --mount=type=cache,target=/root/.npm \
+    for i in 1 2 3; do \
         echo "npm ci attempt $i..." && \
         npm ci --prefer-offline --no-audit --no-fund --maxsockets 15 && \
-        npm cache clean --force && \
         break || (echo "Attempt $i failed, retrying..." && sleep 10); \
     done
 
@@ -45,11 +43,11 @@ RUN npx prisma generate --schema=./prisma/schema.prisma
 RUN npm run build
 
 # Install only production dependencies
-# Robust production install with retry mechanism for VPS reliability
-RUN for i in 1 2 3; do \
+# Modern cache mount for persistent npm cache across builds
+RUN --mount=type=cache,target=/root/.npm \
+    for i in 1 2 3; do \
         echo "production npm ci attempt $i..." && \
         npm ci --only=production --prefer-offline --no-audit --no-fund --maxsockets 15 && \
-        npm cache clean --force && \
         break || (echo "Production attempt $i failed, retrying..." && sleep 10); \
     done
 
