@@ -39,7 +39,10 @@ LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.vendor="runawaydevil"
 
 # Install curl and OpenSSL for health checks and Prisma compatibility
-RUN apt-get update && apt-get install -y curl openssl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update --fix-missing && \
+    apt-get install -y --no-install-recommends curl openssl ca-certificates && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get clean
 
 WORKDIR /app
 
@@ -52,6 +55,10 @@ COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/package.json ./
 COPY --from=builder --chown=nodejs:nodejs /app/prisma ./prisma
+
+# Copy entrypoint script
+COPY --chown=nodejs:nodejs scripts/docker-entrypoint.sh ./scripts/
+RUN chmod +x ./scripts/docker-entrypoint.sh
 
 # Create data directory for SQLite
 RUN mkdir -p /app/data && chown nodejs:nodejs /app/data
@@ -66,9 +73,5 @@ EXPOSE 8916
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8916/health || exit 1
 
-# Copy entrypoint script
-COPY --chown=nodejs:nodejs scripts/docker-entrypoint.sh ./scripts/
-RUN chmod +x ./scripts/docker-entrypoint.sh
-
 # Start the application
-CMD ["./scripts/docker-entrypoint.sh"]
+CMD ["sh", "-c", "mkdir -p /app/data && npx prisma migrate deploy --schema=./prisma/schema.prisma && npx prisma generate --schema=./prisma/schema.prisma && node dist/main.js"]
