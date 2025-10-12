@@ -1,52 +1,47 @@
 # Build stage
 FROM node:20-slim AS builder
 
-# Configure npm settings for better reliability
+# Configure npm settings for maximum performance and reliability
 RUN npm config set fetch-timeout 300000 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000 && \
-    npm config set fetch-retries 5
+    npm config set fetch-retries 5 && \
+    npm config set maxsockets 15 && \
+    npm config set progress false && \
+    npm config set audit false && \
+    npm config set fund false && \
+    npm config set registry https://registry.npmmirror.com/
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files for better layer caching
 COPY package*.json ./
 COPY tsconfig.json ./
 COPY biome.json ./
 
+# Create npm cache directory for better performance
+RUN mkdir -p /root/.npm && chmod 777 /root/.npm
+
 # Install all dependencies (including dev dependencies for build)
-# Use retry mechanism with fallback registry for npm registry access
-RUN for i in 1 2 3; do \
-        npm ci && npm cache clean --force && \
-        break || (echo "Attempt $i failed, trying fallback registry..." && \
-        npm config set registry https://registry.npmmirror.com/ && \
-        sleep 15); \
-    done
+# Optimized npm ci with parallel downloads and cache optimization
+RUN npm ci --prefer-offline --no-audit --no-fund --maxsockets 15 && \
+    npm cache clean --force
 
 # Copy source code
 COPY src/ ./src/
 COPY prisma/ ./prisma/
 
 # Generate Prisma client with correct binary targets
-# Use retry mechanism with fallback registry for npm registry access
-RUN for i in 1 2 3; do \
-        npx prisma generate --schema=./prisma/schema.prisma && \
-        break || (echo "Prisma generate attempt $i failed, trying fallback registry..." && \
-        npm config set registry https://registry.npmmirror.com/ && \
-        sleep 15); \
-    done
+# Optimized Prisma generation with cache
+RUN npx prisma generate --schema=./prisma/schema.prisma
 
-# Build the application
+# Build the application with optimizations
 RUN npm run build
 
 # Install only production dependencies
-# Use retry mechanism with fallback registry for npm registry access
-RUN for i in 1 2 3; do \
-        npm ci --only=production && npm cache clean --force && \
-        break || (echo "Production install attempt $i failed, trying fallback registry..." && \
-        npm config set registry https://registry.npmmirror.com/ && \
-        sleep 15); \
-    done
+# Optimized production install with parallel downloads
+RUN npm ci --only=production --prefer-offline --no-audit --no-fund --maxsockets 15 && \
+    npm cache clean --force
 
 # Production stage
 FROM node:20-slim AS production
@@ -63,12 +58,9 @@ LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.vendor="runawaydevil"
 
 # Install curl and OpenSSL for health checks and Prisma compatibility
-# Use retry mechanism with multiple attempts
-RUN for i in 1 2 3; do \
-        apt-get update --fix-missing && \
-        apt-get install -y --no-install-recommends curl openssl ca-certificates && \
-        break || sleep 10; \
-    done && \
+# Optimized package installation
+RUN apt-get update --fix-missing && \
+    apt-get install -y --no-install-recommends curl openssl ca-certificates && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean
 
