@@ -1,6 +1,12 @@
 # Build stage
 FROM node:20-slim AS builder
 
+# Configure npm settings for better reliability
+RUN npm config set fetch-timeout 300000 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set fetch-retries 5
+
 WORKDIR /app
 
 # Copy package files
@@ -9,10 +15,12 @@ COPY tsconfig.json ./
 COPY biome.json ./
 
 # Install all dependencies (including dev dependencies for build)
-# Use retry mechanism for npm registry access
+# Use retry mechanism with fallback registry for npm registry access
 RUN for i in 1 2 3; do \
         npm ci && npm cache clean --force && \
-        break || sleep 10; \
+        break || (echo "Attempt $i failed, trying fallback registry..." && \
+        npm config set registry https://registry.npmmirror.com/ && \
+        sleep 15); \
     done
 
 # Copy source code
@@ -20,20 +28,24 @@ COPY src/ ./src/
 COPY prisma/ ./prisma/
 
 # Generate Prisma client with correct binary targets
-# Use retry mechanism for npm registry access
+# Use retry mechanism with fallback registry for npm registry access
 RUN for i in 1 2 3; do \
         npx prisma generate --schema=./prisma/schema.prisma && \
-        break || sleep 10; \
+        break || (echo "Prisma generate attempt $i failed, trying fallback registry..." && \
+        npm config set registry https://registry.npmmirror.com/ && \
+        sleep 15); \
     done
 
 # Build the application
 RUN npm run build
 
 # Install only production dependencies
-# Use retry mechanism for npm registry access
+# Use retry mechanism with fallback registry for npm registry access
 RUN for i in 1 2 3; do \
         npm ci --only=production && npm cache clean --force && \
-        break || sleep 10; \
+        break || (echo "Production install attempt $i failed, trying fallback registry..." && \
+        npm config set registry https://registry.npmmirror.com/ && \
+        sleep 15); \
     done
 
 # Production stage
