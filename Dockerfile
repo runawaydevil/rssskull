@@ -39,8 +39,12 @@ LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.vendor="runawaydevil"
 
 # Install curl and OpenSSL for health checks and Prisma compatibility
-RUN apt-get update --fix-missing && \
-    apt-get install -y --no-install-recommends curl openssl ca-certificates && \
+# Use retry mechanism with multiple attempts
+RUN for i in 1 2 3; do \
+        apt-get update --fix-missing && \
+        apt-get install -y --no-install-recommends curl openssl ca-certificates && \
+        break || sleep 10; \
+    done && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean
 
