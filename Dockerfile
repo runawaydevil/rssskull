@@ -39,7 +39,7 @@ LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.vendor="runawaydevil"
 
 # Install curl and OpenSSL for health checks and Prisma compatibility
-RUN apk add --no-cache curl openssl openssl-dev
+RUN apk update && apk add --no-cache curl openssl openssl-dev
 
 WORKDIR /app
 
