@@ -2,6 +2,11 @@
 # Build stage
 FROM node:20 AS builder
 
+# Install build tools for native dependencies (sqlite3, prisma, etc.)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 make g++ git pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
 # Configure npm settings for maximum performance and reliability
 RUN npm config set fetch-timeout 300000 && \
     npm config set fetch-retry-mintimeout 20000 && \
