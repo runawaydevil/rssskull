@@ -2,6 +2,10 @@ services:
   redis:
     image: redis:7-alpine
     container_name: rss-skull-redis
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+      - 8.8.4.4
     # ports:
     #   - "6380:6379"  # Removido para evitar conflitos
     volumes:
@@ -19,6 +23,10 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: rss-skull-bot
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+      - 8.8.4.4
     ports:
       - "8916:8916"
     environment:

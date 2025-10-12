@@ -11,7 +11,8 @@ RUN npm config set fetch-timeout 300000 && \
     npm config set audit false && \
     npm config set fund false && \
     npm config set registry https://registry.npmmirror.com/ && \
-    npm config set strict-ssl false
+    npm config set strict-ssl false && \
+    npm config set prefer-offline true
 
 WORKDIR /app
 
