@@ -16,7 +16,6 @@ export interface UserAgentSession {
 
 export class UserAgentService {
   private currentSession: UserAgentSession | null = null;
-  private sessionHistory: string[] = []; // Últimos user-agents usados
 
   // Pool de browsers reais com headers consistentes
   private browserProfiles: BrowserProfile[] = [
@@ -169,11 +168,17 @@ export class UserAgentService {
     // Adiciona headers específicos para RSS/Atom
     headers['Accept'] = 'application/atom+xml, application/rss+xml, text/xml;q=0.9, */*;q=0.8';
 
-    // Headers específicos por domínio
+    // Headers específicos por domínio com variação aleatória
     if (url.includes('reddit.com')) {
       headers['Referer'] = 'https://www.reddit.com/';
-      // Reddit gosta de Accept-Language mais específico
-      headers['Accept-Language'] = 'en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7';
+      // Variação aleatória de Accept-Language
+      const languages = [
+        'en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7',
+        'en-US,en;q=0.9',
+        'en-US,en;q=0.9,pt;q=0.8',
+        'en-US,en;q=0.9,es;q=0.8',
+      ];
+      headers['Accept-Language'] = languages[Math.floor(Math.random() * languages.length)]!;
       // User-Agent específico para Reddit
       headers['User-Agent'] = 'PortalIdeaFeedBot/1.0 (+https://portalidea.com.br)';
     } else if (url.includes('youtube.com')) {
@@ -181,6 +186,17 @@ export class UserAgentService {
     } else if (url.includes('github.com')) {
       headers['Referer'] = 'https://github.com/';
     }
+
+    // Adicionar variação aleatória em headers comuns
+    const acceptEncodings = ['gzip, deflate, br', 'gzip, deflate', 'gzip', 'deflate'];
+    headers['Accept-Encoding'] = acceptEncodings[Math.floor(Math.random() * acceptEncodings.length)]!;
+    
+    // Variação aleatória de Connection
+    headers['Connection'] = Math.random() > 0.5 ? 'keep-alive' : 'close';
+    
+    // Variação aleatória de Cache-Control
+    const cacheControls = ['no-cache', 'max-age=0', 'no-store'];
+    headers['Cache-Control'] = cacheControls[Math.floor(Math.random() * cacheControls.length)]!;
 
     logger.debug(`Using User-Agent: ${this.currentSession!.profile.name}`, {
       url: this.extractDomain(url),
@@ -202,9 +218,9 @@ export class UserAgentService {
       return true;
     }
 
-    // Sessão expirou por tempo (2-6 horas)
+    // Sessão expirou por tempo (20 minutos para rotação dinâmica)
     const sessionAge = Date.now() - this.currentSession.startTime;
-    const maxSessionTime = 2 * 60 * 60 * 1000 + Math.random() * 4 * 60 * 60 * 1000; // 2-6h
+    const maxSessionTime = 20 * 60 * 1000; // 20 minutos exatos
     if (sessionAge > maxSessionTime) {
       return true;
     }
@@ -218,8 +234,8 @@ export class UserAgentService {
   private startNewSession(): void {
     const profile = this.selectBrowserProfile();
     
-    // Número aleatório de requests por sessão (10-50)
-    const maxRequests = 10 + Math.floor(Math.random() * 40);
+    // Número de requests por sessão (baseado em 20 minutos)
+    const maxRequests = 3; // 3 requests por sessão de 20 minutos
 
     this.currentSession = {
       profile,
@@ -228,46 +244,22 @@ export class UserAgentService {
       maxRequests,
     };
 
-    // Adiciona ao histórico
-    this.sessionHistory.push(profile.userAgent);
-    if (this.sessionHistory.length > 10) {
-      this.sessionHistory.shift(); // Mantém só os últimos 10
-    }
+    // Não mantém histórico para evitar padrões detectáveis
+    // Cada seleção é completamente independente
 
     logger.info(`Started new browser session: ${profile.name}`, {
       maxRequests,
-      sessionDuration: '2-6 hours',
+      sessionDuration: '20 minutes',
     });
   }
 
   /**
-   * Seleciona browser profile baseado em peso e histórico
+   * Seleciona browser profile totalmente aleatório (sem padrões)
    */
   private selectBrowserProfile(): BrowserProfile {
-    // Filtra profiles que não foram usados recentemente
-    const availableProfiles = this.browserProfiles.filter(profile => 
-      !this.sessionHistory.slice(-3).includes(profile.userAgent) // Evita últimos 3
-    );
-
-    // Se todos foram usados recentemente, usa todos
-    const profiles = availableProfiles.length > 0 ? availableProfiles : this.browserProfiles;
-
-    // Seleção baseada em peso
-    const totalWeight = profiles.reduce((sum, profile) => sum + profile.weight, 0);
-    let random = Math.random() * totalWeight;
-
-    for (const profile of profiles) {
-      random -= profile.weight;
-      if (random <= 0) {
-        return profile;
-      }
-    }
-
-    // Fallback (não deveria acontecer)
-    if (profiles.length === 0) {
-      return this.browserProfiles[0]!;
-    }
-    return profiles[0]!;
+    // Seleção completamente aleatória - sem pesos, sem histórico
+    const randomIndex = Math.floor(Math.random() * this.browserProfiles.length);
+    return this.browserProfiles[randomIndex]!;
   }
 
   /**
@@ -294,7 +286,6 @@ export class UserAgentService {
       requests: this.currentSession.requestCount,
       maxRequests: this.currentSession.maxRequests,
       sessionAge: Date.now() - this.currentSession.startTime,
-      recentUserAgents: this.sessionHistory.slice(-3),
     };
   }
 
@@ -314,7 +305,7 @@ export class UserAgentService {
       currentSession: this.getCurrentSessionInfo(),
       availableProfiles: this.browserProfiles.length,
       profileNames: this.browserProfiles.map(p => p.name),
-      sessionHistory: this.sessionHistory.length,
+      selectionMethod: 'completely_random',
     };
 
     return stats;

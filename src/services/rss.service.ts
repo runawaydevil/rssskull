@@ -6,6 +6,7 @@ import { logger } from '../utils/logger/logger.service.js';
 import { rateLimiterService } from '../utils/rate-limiter.service.js';
 import { userAgentService } from '../utils/user-agent.service.js';
 import { cacheService } from '../utils/cache.service.js';
+import { circuitBreakerService } from '../utils/circuit-breaker.service.js';
 import { parseDate } from '../utils/date-parser.js';
 import { FeedTypeDetector, FeedType } from '../utils/feed-type-detector.js';
 import { JsonFeedParser } from '../utils/json-feed-parser.js';
@@ -74,6 +75,12 @@ export class RSSService {
       try {
         logger.debug(`Fetching RSS feed (attempt ${attempt}/${this.maxRetries}): ${url}`);
 
+        // Check circuit breaker before making the request
+        const domain = this.extractDomain(url);
+        if (!(await circuitBreakerService.canExecute(domain))) {
+          throw new Error(`Circuit breaker is open for ${domain}`);
+        }
+
         // Apply rate limiting before making the request
         await rateLimiterService.waitIfNeeded(url);
 
@@ -110,8 +117,13 @@ export class RSSService {
 
         // Validate response status
         if (!response.ok) {
+          // Record failure in circuit breaker
+          circuitBreakerService.recordFailure(domain);
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
+
+        // Record success in circuit breaker
+        circuitBreakerService.recordSuccess(domain);
 
         // Validate content type (support XML and JSON feeds)
         const contentType = response.headers.get('content-type') || '';
@@ -193,6 +205,9 @@ export class RSSService {
         };
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
+        
+        // Record failure in circuit breaker
+        circuitBreakerService.recordFailure(this.extractDomain(url));
         
         // Check if it's a rate limiting error (429)
         if (this.isRateLimitError(lastError)) {

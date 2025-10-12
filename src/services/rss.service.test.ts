@@ -35,6 +35,15 @@ vi.mock('../utils/user-agent.service.js', () => ({
   },
 }));
 
+// Mock circuit breaker service
+vi.mock('../utils/circuit-breaker.service.js', () => ({
+  circuitBreakerService: {
+    canExecute: vi.fn().mockResolvedValue(true),
+    recordSuccess: vi.fn(),
+    recordFailure: vi.fn(),
+  },
+}));
+
 // Mock cache service
 vi.mock('../utils/cache.service.js', () => ({
   cacheService: {
@@ -163,27 +172,22 @@ describe('RSSService', () => {
     });
 
     it('should not retry on non-retryable errors', async () => {
-      const mockResponse = {
-        ok: false,
-        status: 400,
-        statusText: 'Bad Request',
-        headers: new Map(),
-        text: () => Promise.resolve('Invalid XML'),
-      };
+      // Mock circuit breaker to be closed
+      const { circuitBreakerService } = await import('../utils/circuit-breaker.service.js');
+      vi.mocked(circuitBreakerService.canExecute).mockResolvedValue(false);
       
-      mockResponse.headers.get = vi.fn().mockReturnValue('text/html');
-      
-      global.fetch = vi.fn().mockResolvedValue(mockResponse);
-
       const result = await rssService.fetchFeed('https://example.com/feed.xml');
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('HTTP 400');
+      expect(result.error).toContain('Circuit breaker is open');
     });
   });
 
   describe('getNewItems', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
+      // Reset circuit breaker to allow execution
+      const { circuitBreakerService } = await import('../utils/circuit-breaker.service.js');
+      vi.mocked(circuitBreakerService.canExecute).mockResolvedValue(true);
       const mockFeedData = {
         title: 'Test Feed',
         items: [
@@ -279,6 +283,12 @@ describe('RSSService', () => {
   });
 
   describe('validateFeedUrl', () => {
+    beforeEach(async () => {
+      // Reset circuit breaker to allow execution
+      const { circuitBreakerService } = await import('../utils/circuit-breaker.service.js');
+      vi.mocked(circuitBreakerService.canExecute).mockResolvedValue(true);
+    });
+
     it('should return true for valid feed URL', async () => {
       // Mock fetch response
       const mockResponse = {

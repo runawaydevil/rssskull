@@ -29,8 +29,11 @@ export class RateLimiterService {
         const timeSinceLastRequest = now - lastRequest;
 
         if (timeSinceLastRequest < config.minDelayMs) {
-            const delayNeeded = config.minDelayMs - timeSinceLastRequest;
-            logger.debug(`Rate limiting ${domain}: need to wait ${delayNeeded}ms`);
+            const baseDelay = config.minDelayMs - timeSinceLastRequest;
+            // Adicionar jitter aleatório (±30% de variação)
+            const jitter = Math.random() * 0.6 * baseDelay - 0.3 * baseDelay;
+            const delayNeeded = Math.max(0, baseDelay + jitter);
+            logger.debug(`Rate limiting ${domain}: need to wait ${delayNeeded}ms (base: ${baseDelay}ms, jitter: ${jitter.toFixed(0)}ms)`);
             return delayNeeded;
         }
 

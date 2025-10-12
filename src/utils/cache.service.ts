@@ -29,7 +29,7 @@ export class CacheService {
     misses: 0,
   };
 
-  // TTL por tipo de domínio (em milliseconds)
+  // TTL base por tipo de domínio (em milliseconds)
   private domainTTL: Record<string, number> = {
     // Alta frequência - cache curto
     'reddit.com': 10 * 60 * 1000, // 10 minutos
@@ -48,6 +48,21 @@ export class CacheService {
     // Padrão
     'default': 20 * 60 * 1000,     // 20 minutos
   };
+
+  /**
+   * Calcula TTL com variação aleatória para evitar padrões
+   */
+  private calculateTTL(url: string): number {
+    const domain = this.extractDomain(url);
+    const baseTTL = this.domainTTL[domain] || this.domainTTL.default || 20 * 60 * 1000;
+    
+    // Adicionar variação aleatória (±25% de variação)
+    const variation = Math.random() * 0.5 * baseTTL - 0.25 * baseTTL;
+    const randomTTL = Math.max(baseTTL * 0.5, baseTTL + variation); // Mínimo 50% do TTL base
+    
+    logger.debug(`Calculated TTL for ${domain}: ${randomTTL}ms (base: ${baseTTL}ms, variation: ${variation.toFixed(0)}ms)`);
+    return randomTTL;
+  }
 
   /**
    * Get cached feed if available and not expired
@@ -190,28 +205,7 @@ export class CacheService {
    * Get TTL for a specific URL based on domain and feed characteristics
    */
   private getTTLForUrl(url: string): number {
-    const domain = this.extractDomain(url);
-    
-    // Check specific domain configurations
-    for (const [domainPattern, ttl] of Object.entries(this.domainTTL)) {
-      if (domainPattern === 'default') continue;
-      
-      if (domain.includes(domainPattern)) {
-        return ttl;
-      }
-    }
-
-    // Special patterns
-    if (url.includes('hnrss.org') || url.includes('hacker-news')) {
-      return this.domainTTL.hackernews || 5 * 60 * 1000;
-    }
-
-    if (domain.includes('blog') || url.includes('blog')) {
-      return this.domainTTL.blog || 30 * 60 * 1000;
-    }
-
-    // Default TTL
-    return this.domainTTL.default || 20 * 60 * 1000;
+    return this.calculateTTL(url); // Usar TTL aleatório
   }
 
   /**

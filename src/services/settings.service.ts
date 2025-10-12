@@ -52,7 +52,7 @@ export class SettingsService {
           // Security defaults
         rateLimitEnabled: true,
         maxRequestsPerMinute: 3,
-        minDelayMs: 200000,
+        minDelayMs: 400000,
           cacheEnabled: true,
           cacheTTLMinutes: 20,
           retryEnabled: true,
@@ -72,7 +72,7 @@ export class SettingsService {
           // Security defaults
         rateLimitEnabled: true,
         maxRequestsPerMinute: 3,
-        minDelayMs: 200000,
+        minDelayMs: 400000,
           cacheEnabled: true,
           cacheTTLMinutes: 20,
           retryEnabled: true,
@@ -149,7 +149,7 @@ export class SettingsService {
       // Security defaults
         rateLimitEnabled: true,
         maxRequestsPerMinute: 3,
-        minDelayMs: 20000,
+        minDelayMs: 400000,
       cacheEnabled: true,
       cacheTTLMinutes: 20,
       retryEnabled: true,
