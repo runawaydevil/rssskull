@@ -21,6 +21,17 @@ export function loggingMiddleware() {
       updateType: getUpdateType(ctx),
     });
 
+    // 🔥 INTERCEPTAR TODAS AS RESPOSTAS DO BOT
+    const originalReply = ctx.reply.bind(ctx);
+    ctx.reply = async (text: string, options?: any) => {
+      const result = await originalReply(text, options);
+      
+      // 🔥 LOG ESPECÍFICO PARA RESPOSTAS DE COMANDOS
+      logger.info(`💬 BOT COMMAND REPLY - Chat: ${chatId} | User: ${userId} | Response Preview: ${text.substring(0, 150)}...`);
+      
+      return result;
+    };
+
     try {
       await next();
 

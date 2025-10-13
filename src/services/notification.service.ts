@@ -63,6 +63,9 @@ export class NotificationService {
         link_preview_options: { is_disabled: message.disableWebPagePreview ?? true },
       });
 
+      // 🔥 LOG ESPECÍFICO PARA MENSAGENS ENVIADAS AO TELEGRAM
+      logger.info(`📤 TELEGRAM MESSAGE SENT - Chat: ${message.chatId} | Message ID: ${result.message_id} | Content Preview: ${content.substring(0, 150)}...`);
+
       logger.debug(
         `Message sent successfully to chat ${message.chatId}, message ID: ${result.message_id}`
       );
@@ -203,6 +206,9 @@ export class NotificationService {
     // Group items to fit within message limits
     const itemGroups = this.groupItemsForMessages(items, feedName, template);
 
+    // 🔥 LOG ESPECÍFICO PARA MÚLTIPLAS MENSAGENS RSS
+    logger.info(`📰 RSS BATCH SENDING - Chat: ${chatId} | Feed: ${feedName} | Total Items: ${items.length} | Message Groups: ${itemGroups.length}`);
+
     for (const group of itemGroups) {
       const content = this.formatMessage(group, feedName, template);
       const result = await this.sendMessage({
@@ -219,6 +225,11 @@ export class NotificationService {
         logger.warn(`Failed to send message group to chat ${chatId}: ${result.error}`);
       }
     }
+
+    // 🔥 LOG ESPECÍFICO PARA RESULTADO DO BATCH
+    const successCount = results.filter(r => r.success).length;
+    const failCount = results.filter(r => !r.success).length;
+    logger.info(`📊 RSS BATCH COMPLETED - Chat: ${chatId} | Feed: ${feedName} | Success: ${successCount} | Failed: ${failCount}`);
 
     return results;
   }
