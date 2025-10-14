@@ -119,6 +119,12 @@ export class RSSService {
         if (!response.ok) {
           // Record failure in circuit breaker
           circuitBreakerService.recordFailure(domain);
+          
+          // 🔥 LOG ESPECÍFICO PARA BLOQUEIOS DO REDDIT
+          if (url.includes('reddit.com') && response.status === 403) {
+            logger.error(`🚫 REDDIT BLOCKED - Chat: ${url} | Status: ${response.status} | Possible bot detection`);
+          }
+          
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 

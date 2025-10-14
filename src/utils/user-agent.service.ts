@@ -179,8 +179,8 @@ export class UserAgentService {
         'en-US,en;q=0.9,es;q=0.8',
       ];
       headers['Accept-Language'] = languages[Math.floor(Math.random() * languages.length)]!;
-      // User-Agent específico para Reddit
-      headers['User-Agent'] = 'PortalIdeaFeedBot/1.0 (+https://portalidea.com.br)';
+      // 🔥 REMOVIDO: User-Agent específico que estava sendo detectado
+      // headers['User-Agent'] = 'PortalIdeaFeedBot/1.0 (+https://portalidea.com.br)';
     } else if (url.includes('youtube.com')) {
       headers['Referer'] = 'https://www.youtube.com/';
     } else if (url.includes('github.com')) {
@@ -235,7 +235,7 @@ export class UserAgentService {
     const profile = this.selectBrowserProfile();
     
     // Número de requests por sessão (baseado em 20 minutos)
-    const maxRequests = 3; // 3 requests por sessão de 20 minutos
+    const maxRequests = 1; // 🔥 REDUZIDO: 1 request por sessão de 20 minutos para evitar detecção
 
     this.currentSession = {
       profile,
