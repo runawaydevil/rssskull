@@ -95,6 +95,13 @@ export class FeedDiscovery {
         result.feeds.push(...bloggerFeeds);
       }
 
+      // Strategy 5: Always try Blogger paths for any site (Blogger is very common)
+      if (result.feeds.length === 0) {
+        logger.debug(`No feeds found yet, trying Blogger paths for: ${normalizedUrl}`);
+        const bloggerFeeds = await this.discoverBloggerFeeds(normalizedUrl);
+        result.feeds.push(...bloggerFeeds);
+      }
+
       // Remove duplicates and sort by confidence
       result.feeds = this.deduplicateAndSortFeeds(result.feeds);
 
@@ -352,7 +359,10 @@ export class FeedDiscovery {
     return baseUrl.includes('blogger.com') || 
            baseUrl.includes('blogspot.com') ||
            baseUrl.includes('blogspot.') ||
-           baseUrl.includes('/feeds/posts/');
+           baseUrl.includes('/feeds/posts/') ||
+           // 🔥 ADICIONADO: Detectar sites que usam Blogger (como escatologiafilmes.com)
+           baseUrl.includes('escatologiafilmes.com') ||
+           baseUrl.includes('blogspot');
   }
 
 
