@@ -5,6 +5,7 @@ import {
   type URLConverter,
 } from './converter.interface.js';
 import { RedditConverter } from './reddit.converter.js';
+import { YouTubeConverter } from './youtube.converter.js';
 
 /**
  * Service that manages URL conversion using registered converters
@@ -15,6 +16,7 @@ export class ConverterService {
   constructor() {
     // Register default converters
     this.registerConverter(new RedditConverter());
+    this.registerConverter(new YouTubeConverter());
   }
 
   /**
