@@ -62,7 +62,6 @@ export class YouTubeConverter implements URLConverter {
       // Check for channel pattern (@channelname)
       const channelMatch = url.match(this.CHANNEL_PATTERN);
       if (channelMatch) {
-        const channelName = channelMatch[1];
         // For @channelname, we need to get the channel ID first
         // This is a limitation - we'd need to make an API call to get the channel ID
         throw new ConversionError(
@@ -75,7 +74,6 @@ export class YouTubeConverter implements URLConverter {
       // Check for channel pattern (c/channelname)
       const channelCMatch = url.match(this.CHANNEL_C_PATTERN);
       if (channelCMatch) {
-        const channelName = channelCMatch[1];
         // For c/channelname, we need to get the channel ID first
         throw new ConversionError(
           'YouTube c/channel URLs require channel ID lookup. Please use the full channel URL or channel ID.',
@@ -101,7 +99,6 @@ export class YouTubeConverter implements URLConverter {
       // Check for video pattern - extract channel from video
       const videoMatch = url.match(this.VIDEO_PATTERN);
       if (videoMatch) {
-        const videoId = videoMatch[1];
         throw new ConversionError(
           'YouTube video URLs require channel ID lookup. Please use the channel URL instead.',
           url,
@@ -112,7 +109,6 @@ export class YouTubeConverter implements URLConverter {
       // Check for short URL pattern - extract channel from video
       const shortMatch = url.match(this.SHORT_PATTERN);
       if (shortMatch) {
-        const videoId = shortMatch[1];
         throw new ConversionError(
           'YouTube short URLs require channel ID lookup. Please use the channel URL instead.',
           url,
@@ -143,7 +139,7 @@ export class YouTubeConverter implements URLConverter {
         },
       });
 
-      return response.ok && response.headers.get('content-type')?.includes('xml');
+      return response.ok && (response.headers.get('content-type')?.includes('xml') ?? false);
     } catch {
       return false;
     }
