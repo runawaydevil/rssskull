@@ -79,8 +79,15 @@ export class ProcessFeedsCommand extends BaseCommandHandler {
       
       if (processedCount > 0) {
         resultMessage += `🔄 Feeds are being checked now. New items will be sent shortly.`;
+      } else if (errorCount > 0) {
+        resultMessage += `❌ Some feeds had errors during processing. Check logs for details.`;
       } else {
-        resultMessage += `❌ No new items found in any feeds.`;
+        resultMessage += `📭 **No new items found** in any of your feeds.\n\n`;
+        resultMessage += `This could mean:\n`;
+        resultMessage += `• All feeds are up to date\n`;
+        resultMessage += `• No new posts since last check\n`;
+        resultMessage += `• Feeds might be temporarily unavailable\n\n`;
+        resultMessage += `💡 Try again later or check individual feeds with \`/list\``;
       }
 
       await ctx.reply(resultMessage, { parse_mode: 'Markdown' });

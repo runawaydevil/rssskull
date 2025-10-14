@@ -74,7 +74,8 @@ describe('URL Converter Integration', () => {
       expect(service.detectPlatform('https://www.reddit.com/u/user')).toBe('reddit');
       expect(service.detectPlatform('https://old.reddit.com/r/javascript')).toBe('reddit');
 
-      expect(service.detectPlatform('https://youtube.com/watch?v=123')).toBe(null);
+      expect(service.detectPlatform('https://youtube.com/watch?v=123')).toBe('youtube');
+      expect(service.detectPlatform('https://www.youtube.com/user/username')).toBe('youtube');
       expect(service.detectPlatform('https://example.com/page')).toBe(null);
     });
 
@@ -83,10 +84,11 @@ describe('URL Converter Integration', () => {
 
       // Verify Reddit converter is registered
       expect(service.getConverter('reddit')).toBeInstanceOf(RedditConverter);
+      expect(service.getConverter('youtube')).toBeDefined();
 
       // Verify we can get all converters
       const allConverters = service.getAllConverters();
-      expect(allConverters).toHaveLength(1);
+      expect(allConverters).toHaveLength(2); // Reddit + YouTube
       expect(allConverters[0]).toBeInstanceOf(RedditConverter);
     });
   });
