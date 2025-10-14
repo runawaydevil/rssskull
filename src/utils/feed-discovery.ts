@@ -8,7 +8,7 @@ export interface DiscoveredFeed {
   title?: string;
   description?: string;
   confidence: number;
-  source: 'html-link' | 'url-pattern' | 'well-known' | 'wordpress';
+  source: 'html-link' | 'url-pattern' | 'well-known' | 'wordpress' | 'blogger';
 }
 
 export interface FeedDiscoveryResult {
