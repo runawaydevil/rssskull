@@ -35,6 +35,13 @@ export class FeedDiscovery {
     '/?feed=rss2',
     '/comments/feed/',
     
+    // Blogger paths
+    '/feeds/posts/default',
+    '/feeds/posts/default?alt=rss',
+    '/feeds/posts/default?alt=atom',
+    '/feeds/posts/summary',
+    '/feeds/posts/full',
+    
     // Well-known paths
     '/feed.xml',
     '/rss.xml',
@@ -80,6 +87,12 @@ export class FeedDiscovery {
       if (this.isLikelyWordPress(normalizedUrl)) {
         const wpFeeds = await this.discoverWordPressFeeds(normalizedUrl);
         result.feeds.push(...wpFeeds);
+      }
+
+      // Strategy 4: Blogger-specific discovery
+      if (this.isLikelyBlogger(normalizedUrl)) {
+        const bloggerFeeds = await this.discoverBloggerFeeds(normalizedUrl);
+        result.feeds.push(...bloggerFeeds);
       }
 
       // Remove duplicates and sort by confidence
@@ -249,6 +262,34 @@ export class FeedDiscovery {
   }
 
   /**
+   * Discover Blogger-specific feeds
+   */
+  private static async discoverBloggerFeeds(baseUrl: string): Promise<DiscoveredFeed[]> {
+    const feeds: DiscoveredFeed[] = [];
+
+    logger.debug(`Trying Blogger-specific feeds for: ${baseUrl}`);
+
+    const bloggerPaths = [
+      '/feeds/posts/default',
+      '/feeds/posts/default?alt=rss',
+      '/feeds/posts/default?alt=atom',
+      '/feeds/posts/summary',
+      '/feeds/posts/full',
+    ];
+
+    for (const path of bloggerPaths) {
+      const feed = await this.tryFeedPath(baseUrl, path);
+      if (feed) {
+        feed.source = 'blogger';
+        feed.confidence += 0.2; // High confidence for Blogger paths
+        feeds.push(feed);
+      }
+    }
+
+    return feeds;
+  }
+
+  /**
    * Calculate confidence based on path and type
    */
   private static calculatePathConfidence(path: string, type: FeedType): number {
@@ -301,6 +342,17 @@ export class FeedDiscovery {
            baseUrl.includes('wp-') ||
            baseUrl.includes('/wp-content/') ||
            baseUrl.includes('/wp-json/');
+  }
+
+  /**
+   * Check if URL is likely from a Blogger site
+   */
+  private static isLikelyBlogger(baseUrl: string): boolean {
+    // Simple heuristics for Blogger sites
+    return baseUrl.includes('blogger.com') || 
+           baseUrl.includes('blogspot.com') ||
+           baseUrl.includes('blogspot.') ||
+           baseUrl.includes('/feeds/posts/');
   }
 
 

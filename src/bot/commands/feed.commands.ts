@@ -38,7 +38,7 @@ export class AddFeedCommand extends BaseCommandHandler {
     try {
       normalizedUrl = UrlNormalizer.normalizeUrl(url);
     } catch (error) {
-      await ctx.reply('❌ **URL inválida:** Por favor, forneça uma URL válida.\n\n**Exemplos:**\n• `pablo.space`\n• `www.pablo.space`\n• `https://pablo.space`', { parse_mode: 'Markdown' });
+      await ctx.reply('❌ **URL inválida:** Por favor, forneça uma URL válida.\n\n**Exemplos:**\n• `pablo.space`\n• `www.pablo.space`\n• `https://pablo.space`\n\n💡 **Dica:** Use `/discover <site>` para encontrar feeds automaticamente!', { parse_mode: 'Markdown' });
       return;
     }
 
