@@ -17,7 +17,7 @@ export class ProcessFeedsCommand extends BaseCommandHandler {
     const instance = new ProcessFeedsCommand();
     return {
       name: 'processar',
-      aliases: ['process'],
+      aliases: [],
       description: 'Process all feeds immediately (secret command)',
       schema: CommandSchemas.noArgs,
       handler: instance.validateAndExecute.bind(instance),

@@ -65,10 +65,11 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
 
     const feedName = feed.name;
 
-    // Use the lastItemId from database instead of job data to ensure we have the most recent value
-    const currentLastItemId = feed.lastItemId || lastItemId;
+    // Always use the lastItemId from database to ensure consistency
+    // Only fall back to job data if database has no lastItemId
+    const currentLastItemId = feed.lastItemId ?? lastItemId;
     
-    logger.debug(`Using lastItemId from database: ${currentLastItemId} (job data had: ${lastItemId})`);
+    logger.info(`Feed ${feedId} lastItemId - Database: ${feed.lastItemId || 'none'}, Job: ${lastItemId || 'none'}, Using: ${currentLastItemId || 'none'}`);
 
     // Check the feed for new items
     const checkResult = await parserService.checkFeed(feedUrl, currentLastItemId, failureCount, forceProcessAll);
