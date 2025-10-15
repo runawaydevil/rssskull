@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.6
 # Build stage
-FROM node:20 AS builder
+FROM node:24 AS builder
 
 # Install build tools for native dependencies (sqlite3, prisma, etc.)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -57,7 +57,7 @@ RUN --mount=type=cache,target=/root/.npm \
     done
 
 # Production stage
-FROM node:20-slim AS production
+FROM node:24-slim AS production
 
 # Add metadata labels
 LABEL org.opencontainers.image.title="RSS Skull Bot"
