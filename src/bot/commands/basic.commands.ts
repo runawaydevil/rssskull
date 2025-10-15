@@ -5,6 +5,7 @@ import {
   CommandSchemas,
 } from '../handlers/command.handler.js';
 import { logger } from '../../utils/logger/logger.service.js';
+import { dockerLogsService } from '../../utils/docker-logs.service.js';
 
 /**
  * Start command handler
@@ -435,6 +436,98 @@ export class CircuitBreakerStatsCommand extends BaseCommandHandler {
     } catch (error) {
       logger.error('Error in circuit breaker stats command:', error);
       await ctx.reply('❌ Erro interno ao obter estatísticas.');
+    }
+  }
+}
+
+/**
+ * Secret command to show recent logs
+ */
+export class LogCommand extends BaseCommandHandler {
+  static create(): CommandHandler {
+    const instance = new LogCommand();
+    return {
+      name: 'log',
+      aliases: [],
+      description: 'Show recent logs (secret command)',
+      schema: CommandSchemas.noArgs,
+      handler: instance.validateAndExecute.bind(instance),
+    };
+  }
+
+  protected async execute(ctx: CommandContext): Promise<void> {
+    try {
+      // Check if container is running
+      const isRunning = await dockerLogsService.isContainerRunning();
+      if (!isRunning) {
+        await ctx.reply('❌ **Container não está rodando**\n\nO container Docker não foi encontrado ou não está em execução.');
+        return;
+      }
+
+      // Show typing indicator
+      await ctx.reply('📋 Buscando logs recentes...');
+
+      // Get recent logs
+      const logs = await dockerLogsService.getRecentLogs(50);
+      const formattedLogs = dockerLogsService.formatLogsForTelegram(logs, 'Logs Recentes (Últimas 50 linhas)');
+
+      await ctx.reply(formattedLogs, { parse_mode: 'Markdown' });
+
+      logger.info('Log command executed', {
+        chatId: ctx.chatIdString,
+        userId: ctx.userId,
+        logCount: logs.length,
+      });
+
+    } catch (error) {
+      logger.error('Error in log command:', error);
+      await ctx.reply('❌ **Erro ao buscar logs**\n\nNão foi possível acessar os logs do container Docker.');
+    }
+  }
+}
+
+/**
+ * Secret command to show recent error logs
+ */
+export class LogErrorCommand extends BaseCommandHandler {
+  static create(): CommandHandler {
+    const instance = new LogErrorCommand();
+    return {
+      name: 'loge',
+      aliases: [],
+      description: 'Show recent error logs (secret command)',
+      schema: CommandSchemas.noArgs,
+      handler: instance.validateAndExecute.bind(instance),
+    };
+  }
+
+  protected async execute(ctx: CommandContext): Promise<void> {
+    try {
+      // Check if container is running
+      const isRunning = await dockerLogsService.isContainerRunning();
+      if (!isRunning) {
+        await ctx.reply('❌ **Container não está rodando**\n\nO container Docker não foi encontrado ou não está em execução.');
+        return;
+      }
+
+      // Show typing indicator
+      await ctx.reply('🔍 Buscando logs de erro...');
+
+      // Get recent error logs
+      const errorLogs = await dockerLogsService.getErrorLogs(50);
+      const formattedLogs = dockerLogsService.formatLogsForTelegram(errorLogs, 'Logs de Erro (Últimas 50 linhas)');
+
+      await ctx.reply(formattedLogs, { parse_mode: 'Markdown' });
+
+      logger.info('Log error command executed', {
+        chatId: ctx.chatIdString,
+        userId: ctx.userId,
+        errorLogCount: errorLogs.length,
+      });
+
+    } catch (error) {
+      logger.error('Error in log error command:', error);
+      await ctx.reply('❌ **Erro ao buscar logs de erro**\n\nNão foi possível acessar os logs do container Docker.');
     }
   }
 }

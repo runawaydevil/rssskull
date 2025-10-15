@@ -5,6 +5,108 @@ All notable changes to RSS Skull Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] - 2025-10-15
+
+### 🎉 **MAJOR RELEASE - First Official Version**
+
+This is the first official stable release of RSS Skull Bot, marking the transition from beta to production-ready software.
+
+### Added
+- **🔧 Secret Log Commands**: Advanced debugging and monitoring capabilities
+  - `/log` - View last 50 lines of application logs directly in Telegram
+  - `/loge` - View last 50 lines of error logs with intelligent filtering
+  - Real-time log parsing with timestamps and log levels
+  - Automatic log truncation to fit Telegram message limits
+  - Container status verification before log retrieval
+- **🛡️ Enhanced Circuit Breaker**: Improved fault tolerance and reliability
+  - Increased failure threshold from 5 to 10 consecutive failures
+  - Faster recovery time (3 minutes vs 5 minutes)
+  - Extended monitoring window (15 minutes vs 10 minutes)
+  - Smarter error classification (timeouts now retryable)
+- **🔄 Intelligent URL Alternatives**: Automatic fallback system
+  - Automatic www/non-www URL variations
+  - Blogger feed URL alternatives (`/feeds/posts/default`, `/feeds/posts/default?alt=rss`)
+  - WordPress feed URL alternatives (`/feed/`)
+  - Seamless fallback without Circuit Breaker activation
+- **⏱️ Improved Timeout Handling**: More robust network operations
+  - Increased fetch timeout from 10s to 20s
+  - Better handling of slow websites and network issues
+  - Timeout errors now treated as retryable (not permanent failures)
+
+### Enhanced
+- **📊 Log Management System**: Professional logging infrastructure
+  - Docker logs integration with real-time parsing
+  - Structured log format with timestamps and levels
+  - Intelligent error filtering (error, warn, failed, exception)
+  - Emoji-based log level indicators (🔴 Error, 🟡 Warn, 🔵 Info, ⚪ Debug)
+- **🔍 Error Classification**: Smarter error handling
+  - Permanent errors (404, 401, 403) trigger Circuit Breaker immediately
+  - Temporary errors (timeouts, network issues) allow retries
+  - Circuit Breaker only activated after all retry attempts fail
+- **🌐 URL Resolution**: Robust URL handling
+  - Automatic redirection handling (301/302)
+  - Domain extraction and normalization
+  - Alternative URL generation for common patterns
+  - Fallback chain: original → www → non-www → feed variants
+
+### Fixed
+- **🔧 Circuit Breaker Logic**: Resolved false positive activations
+  - Fixed Circuit Breaker activating on successful alternative URLs
+  - Proper failure recording only after all attempts exhausted
+  - Better distinction between temporary and permanent failures
+- **📝 TypeScript Compilation**: Resolved build issues
+  - Fixed undefined type errors in log parsing
+  - Proper null checking for regex matches
+  - Enhanced type safety for log entries
+- **🐳 Docker Integration**: Improved container operations
+  - Better error handling for Docker command execution
+  - Proper timeout handling for log retrieval
+  - Enhanced container status verification
+
+### Technical
+- **🆕 New Services**:
+  - `DockerLogsService` - Complete Docker logs integration
+  - Enhanced `CircuitBreakerService` with improved thresholds
+  - Improved `RSSService` with alternative URL support
+- **🔧 Enhanced Utilities**:
+  - `getAlternativeUrls()` - Intelligent URL variation generation
+  - `isNonRetryableError()` - Smart error classification
+  - `formatLogsForTelegram()` - Professional log formatting
+- **📊 Monitoring Improvements**:
+  - Real-time log access via Telegram commands
+  - Better error tracking and debugging capabilities
+  - Enhanced system observability
+
+### Security
+- **🛡️ Improved Fault Tolerance**:
+  - More resilient to temporary network issues
+  - Better handling of website maintenance periods
+  - Reduced false Circuit Breaker activations
+- **🔍 Enhanced Monitoring**:
+  - Real-time error visibility for administrators
+  - Better debugging capabilities without server access
+  - Professional log management system
+
+### Performance
+- **⚡ Optimized Retry Logic**:
+  - Smarter retry decisions based on error type
+  - Reduced unnecessary Circuit Breaker activations
+  - Better resource utilization
+- **🌐 Improved URL Resolution**:
+  - Faster fallback to working URLs
+  - Reduced failed requests through alternative URLs
+  - Better success rates for problematic domains
+
+### Breaking Changes
+- **None** - This release is fully backward compatible
+
+### Migration Notes
+- **Automatic**: All existing configurations and data preserved
+- **Circuit Breaker**: Existing Circuit Breakers will use new thresholds on next failure
+- **Logs**: New log commands available immediately after deployment
+
+---
+
 ## [0.02.5] - 2025-01-11
 
 ### Added

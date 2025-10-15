@@ -19,9 +19,9 @@ export class CircuitBreakerService {
 
   constructor(config?: Partial<CircuitBreakerConfig>) {
     this.config = {
-      failureThreshold: 5,           // 5 falhas consecutivas
-      resetTimeout: 5 * 60 * 1000,   // 5 minutos
-      monitoringWindow: 10 * 60 * 1000, // 10 minutos
+      failureThreshold: 10,          // 10 falhas consecutivas (mais tolerante)
+      resetTimeout: 3 * 60 * 1000,   // 3 minutos (reset mais rápido)
+      monitoringWindow: 15 * 60 * 1000, // 15 minutos (janela maior)
       ...config,
     };
   }

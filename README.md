@@ -1,11 +1,11 @@
 <div align="center">
   <img src="rssskull.png" alt="RSS Skull Bot" width="200" height="200">
   
-  # RSS Skull Bot v0.02.5
+  # RSS Skull Bot v0.1.0
   
   *A modern, high-performance RSS to Telegram bot with intelligent feed discovery and multi-format support*
   
-  [![Version](https://img.shields.io/badge/Version-0.02.5-green.svg)](package.json)
+  [![Version](https://img.shields.io/badge/Version-0.1.0-green.svg)](package.json)
   [![TypeScript](https://img.shields.io/badge/TypeScript-5.6+-blue.svg)](https://www.typescriptlang.org/)
   [![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
   [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
@@ -36,6 +36,10 @@
 - 🌐 **URL Normalization**: Automatic handling of various URL formats (with/without https, www)
 - 🚫 **Duplicate Prevention**: Smart duplicate detection for feed names and URLs
 - ⚡ **Conditional HTTP Caching**: Bandwidth-saving with If-Modified-Since and ETag headers
+- 🔧 **Secret Log Commands**: Advanced debugging with `/log` and `/loge` commands
+- 🛡️ **Enhanced Circuit Breaker**: Improved fault tolerance with intelligent error handling
+- 🔄 **Intelligent URL Alternatives**: Automatic fallback system for problematic domains
+- ⏱️ **Robust Timeout Handling**: Better handling of slow websites and network issues
 
 ## 🛠️ Tech Stack
 

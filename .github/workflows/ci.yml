@@ -85,7 +85,7 @@ jobs:
           echo "• Rate limiting validated"
           echo "• Settings system validated"
           echo ""
-          echo "🚀 RSS Skull Bot v0.01 ready for deployment!"
+          echo "🚀 RSS Skull Bot v0.1.0 ready for deployment!"
 
       - name: 📊 Upload coverage reports
         if: ${{ matrix['node-version'] == '20.x' && env.CODECOV_TOKEN }}
@@ -247,23 +247,24 @@ jobs:
             ## 🚀 RSS Skull Bot v${{ steps.package-version.outputs.version }}
 
             ### ✨ Major Features Added
-            - 🔄 **User-Agent Rotation**: Realistic browser profiles to avoid detection
-            - 🗄️ **Intelligent Caching**: 70-90% reduction in HTTP requests
-            - ⚙️ **Enhanced Settings**: Rich configuration system with templates
-            - 🚦 **Rate Limiting**: Smart delays to prevent 429 errors
-            - ⏱️ **Dynamic Intervals**: Optimized check frequencies per domain
+            - 🔧 **Secret Log Commands**: Advanced debugging with `/log` and `/loge`
+            - 🛡️ **Enhanced Circuit Breaker**: Improved fault tolerance (10 failures vs 5)
+            - 🔄 **Intelligent URL Alternatives**: Automatic fallback system
+            - ⏱️ **Robust Timeout Handling**: Better handling of slow websites (20s vs 10s)
+            - 📊 **Professional Log Management**: Real-time log access via Telegram
 
             ### 🎯 Key Improvements
-            - ❌ → ✅ **No more Reddit rate limiting (429 errors)**
-            - ❌ → ✅ **Appears as human traffic** (realistic User-Agents)
-            - ❌ → ✅ **Shared cache** reduces server load
-            - ❌ → ✅ **Smart intervals** (Reddit 15min, YouTube 10min)
-            - ❌ → ✅ **Rich settings** with templates and export
+            - ❌ → ✅ **No more false Circuit Breaker activations**
+            - ❌ → ✅ **Automatic URL fallbacks** (www/non-www, feed variants)
+            - ❌ → ✅ **Real-time debugging** without server access
+            - ❌ → ✅ **Smarter error classification** (temporary vs permanent)
+            - ❌ → ✅ **Enhanced monitoring** with professional log system
 
-            ### 📊 Monitoring Endpoints
-            - `GET /health` - System health check
-            - `GET /cache-stats` - Cache performance metrics
-            - `GET /user-agent-stats` - User-Agent rotation statistics
+            ### 📊 New Secret Commands
+            - `/log` - View last 50 lines of application logs
+            - `/loge` - View last 50 lines of error logs
+            - Real-time log parsing with timestamps and levels
+            - Automatic log truncation for Telegram limits
 
             ### 🐳 Docker Image
             ```bash
@@ -279,13 +280,12 @@ jobs:
             docker compose up -d --build
             ```
 
-            ### ⚙️ New Settings Commands
+            ### 🔧 New Secret Commands
             ```bash
-            /settings help              # Complete guide
-            /settings interval 10       # Check every 10 minutes
-            /settings template compact  # Use compact template
-            /settings timezone UTC-3    # Set timezone
-            /settings export           # Export configuration
+            /log                        # View recent logs
+            /loge                       # View error logs
+            /resetcircuit <domain>      # Reset Circuit Breaker
+            /circuitstats              # View Circuit Breaker status
             ```
 
             ### 🔄 Migration from v1

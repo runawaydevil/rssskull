@@ -1,5 +1,5 @@
 // Basic commands
-export { StartCommand, HelpCommand, PingCommand, ResetCommand, FixFeedsCommand, ResetCircuitBreakerCommand, CircuitBreakerStatsCommand } from './basic.commands.js';
+export { StartCommand, HelpCommand, PingCommand, ResetCommand, FixFeedsCommand, ResetCircuitBreakerCommand, CircuitBreakerStatsCommand, LogCommand, LogErrorCommand } from './basic.commands.js';
 
 // Feed management commands
 export {

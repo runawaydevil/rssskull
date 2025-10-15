@@ -50,6 +50,29 @@ export class RSSService {
    * Fetch and parse an RSS feed with retry logic, rate limiting, and caching
    */
   async fetchFeed(url: string): Promise<ParseResult> {
+    // Try alternative URLs first if the original might have issues
+    const alternativeUrls = this.getAlternativeUrls(url);
+    const urlsToTry = [url, ...alternativeUrls];
+    
+    for (const tryUrl of urlsToTry) {
+      const result = await this.fetchFeedFromUrl(tryUrl);
+      if (result.success) {
+        return result;
+      }
+      // If this URL failed but it's not the original, log it but continue
+      if (tryUrl !== url) {
+        logger.debug(`Alternative URL failed: ${tryUrl}, trying next...`);
+      }
+    }
+    
+    // If all URLs failed, return the last error
+    return await this.fetchFeedFromUrl(url);
+  }
+
+  /**
+   * Fetch feed from a specific URL
+   */
+  private async fetchFeedFromUrl(url: string): Promise<ParseResult> {
     // Check cache first
     const cachedEntry = cacheService.getEntry(url);
     if (cachedEntry) {
@@ -101,7 +124,7 @@ export class RSSService {
         // Use fetch API to get response headers for conditional caching
         const response = await fetch(url, {
           headers: browserHeaders,
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.timeout(20000), // Increased timeout to 20 seconds
         });
 
         // Check if we got a 304 Not Modified response
@@ -212,9 +235,6 @@ export class RSSService {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         
-        // Record failure in circuit breaker
-        circuitBreakerService.recordFailure(this.extractDomain(url));
-        
         // Check if it's a rate limiting error (429)
         if (this.isRateLimitError(lastError)) {
           logger.warn(`Rate limit hit for ${url}, increasing delay for next attempt`);
@@ -229,6 +249,8 @@ export class RSSService {
           
           // Don't retry on certain errors
           if (this.isNonRetryableError(lastError)) {
+            // Only record failure in circuit breaker for non-retryable errors
+            circuitBreakerService.recordFailure(this.extractDomain(url));
             break;
           }
 
@@ -246,6 +268,12 @@ export class RSSService {
     logger.error(
       `Failed to fetch RSS feed after ${this.maxRetries} attempts: ${url} - ${errorMessage}`
     );
+
+    // Only record failure in circuit breaker after all retries failed
+    // and it's not a non-retryable error (which was already recorded)
+    if (!this.isNonRetryableError(lastError!)) {
+      circuitBreakerService.recordFailure(this.extractDomain(url));
+    }
 
     return {
       success: false,
@@ -653,8 +681,8 @@ export class RSSService {
       'invalid url',
       'invalid feed',
       'parse error',
-      'timeout', // Timeout errors
-      'request timed out', // Specific timeout message
+      // Removido 'timeout' - agora tratamos timeouts como retryable
+      // Removido 'request timed out' - agora tratamos timeouts como retryable
     ];
 
     return nonRetryablePatterns.some((pattern) => message.includes(pattern));
@@ -710,6 +738,61 @@ export class RSSService {
     ];
 
     return problematicPatterns.some((pattern) => url.includes(pattern));
+  }
+
+  /**
+   * Generate alternative URLs to try if the original fails
+   */
+  private getAlternativeUrls(originalUrl: string): string[] {
+    const alternatives: string[] = [];
+    
+    try {
+      const url = new URL(originalUrl);
+      const hostname = url.hostname.toLowerCase();
+      
+      // For domains without www, try with www
+      if (!hostname.startsWith('www.')) {
+        const wwwUrl = new URL(originalUrl);
+        wwwUrl.hostname = `www.${hostname}`;
+        alternatives.push(wwwUrl.toString());
+      }
+      
+      // For domains with www, try without www
+      if (hostname.startsWith('www.')) {
+        const noWwwUrl = new URL(originalUrl);
+        noWwwUrl.hostname = hostname.substring(4);
+        alternatives.push(noWwwUrl.toString());
+      }
+      
+      // For Blogger feeds, try common variations
+      if (hostname.includes('blogspot.com') || hostname.includes('blogger.com')) {
+        // Try /feeds/posts/default if not already present
+        if (!originalUrl.includes('/feeds/posts/default')) {
+          const feedUrl = new URL(originalUrl);
+          feedUrl.pathname = '/feeds/posts/default';
+          alternatives.push(feedUrl.toString());
+        }
+        
+        // Try /feeds/posts/default?alt=rss
+        const rssUrl = new URL(originalUrl);
+        rssUrl.pathname = '/feeds/posts/default';
+        rssUrl.searchParams.set('alt', 'rss');
+        alternatives.push(rssUrl.toString());
+      }
+      
+      // For WordPress sites, try common feed URLs
+      if (hostname.includes('wordpress.com') || hostname.includes('wp.com')) {
+        const wpFeedUrl = new URL(originalUrl);
+        wpFeedUrl.pathname = '/feed/';
+        alternatives.push(wpFeedUrl.toString());
+      }
+      
+    } catch (error) {
+      // If URL parsing fails, don't add alternatives
+      logger.debug(`Failed to parse URL for alternatives: ${originalUrl}`);
+    }
+    
+    return alternatives;
   }
 
   /**

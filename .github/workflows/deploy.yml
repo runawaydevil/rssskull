@@ -98,22 +98,23 @@ jobs:
           curl -f http://localhost:8916/user-agent-stats || echo "⚠️ User-Agent stats endpoint not available"
           
           echo "✅ Deployment completed successfully!"
-          echo "🚀 RSS Skull Bot v0.01 with enhanced features is now live!"
+          echo "🚀 RSS Skull Bot v0.1.0 with enhanced features is now live!"
 
     - name: 📢 Notify deployment status
       uses: 8398a7/action-slack@v3
       if: always()
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       with:
         status: ${{ job.status }}
         channel: '#deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
         fields: repo,message,commit,author,action,eventName,ref,workflow
         text: |
           RSS Skull Bot deployment to ${{ github.event.inputs.environment || 'production' }} ${{ job.status }}!
           
           🚀 Version: ${{ github.ref_name }}
           👤 Author: ${{ github.actor }}
-          📝 Commit: ${{ github.event.head_commit.message }}
+          📝 Commit: ${{ github.event.head_commit.message || 'Manual deployment' }}
 
   health-check:
     name: Post-deployment Health Check
@@ -154,7 +155,7 @@ jobs:
         echo "User-Agent stats: $ua_response"
         
         echo "✅ All integration tests passed!"
-        echo "🎉 RSS Skull Bot v0.01 features validated successfully!"
+        echo "🎉 RSS Skull Bot v0.1.0 features validated successfully!"
 
   rollback:
     name: Rollback on Failure
@@ -200,10 +201,11 @@ jobs:
 
     - name: 📢 Notify rollback
       uses: 8398a7/action-slack@v3
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       with:
         status: 'warning'
         channel: '#deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
         text: |
           🔄 RSS Skull Bot deployment was rolled back due to health check failure!
           

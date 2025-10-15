@@ -14,6 +14,8 @@ import {
   FixFeedsCommand,
   HelpCommand,
   ListFeedsCommand,
+  LogCommand,
+  LogErrorCommand,
   PingCommand,
   ProcessFeedCommand,
   ProcessFeedsCommand,
@@ -338,6 +340,8 @@ export class BotService {
     this.commandRouter.register(StatsCommand.create());
     this.commandRouter.register(ProcessFeedsCommand.create());
     this.commandRouter.register(ProcessFeedCommand.create());
+    this.commandRouter.register(LogCommand.create());
+    this.commandRouter.register(LogErrorCommand.create());
 
     logger.info('Command router initialized', {
       commandCount: this.commandRouter.getCommands().length,
