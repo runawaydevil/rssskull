@@ -11,7 +11,7 @@
 
 Transform RSS Skull Bot from a Telegram-only solution into a **multi-platform RSS notification system** that supports WhatsApp, Discord, Slack, and other messaging platforms while maintaining the same powerful features and user experience.
 
-## 📋 Current Status (v0.01.0)
+## 📋 Current Status (v0.1.0)
 
 ### ✅ Implemented Features
 - **Telegram Bot**: Full support for private chats, groups, and channels
@@ -22,10 +22,29 @@ Transform RSS Skull Bot from a Telegram-only solution into a **multi-platform RS
 - **Bilingual Support**: English and Portuguese
 - **Statistics**: Usage tracking and analytics
 - **Docker Deployment**: Production-ready containerization
+- **Secret Commands**: Advanced debugging with `/log` and `/loge`
+- **Enhanced Circuit Breaker**: Improved fault tolerance and reliability
+- **Intelligent URL Alternatives**: Automatic fallback system
+- **Professional Log Management**: Real-time log access via Telegram
 
 ---
 
-## 🚀 Phase 1: WhatsApp Integration (v0.02.0)
+## 🎯 **NEXT MAJOR MILESTONE: v1.0.0 - WhatsApp Integration**
+
+### 🚀 **The Big Leap: WhatsApp Business API Integration**
+
+**RSS Skull Bot v1.0.0** will mark a major milestone with the introduction of **WhatsApp Business API integration**, expanding our reach from Telegram to the world's most popular messaging platform.
+
+**Why WhatsApp for v1.0?**
+- **2+ billion users** worldwide
+- **Business-focused** with official API support
+- **Rich messaging** capabilities
+- **Global reach** and accessibility
+- **Enterprise adoption** potential
+
+---
+
+## 🚀 Phase 1: WhatsApp Integration (v1.0.0)
 
 ### 🎯 Primary Goal
 Implement full WhatsApp support with feature parity to Telegram implementation.
@@ -320,17 +339,21 @@ class MessageFormatter {
 
 ## 📅 Timeline & Milestones
 
-### Q1 2025: WhatsApp Foundation
+### 🎯 **v1.0.0 - WhatsApp Integration (Q1-Q2 2025)**
+
+#### Q1 2025: WhatsApp Foundation
 - [ ] WhatsApp Business API integration
 - [ ] Basic command system
 - [ ] Message sending/receiving
 - [ ] Group support
+- [ ] Multi-platform architecture foundation
 
-### Q2 2025: WhatsApp Feature Parity
+#### Q2 2025: WhatsApp Feature Parity
 - [ ] All Telegram features in WhatsApp
 - [ ] Rich messaging support
 - [ ] Interactive buttons
 - [ ] Channel support
+- [ ] **v1.0.0 Release** - First multi-platform version
 
 ### Q3 2025: Multi-Platform Core
 - [ ] Platform abstraction layer
