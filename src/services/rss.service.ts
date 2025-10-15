@@ -256,14 +256,15 @@ export class RSSService {
   /**
    * Get new items from a feed based on the last known item ID
    */
-  async getNewItems(url: string, lastItemId?: string, forceProcessAll = false): Promise<RSSItem[]> {
+  async getNewItems(url: string, lastItemId?: string, forceProcessAll = false): Promise<{items: RSSItem[], totalItemsCount: number}> {
     const result = await this.fetchFeed(url);
 
     if (!result.success || !result.feed) {
-      return [];
+      return { items: [], totalItemsCount: 0 };
     }
 
     const items = result.feed.items;
+    const totalItemsCount = items.length;
 
     // If no last item ID, return only items from bot startup time onwards
     // Unless forceProcessAll is true, then return items from today only
@@ -280,15 +281,15 @@ export class RSSService {
           return item.pubDate >= startOfDay;
         });
         
-        logger.info(`Force processing items from today for ${url}, returning ${todayItems.length} items out of ${items.length} total`);
-        return todayItems;
+        logger.info(`Force processing items from today for ${url}, lookback=24h, returning ${todayItems.length} items out of ${items.length} total`);
+        return { items: todayItems, totalItemsCount };
       }
       
       // When no lastItemId, only return items from today to avoid processing old posts after restart
       const today = new Date();
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       
-      logger.info(`No lastItemId for ${url}, filtering items from today onwards (${startOfDay.toISOString()})`);
+      logger.info(`No lastItemId for ${url}, lookback=24h, filtering items from today onwards (${startOfDay.toISOString()})`);
       
       const todayItems = items.filter(item => {
         if (!item.pubDate) return false;
@@ -297,8 +298,8 @@ export class RSSService {
         return isFromToday;
       });
       
-      logger.info(`No last item ID for ${url}, returning ${todayItems.length} items from today onwards out of ${items.length} total`);
-      return todayItems;
+      logger.info(`No last item ID for ${url}, lookback=24h, returning ${todayItems.length} items from today onwards out of ${items.length} total`);
+      return { items: todayItems, totalItemsCount };
     }
 
     // Find the index of the last known item
@@ -308,14 +309,14 @@ export class RSSService {
       // Last item not found, might be too old or feed changed
       // Return only the most recent item to avoid spam
       logger.warn(`Last item ID ${lastItemId} not found in feed ${url}, returning only the most recent item`);
-      return items.slice(0, 1);
+      return { items: items.slice(0, 1), totalItemsCount };
     }
 
     // Return only new items (items before the last known item in the array)
     const newItems = items.slice(0, lastItemIndex);
-    logger.debug(`Found ${newItems.length} new items in feed ${url}`);
+    logger.debug(`Found ${newItems.length} new items in feed ${url} out of ${items.length} total`);
 
-    return newItems;
+    return { items: newItems, totalItemsCount };
   }
 
   /**

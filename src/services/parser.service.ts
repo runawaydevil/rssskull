@@ -7,6 +7,7 @@ export interface FeedCheckResult {
   lastItemId?: string;
   error?: string;
   nextCheckDelay?: number; // milliseconds until next check
+  totalItemsCount?: number; // total items found before filtering
 }
 
 export class ParserService {
@@ -26,8 +27,10 @@ export class ParserService {
     try {
       logger.debug(`Checking feed for new items: ${feedUrl}`);
 
-      // Get new items from the RSS feed
-      const newItems = await rssService.getNewItems(feedUrl, lastItemId, forceProcessAll);
+      // Get new items from the RSS feed (this now returns total count too)
+      const result = await rssService.getNewItems(feedUrl, lastItemId, forceProcessAll);
+      const newItems = result.items;
+      const totalItemsCount = result.totalItemsCount;
 
       // Determine the new last item ID
       const newLastItemId = newItems.length > 0 ? newItems[0]?.id : lastItemId;
@@ -42,6 +45,7 @@ export class ParserService {
         newItems,
         lastItemId: newLastItemId,
         nextCheckDelay,
+        totalItemsCount,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

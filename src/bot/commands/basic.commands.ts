@@ -322,3 +322,113 @@ export class FixFeedsCommand extends BaseCommandHandler {
   }
 }
 
+/**
+ * Command to reset circuit breakers for problematic domains
+ */
+export class ResetCircuitBreakerCommand extends BaseCommandHandler {
+  static create(): CommandHandler {
+    const instance = new ResetCircuitBreakerCommand();
+    return {
+      command: 'resetcircuit',
+      description: 'Reset circuit breakers for problematic domains',
+      handler: instance.validateAndExecute.bind(instance),
+    };
+  }
+
+  protected async execute(ctx: CommandContext, args: string[]): Promise<void> {
+    try {
+      if (args.length === 0) {
+        await ctx.reply('⚠️ **Reset Circuit Breaker**\n\n📝 **Uso:** `/resetcircuit <domínio>`\n\n🔧 **Exemplo:** `/resetcircuit escatologiafilmes.com`\n\n💡 **Nota:** Use apenas se o site voltou a funcionar normalmente.');
+        return;
+      }
+
+      const domain = args[0].toLowerCase();
+      
+      // Import circuit breaker service
+      const { circuitBreakerService } = await import('../../utils/circuit-breaker.service.js');
+      
+      // Check current state
+      const currentState = circuitBreakerService.getState(domain);
+      
+      if (currentState.state === 'CLOSED') {
+        await ctx.reply(`✅ **Circuit Breaker Status**\n\n🌐 **Domínio:** ${domain}\n🔓 **Estado:** CLOSED (funcionando normalmente)\n\n💡 Não é necessário resetar.`);
+        return;
+      }
+
+      // Reset the circuit breaker
+      circuitBreakerService.reset(domain);
+      
+      logger.info('Circuit breaker manually reset via bot command', {
+        domain,
+        chatId: ctx.chatIdString,
+        userId: ctx.userId,
+        previousState: currentState.state,
+      });
+
+      await ctx.reply(`✅ **Circuit Breaker Resetado!**\n\n🌐 **Domínio:** ${domain}\n🔄 **Estado anterior:** ${currentState.state}\n🔓 **Novo estado:** CLOSED\n\n⚡ O sistema agora tentará acessar o site novamente.\n\n⚠️ **Atenção:** Se o site ainda estiver com problemas, o circuit breaker será ativado novamente automaticamente.`);
+      
+    } catch (error) {
+      logger.error('Error in reset circuit breaker command:', error);
+      await ctx.reply('❌ Erro interno ao resetar circuit breaker.');
+    }
+  }
+}
+
+/**
+ * Command to show circuit breaker statistics
+ */
+export class CircuitBreakerStatsCommand extends BaseCommandHandler {
+  static create(): CommandHandler {
+    const instance = new CircuitBreakerStatsCommand();
+    return {
+      command: 'circuitstats',
+      description: 'Show circuit breaker statistics',
+      handler: instance.validateAndExecute.bind(instance),
+    };
+  }
+
+  protected async execute(ctx: CommandContext): Promise<void> {
+    try {
+      // Import circuit breaker service
+      const { circuitBreakerService } = await import('../../utils/circuit-breaker.service.js');
+      
+      const stats = circuitBreakerService.getStats();
+      
+      if (Object.keys(stats).length === 0) {
+        await ctx.reply('✅ **Circuit Breaker Status**\n\n🔓 Todos os circuit breakers estão CLOSED (funcionando normalmente).');
+        return;
+      }
+
+      let message = '📊 **Circuit Breaker Statistics**\n\n';
+      
+      for (const [domain, stat] of Object.entries(stats)) {
+        const state = stat.state;
+        const emoji = state === 'OPEN' ? '🔴' : state === 'HALF_OPEN' ? '🟡' : '🟢';
+        
+        message += `${emoji} **${domain}**\n`;
+        message += `   Estado: ${state}\n`;
+        message += `   Falhas: ${stat.failureCount}\n`;
+        
+        if (stat.nextAttemptTime) {
+          const nextAttempt = new Date(stat.nextAttemptTime);
+          message += `   Próxima tentativa: ${nextAttempt.toLocaleString('pt-BR')}\n`;
+        }
+        
+        message += '\n';
+      }
+
+      message += '💡 **Estados:**\n';
+      message += '🟢 CLOSED = Funcionando\n';
+      message += '🟡 HALF_OPEN = Testando\n';
+      message += '🔴 OPEN = Bloqueado\n\n';
+      message += '🔧 Use `/resetcircuit <domínio>` para resetar manualmente.';
+
+      await ctx.reply(message);
+      
+    } catch (error) {
+      logger.error('Error in circuit breaker stats command:', error);
+      await ctx.reply('❌ Erro interno ao obter estatísticas.');
+    }
+  }
+}
+

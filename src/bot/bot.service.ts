@@ -7,6 +7,7 @@ import { logger } from '../utils/logger/logger.service.js';
 import {
   AddFeedCommand,
   DisableFeedCommand,
+  CircuitBreakerStatsCommand,
   DiscoverFeedsCommand,
   EnableFeedCommand,
   FiltersCommand,
@@ -17,6 +18,7 @@ import {
   ProcessFeedCommand,
   ProcessFeedsCommand,
   RemoveFeedCommand,
+  ResetCircuitBreakerCommand,
   ResetCommand,
   SettingsCommand,
   StartCommand,
@@ -329,6 +331,8 @@ export class BotService {
     this.commandRouter.register(PingCommand.create());
     this.commandRouter.register(ResetCommand.create());
     this.commandRouter.register(FixFeedsCommand.create());
+    this.commandRouter.register(ResetCircuitBreakerCommand.create());
+    this.commandRouter.register(CircuitBreakerStatsCommand.create());
     
     // Secret/debug commands (not listed in help)
     this.commandRouter.register(StatsCommand.create());

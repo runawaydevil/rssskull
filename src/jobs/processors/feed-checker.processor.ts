@@ -20,6 +20,7 @@ export interface FeedCheckJobResult extends JobResult {
   lastItemId?: string;
   nextCheckAt?: Date;
   failureCount?: number;
+  totalItemsCount?: number;
 }
 
 export interface MessageJobData extends JobData {
@@ -46,7 +47,7 @@ export interface MessageJobData extends JobData {
 export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<FeedCheckJobResult> {
   const { feedId, chatId, feedUrl, lastItemId, failureCount = 0, forceProcessAll = false } = job.data;
 
-  logger.info(`Processing feed check for feed ${feedId} in chat ${chatId} (lastItemId from job: ${lastItemId || 'none'})`);
+    logger.info(`Processing feed check for feed ${feedId} in chat ${chatId} (lastItemId from job: ${lastItemId || 'none'})`);
 
   try {
     // Get feed information from database
@@ -71,6 +72,11 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
 
     // Check the feed for new items
     const checkResult = await parserService.checkFeed(feedUrl, currentLastItemId, failureCount, forceProcessAll);
+    
+    // Log total items found before filtering (for visibility)
+    if (checkResult.success && checkResult.totalItemsCount !== undefined) {
+      logger.info(`Feed check results for ${feedUrl}: total items found: ${checkResult.totalItemsCount}, new items: ${checkResult.newItems.length}`);
+    }
 
     if (!checkResult.success) {
       // Feed check failed, return failure result with exponential backoff
@@ -134,7 +140,7 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
       // Don't fail the entire job if database update fails
     }
 
-    logger.info(`Feed check completed for feed ${feedId}: ${newItemsCount} new items`);
+    // Log already done above with total count, no need to duplicate
     return result;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
