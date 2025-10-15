@@ -343,7 +343,12 @@ export class ResetCircuitBreakerCommand extends BaseCommandHandler {
         return;
       }
 
-      const domain = args[0].toLowerCase();
+      const domain = args[0]?.toLowerCase();
+      
+      if (!domain) {
+        await ctx.reply('❌ Domínio não fornecido.');
+        return;
+      }
       
       // Import circuit breaker service
       const { circuitBreakerService } = await import('../../utils/circuit-breaker.service.js');
