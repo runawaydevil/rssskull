@@ -243,42 +243,42 @@ describe('RSSService', () => {
       
       mockParseString.mockResolvedValue(mockFeedDataWithTodayItems);
       
-      const items = await rssService.getNewItems('https://example.com/feed.xml');
+      const result = await rssService.getNewItems('https://example.com/feed.xml');
 
       // Since we can't easily mock "today", we expect 0 items
       // as the test items are from 2023 and we're in 2025
-      expect(items).toHaveLength(0);
+      expect(result.items).toHaveLength(0);
     });
 
     it('should return empty array when all items are older than bot startup', async () => {
       // Set bot startup time to after all test items
       process.env.BOT_STARTUP_TIME = '2023-01-04T00:00:00Z';
       
-      const items = await rssService.getNewItems('https://example.com/feed.xml');
+      const result = await rssService.getNewItems('https://example.com/feed.xml');
 
-      expect(items).toHaveLength(0);
+      expect(result.items).toHaveLength(0);
     });
 
     it('should return only new items when lastItemId is provided', async () => {
-      const items = await rssService.getNewItems('https://example.com/feed.xml', 'old-item');
+      const result = await rssService.getNewItems('https://example.com/feed.xml', 'old-item');
 
-      expect(items).toHaveLength(1);
-      expect(items[0].id).toBe('new-item');
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].id).toBe('new-item');
     });
 
     it('should return only the most recent item when lastItemId is not found', async () => {
-      const items = await rssService.getNewItems('https://example.com/feed.xml', 'non-existent');
+      const result = await rssService.getNewItems('https://example.com/feed.xml', 'non-existent');
 
-      expect(items).toHaveLength(1);
-      expect(items[0].id).toBe('new-item');
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].id).toBe('new-item');
     });
 
     it('should return empty array when feed fetch fails', async () => {
       global.fetch = vi.fn().mockRejectedValue(new Error('Feed error'));
 
-      const items = await rssService.getNewItems('https://example.com/feed.xml');
+      const result = await rssService.getNewItems('https://example.com/feed.xml');
 
-      expect(items).toHaveLength(0);
+      expect(result.items).toHaveLength(0);
     });
   });
 

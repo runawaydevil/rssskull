@@ -329,7 +329,8 @@ export class ResetCircuitBreakerCommand extends BaseCommandHandler {
   static create(): CommandHandler {
     const instance = new ResetCircuitBreakerCommand();
     return {
-      command: 'resetcircuit',
+      name: 'resetcircuit',
+      aliases: [],
       description: 'Reset circuit breakers for problematic domains',
       handler: instance.validateAndExecute.bind(instance),
     };
@@ -350,7 +351,7 @@ export class ResetCircuitBreakerCommand extends BaseCommandHandler {
       // Check current state
       const currentState = circuitBreakerService.getState(domain);
       
-      if (currentState.state === 'CLOSED') {
+      if (!currentState || currentState.state === 'CLOSED') {
         await ctx.reply(`✅ **Circuit Breaker Status**\n\n🌐 **Domínio:** ${domain}\n🔓 **Estado:** CLOSED (funcionando normalmente)\n\n💡 Não é necessário resetar.`);
         return;
       }
@@ -381,7 +382,8 @@ export class CircuitBreakerStatsCommand extends BaseCommandHandler {
   static create(): CommandHandler {
     const instance = new CircuitBreakerStatsCommand();
     return {
-      command: 'circuitstats',
+      name: 'circuitstats',
+      aliases: [],
       description: 'Show circuit breaker statistics',
       handler: instance.validateAndExecute.bind(instance),
     };

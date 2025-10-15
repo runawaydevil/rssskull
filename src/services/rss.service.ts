@@ -327,7 +327,8 @@ export class RSSService {
     filters: PrismaFeedFilter[],
     lastItemId?: string
   ): Promise<RSSItem[]> {
-    const newItems = await this.getNewItems(url, lastItemId);
+    const result = await this.getNewItems(url, lastItemId);
+    const newItems = result.items;
 
     if (newItems.length === 0 || filters.length === 0) {
       return newItems;
