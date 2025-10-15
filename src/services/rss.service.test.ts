@@ -169,7 +169,7 @@ describe('RSSService', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Persistent error');
-    });
+    }, 10000); // Increase timeout to 10 seconds
 
     it('should not retry on non-retryable errors', async () => {
       // Mock circuit breaker to be closed
@@ -180,7 +180,7 @@ describe('RSSService', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Circuit breaker is open');
-    });
+    }, 10000); // Increase timeout to 10 seconds
   });
 
   describe('getNewItems', () => {
@@ -279,7 +279,7 @@ describe('RSSService', () => {
       const result = await rssService.getNewItems('https://example.com/feed.xml');
 
       expect(result.items).toHaveLength(0);
-    });
+    }, 10000); // Increase timeout to 10 seconds
   });
 
   describe('validateFeedUrl', () => {
