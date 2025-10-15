@@ -26,7 +26,7 @@ export class ProcessFeedsCommand extends BaseCommandHandler {
 
   protected async execute(ctx: CommandContext): Promise<void> {
     try {
-      await ctx.reply(ctx.t('status.processing') || '🔄 Processing feeds...');
+      const processingMessage = await ctx.reply('🔄 **Processando feeds...**\n\n⏳ Aguarde, verificando todos os feeds...');
 
       // Get all enabled feeds for this chat
       const feeds = await database.client.feed.findMany({
@@ -40,20 +40,24 @@ export class ProcessFeedsCommand extends BaseCommandHandler {
       });
 
       if (feeds.length === 0) {
-        await ctx.reply(ctx.t('feed.no_feeds') || '❌ No feeds found for this chat.');
+        await ctx.reply('❌ **Nenhum feed encontrado**\n\nNão há feeds habilitados neste chat.');
         return;
       }
 
       let processedCount = 0;
       let errorCount = 0;
+      let totalNewItems = 0;
+      const feedResults: Array<{name: string, newItems: number, error?: string}> = [];
 
-      // Process each feed immediately
+      // Process each feed immediately and wait for results
       for (const feed of feeds) {
         try {
           logger.info(`Processing feed immediately: ${feed.name} (${feed.id})`);
           
+          // Get current lastItemId to compare later
+          const originalLastItemId = feed.lastItemId;
+          
           // Schedule immediate feed check (no delay)
-          // For manual processing, if no lastItemId, process all available items
           await feedQueueService.scheduleFeedCheck({
             feedId: feed.id,
             chatId: feed.chatId,
@@ -63,39 +67,100 @@ export class ProcessFeedsCommand extends BaseCommandHandler {
             forceProcessAll: !feed.lastItemId, // Force process all items if no lastItemId
           }, 0); // 0 delay = immediate processing
 
+          // Wait a bit for processing to complete
+          await new Promise(resolve => setTimeout(resolve, 2000));
+
+          // Check if feed was updated (new items found)
+          const updatedFeed = await database.client.feed.findUnique({
+            where: { id: feed.id },
+            select: { lastItemId: true }
+          });
+
+          const newItemsCount = updatedFeed?.lastItemId !== originalLastItemId ? 1 : 0;
+          totalNewItems += newItemsCount;
+          
+          feedResults.push({
+            name: feed.name,
+            newItems: newItemsCount
+          });
+
           processedCount++;
         } catch (error) {
           errorCount++;
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           logger.error(`Failed to process feed ${feed.name}:`, error);
+          
+          feedResults.push({
+            name: feed.name,
+            newItems: 0,
+            error: errorMessage
+          });
         }
       }
 
-      // Send result message
-      let resultMessage = `✅ **Feed Processing Complete**\n\n`;
-      resultMessage += `📊 **Results:**\n`;
-      resultMessage += `• Feeds processed: ${processedCount}\n`;
-      resultMessage += `• Errors: ${errorCount}\n`;
-      resultMessage += `• Total feeds: ${feeds.length}\n\n`;
-      
-      if (processedCount > 0) {
-        resultMessage += `🔄 Feeds are being checked now. New items will be sent shortly.`;
+      // Update the processing message with results
+      let resultMessage = `✅ **Processamento Concluído!**\n\n`;
+      resultMessage += `📊 **Resumo:**\n`;
+      resultMessage += `• Feeds processados: ${processedCount}/${feeds.length}\n`;
+      resultMessage += `• Novos itens encontrados: ${totalNewItems}\n`;
+      resultMessage += `• Erros: ${errorCount}\n\n`;
+
+      if (totalNewItems > 0) {
+        resultMessage += `🎉 **${totalNewItems} novo(s) item(ns) encontrado(s)!**\n\n`;
+        resultMessage += `📋 **Detalhes por feed:**\n`;
+        
+        feedResults.forEach(result => {
+          if (result.newItems > 0) {
+            resultMessage += `• ✅ **${result.name}**: ${result.newItems} novo(s)\n`;
+          } else if (result.error) {
+            resultMessage += `• ❌ **${result.name}**: Erro\n`;
+          } else {
+            resultMessage += `• 📭 **${result.name}**: Nenhum novo\n`;
+          }
+        });
+        
+        resultMessage += `\n🚀 Os novos itens serão enviados em breve!`;
       } else if (errorCount > 0) {
-        resultMessage += `❌ Some feeds had errors during processing. Check logs for details.`;
+        resultMessage += `⚠️ **Alguns feeds tiveram erros**\n\n`;
+        resultMessage += `📋 **Detalhes:**\n`;
+        
+        feedResults.forEach(result => {
+          if (result.error) {
+            resultMessage += `• ❌ **${result.name}**: ${result.error}\n`;
+          } else {
+            resultMessage += `• 📭 **${result.name}**: Nenhum novo\n`;
+          }
+        });
+        
+        resultMessage += `\n💡 Verifique os logs para mais detalhes.`;
       } else {
-        resultMessage += `📭 **No new items found** in any of your feeds.\n\n`;
-        resultMessage += `This could mean:\n`;
-        resultMessage += `• All feeds are up to date\n`;
-        resultMessage += `• No new posts since last check\n`;
-        resultMessage += `• Feeds might be temporarily unavailable\n\n`;
-        resultMessage += `💡 Try again later or check individual feeds with \`/list\``;
+        resultMessage += `📭 **Nenhum novo item encontrado**\n\n`;
+        resultMessage += `📋 **Status dos feeds:**\n`;
+        
+        feedResults.forEach(result => {
+          resultMessage += `• 📭 **${result.name}**: Atualizado\n`;
+        });
+        
+        resultMessage += `\n💡 Todos os feeds estão atualizados. Tente novamente mais tarde.`;
       }
 
-      await ctx.reply(resultMessage, { parse_mode: 'Markdown' });
+      // Edit the original message with results
+      try {
+        await ctx.api.editMessageText(
+          ctx.chatId!,
+          processingMessage.message_id,
+          resultMessage,
+          { parse_mode: 'Markdown' }
+        );
+      } catch (editError) {
+        // If edit fails, send new message
+        await ctx.reply(resultMessage, { parse_mode: 'Markdown' });
+      }
 
-      logger.info(`Manual feed processing completed for chat ${ctx.chatIdString}: ${processedCount}/${feeds.length} feeds processed`);
+      logger.info(`Manual feed processing completed for chat ${ctx.chatIdString}: ${processedCount}/${feeds.length} feeds processed, ${totalNewItems} new items found`);
     } catch (error) {
       logger.error('Failed to process feeds manually:', error);
-      await ctx.reply(ctx.t('error.internal') || '❌ Failed to process feeds. Please try again later.');
+      await ctx.reply('❌ **Erro no processamento**\n\nFalha ao processar os feeds. Tente novamente mais tarde.');
     }
   }
 }
@@ -119,7 +184,7 @@ export class ProcessFeedCommand extends BaseCommandHandler {
     const [feedName] = args;
 
     try {
-      await ctx.reply(ctx.t('status.processing') || '🔄 Processing feed...');
+      const processingMessage = await ctx.reply(`🔄 **Processando feed "${feedName}"...**\n\n⏳ Aguarde, verificando o feed...`);
 
       // Find the specific feed
       const feed = await database.client.feed.findFirst({
@@ -134,11 +199,14 @@ export class ProcessFeedCommand extends BaseCommandHandler {
       });
 
       if (!feed) {
-        await ctx.reply(ctx.t('feed.not_found', { name: feedName }) || `❌ Feed "${feedName}" not found.`);
+        await ctx.reply(`❌ **Feed não encontrado**\n\nO feed "${feedName}" não foi encontrado ou não está habilitado.`);
         return;
       }
 
       logger.info(`Processing specific feed immediately: ${feed.name} (${feed.id})`);
+
+      // Get current lastItemId to compare later
+      const originalLastItemId = feed.lastItemId;
 
       // Schedule immediate feed check
       await feedQueueService.scheduleFeedCheck({
@@ -150,19 +218,47 @@ export class ProcessFeedCommand extends BaseCommandHandler {
         forceProcessAll: !feed.lastItemId, // Force process all items if no lastItemId
       }, 0); // 0 delay = immediate processing
 
-      await ctx.reply(
-        `✅ **Feed Processing Started**\n\n` +
-        `📰 **Feed:** ${feed.name}\n` +
-        `🔗 **URL:** ${feed.rssUrl}\n` +
-        `🔄 **Status:** Processing now...\n\n` +
-        `New items will be sent shortly if available.`,
-        { parse_mode: 'Markdown' }
-      );
+      // Wait for processing to complete
+      await new Promise(resolve => setTimeout(resolve, 3000));
 
-      logger.info(`Manual feed processing started for feed ${feed.name} in chat ${ctx.chatIdString}`);
+      // Check if feed was updated (new items found)
+      const updatedFeed = await database.client.feed.findUnique({
+        where: { id: feed.id },
+        select: { lastItemId: true }
+      });
+
+      const hasNewItems = updatedFeed?.lastItemId !== originalLastItemId;
+
+      // Update the processing message with results
+      let resultMessage = `✅ **Processamento Concluído!**\n\n`;
+      resultMessage += `📰 **Feed:** ${feed.name}\n`;
+      resultMessage += `🔗 **URL:** ${feed.rssUrl}\n\n`;
+
+      if (hasNewItems) {
+        resultMessage += `🎉 **Novo item encontrado!**\n\n`;
+        resultMessage += `🚀 O novo item será enviado em breve!`;
+      } else {
+        resultMessage += `📭 **Nenhum novo item encontrado**\n\n`;
+        resultMessage += `💡 O feed está atualizado. Tente novamente mais tarde.`;
+      }
+
+      // Edit the original message with results
+      try {
+        await ctx.api.editMessageText(
+          ctx.chatId!,
+          processingMessage.message_id,
+          resultMessage,
+          { parse_mode: 'Markdown' }
+        );
+      } catch (editError) {
+        // If edit fails, send new message
+        await ctx.reply(resultMessage, { parse_mode: 'Markdown' });
+      }
+
+      logger.info(`Manual feed processing completed for feed ${feed.name} in chat ${ctx.chatIdString}: ${hasNewItems ? 'new items found' : 'no new items'}`);
     } catch (error) {
       logger.error(`Failed to process feed ${feedName}:`, error);
-      await ctx.reply(ctx.t('error.internal') || '❌ Failed to process feed. Please try again later.');
+      await ctx.reply('❌ **Erro no processamento**\n\nFalha ao processar o feed. Tente novamente mais tarde.');
     }
   }
 }

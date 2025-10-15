@@ -29,6 +29,7 @@ const messages = {
     'cmd.discover': '/discover <url> - Discover feeds from website',
     'cmd.settings': '/settings - View chat settings',
     'cmd.filters': '/filters <name> - Manage feed filters',
+    'cmd.process': '/process - Manually process all feeds',
     'cmd.help': '/help - Show this message',
 
     // Error messages
@@ -170,6 +171,7 @@ const messages = {
     'cmd.discover': '/descobrir <url> - Descobrir feeds de um site',
     'cmd.settings': '/configuracoes - Ver configurações do chat',
     'cmd.filters': '/filtros <nome> - Gerenciar filtros do feed',
+    'cmd.process': '/processar - Processar manualmente todos os feeds',
     'cmd.help': '/ajuda - Mostrar esta mensagem',
 
     // Error messages
