@@ -12,7 +12,6 @@ export interface LogEntry {
 }
 
 export class DockerLogsService {
-  private readonly containerName = 'rss-skull-bot';
   private readonly maxMessageLength = 4000; // Telegram message limit
 
   /**
@@ -21,7 +20,7 @@ export class DockerLogsService {
   async getRecentLogs(lines: number = 50): Promise<LogEntry[]> {
     try {
       const { stdout } = await execAsync(
-        `docker logs --tail ${lines} ${this.containerName} 2>&1`,
+        `docker logs --tail ${lines} rss-skull-bot 2>&1`,
         { timeout: 10000 }
       );
 
@@ -38,7 +37,7 @@ export class DockerLogsService {
   async getErrorLogs(lines: number = 50): Promise<LogEntry[]> {
     try {
       const { stdout } = await execAsync(
-        `docker logs --tail ${lines * 2} ${this.containerName} 2>&1 | grep -i -E "(error|warn|failed|exception)" | tail -${lines}`,
+        `docker logs --tail ${lines * 2} rss-skull-bot 2>&1 | grep -i -E "(error|warn|failed|exception)" | tail -${lines}`,
         { timeout: 10000 }
       );
 
@@ -163,20 +162,6 @@ export class DockerLogsService {
     }
   }
 
-  /**
-   * Check if Docker container is running
-   */
-  async isContainerRunning(): Promise<boolean> {
-    try {
-      const { stdout } = await execAsync(
-        `docker ps --filter "name=${this.containerName}" --format "{{.Names}}"`,
-        { timeout: 5000 }
-      );
-      return stdout.trim() === this.containerName;
-    } catch {
-      return false;
-    }
-  }
 }
 
 // Singleton instance

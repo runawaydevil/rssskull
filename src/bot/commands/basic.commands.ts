@@ -458,13 +458,6 @@ export class LogCommand extends BaseCommandHandler {
 
   protected async execute(ctx: CommandContext): Promise<void> {
     try {
-      // Check if container is running
-      const isRunning = await dockerLogsService.isContainerRunning();
-      if (!isRunning) {
-        await ctx.reply('❌ **Container não está rodando**\n\nO container Docker não foi encontrado ou não está em execução.');
-        return;
-      }
-
       // Show typing indicator
       await ctx.reply('📋 Buscando logs recentes...');
 
@@ -504,13 +497,6 @@ export class LogErrorCommand extends BaseCommandHandler {
 
   protected async execute(ctx: CommandContext): Promise<void> {
     try {
-      // Check if container is running
-      const isRunning = await dockerLogsService.isContainerRunning();
-      if (!isRunning) {
-        await ctx.reply('❌ **Container não está rodando**\n\nO container Docker não foi encontrado ou não está em execução.');
-        return;
-      }
-
       // Show typing indicator
       await ctx.reply('🔍 Buscando logs de erro...');
 
