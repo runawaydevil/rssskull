@@ -19,6 +19,7 @@ export class FeedQueueService {
   private messageSendQueue: Queue;
   private feedCheckWorker: Worker<FeedCheckJobData, FeedCheckJobResult>;
   private messageSendWorker: Worker<MessageSendJobData, MessageSendJobResult>;
+  private scheduledFeeds: Set<string> = new Set();
 
   constructor() {
     // Create the feed check queue
@@ -56,6 +57,26 @@ export class FeedQueueService {
    * Schedule recurring feed checks for a feed
    */
   async scheduleRecurringFeedCheck(data: FeedCheckJobData, intervalMinutes = 5): Promise<void> {
+    const jobId = `recurring-feed-${data.feedId}`;
+    
+    // Global duplicate prevention - check if feed was already scheduled in this session
+    if (this.scheduledFeeds.has(data.feedId)) {
+      logger.warn(`Feed ${data.feedId} already scheduled in this session, skipping duplicate creation`);
+      return;
+    }
+    
+    // Check if job already exists in Redis to prevent duplicates
+    try {
+      const existingJob = await this.feedCheckQueue.getJob(jobId);
+      if (existingJob) {
+        logger.warn(`Recurring job for feed ${data.feedId} already exists in Redis, skipping duplicate creation`);
+        this.scheduledFeeds.add(data.feedId); // Mark as scheduled to prevent future attempts
+        return;
+      }
+    } catch (error) {
+      // Job doesn't exist, continue with creation
+    }
+
     // Convert minutes to cron pattern (every X minutes)
     const cronPattern = `*/${intervalMinutes} * * * *`;
 
@@ -65,9 +86,12 @@ export class FeedQueueService {
       data,
       cronPattern,
       {
-        jobId: `recurring-feed-${data.feedId}`, // Unique ID to prevent duplicates
+        jobId, // Unique ID to prevent duplicates
       }
     );
+
+    // Mark as scheduled to prevent future duplicates
+    this.scheduledFeeds.add(data.feedId);
 
     logger.info(
       `Scheduled recurring feed check for feed ${data.feedId} every ${intervalMinutes} minutes`
@@ -79,6 +103,9 @@ export class FeedQueueService {
    */
   async removeRecurringFeedCheck(feedId: string): Promise<void> {
     const jobId = `recurring-feed-${feedId}`;
+    
+    // Remove from scheduled feeds set
+    this.scheduledFeeds.delete(feedId);
 
     try {
       const job = await this.feedCheckQueue.getJob(jobId);

@@ -103,6 +103,9 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
 
     // If there are new items, queue them for message sending
     if (newItemsCount > 0) {
+      // Create unique job ID to prevent duplicate message sending
+      const messageJobId = `message-${feedId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
       await queueMessageJob({
         chatId,
         feedId,
@@ -115,9 +118,9 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
           pubDate: item.pubDate?.toISOString(),
           author: item.author,
         })),
-      });
+      }, messageJobId);
 
-      logger.info(`Queued ${newItemsCount} new items for sending to chat ${chatId}`);
+      logger.info(`Queued ${newItemsCount} new items for sending to chat ${chatId} with job ID ${messageJobId}`);
     }
 
     // Calculate next check time (reset failure count on success)
@@ -163,21 +166,28 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
 /**
  * Queue a message sending job
  */
-async function queueMessageJob(data: MessageJobData): Promise<void> {
+async function queueMessageJob(data: MessageJobData, jobId?: string): Promise<void> {
   try {
     // Ensure the message queue exists
     jobService.createQueue(FEED_QUEUE_NAMES.MESSAGE_SEND);
 
-    await jobService.addJob(FEED_QUEUE_NAMES.MESSAGE_SEND, FEED_JOB_NAMES.SEND_MESSAGE, data, {
+    const options: any = {
       priority: 1, // High priority for message sending
       attempts: 5, // Retry message sending up to 5 times
       backoff: {
         type: 'exponential',
         delay: 2000,
       },
-    });
+    };
 
-    logger.debug(`Queued message job for chat ${data.chatId} with ${data.items.length} items`);
+    // Add jobId if provided to prevent duplicates
+    if (jobId) {
+      options.jobId = jobId;
+    }
+
+    await jobService.addJob(FEED_QUEUE_NAMES.MESSAGE_SEND, FEED_JOB_NAMES.SEND_MESSAGE, data, options);
+
+    logger.debug(`Queued message job for chat ${data.chatId} with ${data.items.length} items${jobId ? ` (ID: ${jobId})` : ''}`);
   } catch (error) {
     logger.error('Failed to queue message job:', error);
     throw error;

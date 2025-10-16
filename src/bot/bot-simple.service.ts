@@ -5,6 +5,7 @@ import { logger } from '../utils/logger/logger.service.js';
 
 export class SimpleBotService {
   private bot: Bot;
+  private feedsLoaded: boolean = false;
   private botUsername?: string;
   private botId?: number;
 
@@ -217,11 +218,19 @@ export class SimpleBotService {
   }
 
   async loadExistingFeeds(): Promise<void> {
+    // Prevent multiple initializations
+    if (this.feedsLoaded) {
+      logger.warn('Feeds already loaded, skipping duplicate initialization');
+      return;
+    }
+
     try {
       // Import services
       const { database } = await import('../database/database.service.js');
       const { feedQueueService } = await import('../jobs/index.js');
       const { feedIntervalService } = await import('../utils/feed-interval.service.js');
+      
+      this.feedsLoaded = true;
 
       // Get all chats with their feeds
       const chats = await database.client.chat.findMany({

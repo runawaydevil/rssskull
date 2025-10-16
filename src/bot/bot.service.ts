@@ -52,6 +52,7 @@ export class BotService {
   private botUsername?: string;
   private botId?: number;
   private runner?: any;
+  private feedsLoaded: boolean = false;
 
   constructor() {
     this.bot = new Bot<BotContext>(config.bot.token);
@@ -1205,8 +1206,15 @@ export class BotService {
    * Load all existing feeds from database and schedule them for checking
    */
   async loadAndScheduleAllFeeds(): Promise<void> {
+    // Prevent multiple initializations
+    if (this.feedsLoaded) {
+      logger.warn('Feeds already loaded, skipping duplicate initialization');
+      return;
+    }
+
     try {
       logger.info('Loading all existing feeds from database...');
+      this.feedsLoaded = true;
 
       // Import services with timeout
       const { database } = await Promise.race([
