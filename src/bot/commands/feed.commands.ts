@@ -122,15 +122,37 @@ export class ListFeedsCommand extends BaseCommandHandler {
       return;
     }
 
+    // Use HTML instead of Markdown to avoid parsing issues
     const feedList = feeds
       .map((feed, index) => {
         const status = feed.enabled ? '✅' : '❌';
-        return `${index + 1}. ${status} **${feed.name}**\n   🔗 ${feed.url}`;
+        // Escape HTML characters
+        const escapedName = feed.name.replace(/[<>&"']/g, (char) => {
+          switch (char) {
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '&': return '&amp;';
+            case '"': return '&quot;';
+            case "'": return '&#39;';
+            default: return char;
+          }
+        });
+        const escapedUrl = feed.url.replace(/[<>&"']/g, (char) => {
+          switch (char) {
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '&': return '&amp;';
+            case '"': return '&quot;';
+            case "'": return '&#39;';
+            default: return char;
+          }
+        });
+        return `${index + 1}. ${status} <b>${escapedName}</b>\n   🔗 ${escapedUrl}`;
       })
       .join('\n\n');
 
-    await ctx.reply(`📋 **Your RSS Feeds (${feeds.length}):**\n\n${feedList}`, {
-      parse_mode: 'Markdown',
+    await ctx.reply(`📋 <b>Your RSS Feeds (${feeds.length}):</b>\n\n${feedList}`, {
+      parse_mode: 'HTML',
     });
   }
 }

@@ -19,15 +19,54 @@ export class DockerLogsService {
    */
   async getRecentLogs(lines: number = 50): Promise<LogEntry[]> {
     try {
-      const { stdout } = await execAsync(
-        `docker logs --tail ${lines} rss-skull-bot 2>&1`,
-        { timeout: 10000 }
-      );
+      // Try to get logs from Docker, but fallback to reading log files if Docker is not available
+      let stdout = '';
+      
+      try {
+        const result = await execAsync(
+          `docker logs --tail ${lines} rss-skull-bot 2>&1`,
+          { timeout: 10000 }
+        );
+        stdout = result.stdout;
+      } catch (dockerError) {
+        // Docker not available, try to read from log files
+        logger.warn('Docker not available, trying to read from log files');
+        
+        try {
+          const fs = await import('fs/promises');
+          
+          // Try to read from common log locations
+          const logPaths = [
+            '/app/logs/app.log',
+            '/var/log/app.log',
+            './logs/app.log',
+            '/tmp/app.log'
+          ];
+          
+          for (const logPath of logPaths) {
+            try {
+              const logContent = await fs.readFile(logPath, 'utf-8');
+              const allLines = logContent.split('\n');
+              const recentLines = allLines.slice(-lines);
+              stdout = recentLines.join('\n');
+              break;
+            } catch (fileError) {
+              // Continue to next path
+            }
+          }
+          
+          if (!stdout) {
+            throw new Error('No log files found');
+          }
+        } catch (fileError) {
+          throw new Error('Docker not available and no log files found');
+        }
+      }
 
       return this.parseLogs(stdout);
     } catch (error) {
-      logger.error('Failed to get Docker logs:', error);
-      throw new Error('Failed to retrieve logs from Docker container');
+      logger.error('Failed to get logs:', error);
+      throw new Error('Failed to retrieve logs');
     }
   }
 
@@ -36,15 +75,55 @@ export class DockerLogsService {
    */
   async getErrorLogs(lines: number = 50): Promise<LogEntry[]> {
     try {
-      const { stdout } = await execAsync(
-        `docker logs --tail ${lines * 2} rss-skull-bot 2>&1 | grep -i -E "(error|warn|failed|exception)" | tail -${lines}`,
-        { timeout: 10000 }
-      );
+      let stdout = '';
+      
+      try {
+        const result = await execAsync(
+          `docker logs --tail ${lines * 2} rss-skull-bot 2>&1 | grep -i -E "(error|warn|failed|exception)" | tail -${lines}`,
+          { timeout: 10000 }
+        );
+        stdout = result.stdout;
+      } catch (dockerError) {
+        // Docker not available, try to read from log files and filter
+        logger.warn('Docker not available, trying to read error logs from files');
+        
+        try {
+          const fs = await import('fs/promises');
+          
+          // Try to read from common log locations
+          const logPaths = [
+            '/app/logs/app.log',
+            '/var/log/app.log',
+            './logs/app.log',
+            '/tmp/app.log'
+          ];
+          
+          for (const logPath of logPaths) {
+            try {
+              const logContent = await fs.readFile(logPath, 'utf-8');
+              const allLines = logContent.split('\n');
+              const errorLines = allLines.filter(line => 
+                /error|warn|failed|exception/i.test(line)
+              ).slice(-lines);
+              stdout = errorLines.join('\n');
+              break;
+            } catch (fileError) {
+              // Continue to next path
+            }
+          }
+          
+          if (!stdout) {
+            throw new Error('No error log files found');
+          }
+        } catch (fileError) {
+          throw new Error('Docker not available and no error log files found');
+        }
+      }
 
       return this.parseLogs(stdout);
     } catch (error) {
-      logger.error('Failed to get Docker error logs:', error);
-      throw new Error('Failed to retrieve error logs from Docker container');
+      logger.error('Failed to get error logs:', error);
+      throw new Error('Failed to retrieve error logs');
     }
   }
 
