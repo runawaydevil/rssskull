@@ -47,9 +47,25 @@ export interface MessageJobData extends JobData {
 export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<FeedCheckJobResult> {
   const { feedId, chatId, feedUrl, lastItemId, failureCount = 0, forceProcessAll = false } = job.data;
 
+  // Add lock to prevent duplicate processing
+  const lockKey = `feed-check-lock:${feedId}`;
+  const lockValue = `${Date.now()}-${Math.random()}`;
+  const lockTTL = 300; // 5 minutes lock
+  
+  try {
+    // Try to acquire lock
+    const lockAcquired = await jobService.acquireLock(lockKey, lockValue, lockTTL);
+    if (!lockAcquired) {
+      logger.warn(`Feed ${feedId} is already being processed, skipping duplicate`);
+      return {
+        success: false,
+        message: 'Feed is already being processed',
+        failureCount,
+      };
+    }
+
     logger.info(`Processing feed check for feed ${feedId} in chat ${chatId} (lastItemId from job: ${lastItemId || 'none'})`);
 
-  try {
     // Get feed information from database
     const feedRepository = new FeedRepository(database.client);
     const feed = await feedRepository.findById(feedId);
@@ -160,6 +176,9 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
       nextCheckAt,
       lastItemId,
     };
+  } finally {
+    // Always release the lock
+    await jobService.releaseLock(lockKey, lockValue);
   }
 }
 

@@ -158,6 +158,37 @@ export class JobService {
   }
 
   /**
+   * Acquire a distributed lock using Redis
+   */
+  async acquireLock(key: string, value: string, ttl: number): Promise<boolean> {
+    try {
+      const result = await this.redis.set(key, value, 'EX', ttl, 'NX');
+      return result === 'OK';
+    } catch (error) {
+      logger.error('Failed to acquire lock:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Release a distributed lock
+   */
+  async releaseLock(key: string, value: string): Promise<void> {
+    try {
+      const script = `
+        if redis.call("get", KEYS[1]) == ARGV[1] then
+          return redis.call("del", KEYS[1])
+        else
+          return 0
+        end
+      `;
+      await this.redis.eval(script, 1, key, value);
+    } catch (error) {
+      logger.error('Failed to release lock:', error);
+    }
+  }
+
+  /**
    * Get queue statistics
    */
   async getQueueStats(queueName: string) {
