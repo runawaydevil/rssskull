@@ -24,15 +24,15 @@ export interface FeedDomainConfig {
 }
 
 export const FEED_DOMAIN_CONFIGS: Record<string, FeedDomainConfig> = {
-  // Reddit - Very strict rate limiting
+  // Reddit - Balanced rate limiting
   'reddit.com': {
     rateLimit: {
-      maxRequests: 1, // 🔥 REDUZIDO: 1 request per 30 minutes
-      windowMs: 1800000, // 🔥 AUMENTADO: 30 minutes (1800 seconds)
-      minDelayMs: 1800000, // 🔥 AUMENTADO: 30 minutes minimum between requests
+      maxRequests: 2, // 2 requests per 15 minutes
+      windowMs: 900000, // 15 minutes (900 seconds)
+      minDelayMs: 900000, // 15 minutes minimum between requests
     },
-    checkIntervalMinutes: 30, // 🔥 AUMENTADO: Check every 30 minutes
-    description: 'Reddit feeds (ultra strict rate limiting to avoid blocks)',
+    checkIntervalMinutes: 15, // Check every 15 minutes
+    description: 'Reddit feeds (balanced rate limiting)',
     flags: {
       requiresUserAgent: true,
       isHighVolume: true,
