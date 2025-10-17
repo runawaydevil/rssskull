@@ -40,6 +40,9 @@ export class FeedQueueService {
     logger.info('Feed queue service initialized');
     logger.info(`Created feed check worker for queue: ${FEED_QUEUE_NAMES.FEED_CHECK}`);
     logger.info(`Created message send worker for queue: ${FEED_QUEUE_NAMES.MESSAGE_SEND}`);
+
+    // Clean up orphaned jobs on startup
+    this.cleanupOrphanedJobs();
   }
 
   /**
@@ -168,6 +171,78 @@ export class FeedQueueService {
     } catch (error) {
       logger.error('Failed to clear queues:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Clean up orphaned recurring jobs for feeds that no longer exist
+   */
+  private async cleanupOrphanedJobs(): Promise<void> {
+    try {
+      logger.info('🧹 Starting cleanup of orphaned recurring jobs...');
+
+      // Get all recurring jobs from Redis
+      const recurringJobs = await this.feedCheckQueue.getRepeatableJobs();
+      logger.info(`Found ${recurringJobs.length} recurring jobs in Redis`);
+
+      if (recurringJobs.length === 0) {
+        logger.info('✅ No recurring jobs to clean up');
+        return;
+      }
+
+      // Import database service to check if feeds exist
+      const { database } = await import('../database/database.service.js');
+      
+      let cleanedCount = 0;
+      let errorCount = 0;
+
+      for (const job of recurringJobs) {
+        try {
+          // Extract feed ID from job ID (format: recurring-feed-{feedId})
+          const jobId = job.id;
+          
+          if (!jobId) {
+            logger.warn(`⚠️ Job ID is null or undefined`);
+            continue;
+          }
+          
+          const feedIdMatch = jobId.match(/^recurring-feed-(.+)$/);
+          
+          if (!feedIdMatch) {
+            logger.warn(`⚠️ Unexpected job ID format: ${jobId}`);
+            continue;
+          }
+
+          const feedId = feedIdMatch[1];
+          
+          // Check if feed exists in database
+          const feed = await database.client.feed.findUnique({
+            where: { id: feedId },
+            select: { id: true, name: true }
+          });
+
+          if (!feed) {
+            // Feed doesn't exist, remove the orphaned job
+            await this.feedCheckQueue.removeRepeatableByKey(job.key);
+            logger.info(`🗑️ Removed orphaned job for non-existent feed: ${feedId} (${jobId})`);
+            cleanedCount++;
+          } else {
+            logger.debug(`✅ Feed exists: ${feed.name} (${feedId})`);
+          }
+        } catch (error) {
+          errorCount++;
+          logger.error(`❌ Error processing job ${job.id}:`, error);
+        }
+      }
+
+      logger.info(`🧹 Cleanup completed: ${cleanedCount} orphaned jobs removed, ${errorCount} errors`);
+      
+      if (cleanedCount > 0) {
+        logger.info('✅ Redis cleanup successful - orphaned jobs removed');
+      }
+    } catch (error) {
+      logger.error('❌ Failed to cleanup orphaned jobs:', error);
+      // Don't throw error - cleanup failure shouldn't prevent bot startup
     }
   }
 
