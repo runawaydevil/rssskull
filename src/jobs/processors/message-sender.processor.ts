@@ -37,6 +37,9 @@ export async function processMessageSend(
 ): Promise<MessageSendJobResult> {
   const { chatId, feedId, feedName, items, template } = job.data;
 
+  // 🔥 LOG ESPECÍFICO PARA RASTREAR DUPLICAÇÃO
+  logger.info(`🔥 PROCESSING MESSAGE JOB - Job ID: ${job.id} | Feed: ${feedId} | Chat: ${chatId} | Items: ${items.length}`);
+  
   logger.info(
     `Processing message send for feed ${feedId} to chat ${chatId} (${items.length} items)`
   );

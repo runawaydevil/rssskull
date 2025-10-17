@@ -122,6 +122,9 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
       // Create unique job ID to prevent duplicate message sending
       const messageJobId = `message-${feedId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
+      // 🔥 LOG ESPECÍFICO PARA RASTREAR DUPLICAÇÃO
+      logger.info(`🔥 CREATING MESSAGE JOB - Feed: ${feedId} | Chat: ${chatId} | Items: ${newItemsCount} | JobID: ${messageJobId}`);
+      
       await queueMessageJob({
         chatId,
         feedId,
@@ -197,12 +200,17 @@ async function queueMessageJob(data: MessageJobData, jobId?: string): Promise<vo
         type: 'exponential',
         delay: 2000,
       },
+      removeOnComplete: false, // Don't remove completed jobs immediately to prevent duplicates
+      removeOnFail: false, // Don't remove failed jobs immediately
     };
 
     // Add jobId if provided to prevent duplicates
     if (jobId) {
       options.jobId = jobId;
     }
+
+    // 🔥 LOG ESPECÍFICO PARA RASTREAR DUPLICAÇÃO
+    logger.info(`🔥 QUEUEING MESSAGE JOB - Job ID: ${jobId} | Feed: ${data.feedId} | Chat: ${data.chatId} | Items: ${data.items.length}`);
 
     await jobService.addJob(FEED_QUEUE_NAMES.MESSAGE_SEND, FEED_JOB_NAMES.SEND_MESSAGE, data, options);
 
