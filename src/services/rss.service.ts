@@ -333,16 +333,22 @@ export class RSSService {
     // Find the index of the last known item
     const lastItemIndex = items.findIndex((item) => item.id === lastItemId);
 
+    // 🔍 DEBUG: Log first few items to understand the issue
+    logger.info(`🔍 DEBUG: Feed ${url} - Looking for lastItemId: ${lastItemId}`);
+    logger.info(`🔍 DEBUG: First 3 items in feed: ${items.slice(0, 3).map(item => item.id).join(', ')}`);
+
     if (lastItemIndex === -1) {
       // Last item not found, might be too old or feed changed
       // Return only the most recent item to avoid spam
       logger.warn(`Last item ID ${lastItemId} not found in feed ${url}, returning only the most recent item`);
+      logger.info(`🔍 DEBUG: Feed ${url} - lastItemId not found, returning first item: ${items[0]?.id || 'none'}`);
       return { items: items.slice(0, 1), totalItemsCount };
     }
 
     // Return only new items (items before the last known item in the array)
     const newItems = items.slice(0, lastItemIndex);
-    logger.debug(`Found ${newItems.length} new items in feed ${url} out of ${items.length} total`);
+    logger.info(`🔍 DEBUG: Found ${newItems.length} new items in feed ${url} (lastItemIndex: ${lastItemIndex})`);
+    logger.info(`🔍 DEBUG: New items IDs: ${newItems.map(item => item.id).join(', ')}`);
 
     return { items: newItems, totalItemsCount };
   }

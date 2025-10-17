@@ -282,6 +282,13 @@ export class JobService {
   getRedisConnection(): Redis {
     return this.redis;
   }
+
+  /**
+   * Get a queue by name
+   */
+  getQueue(queueName: string): Queue | undefined {
+    return this.queues.get(queueName);
+  }
 }
 
 // Singleton instance

@@ -71,7 +71,23 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
     const feed = await feedRepository.findById(feedId);
     
     if (!feed) {
-      logger.error(`Feed ${feedId} not found in database`);
+      logger.error(`Feed ${feedId} not found in database - removing orphaned job`);
+      
+      // Remove the orphaned recurring job from Redis
+      try {
+        const orphanedJobId = `recurring-feed-${feedId}`;
+        const feedQueue = jobService.getQueue(FEED_QUEUE_NAMES.FEED_CHECK);
+        if (feedQueue) {
+          const orphanedJob = await feedQueue.getJob(orphanedJobId);
+          if (orphanedJob) {
+            await orphanedJob.remove();
+            logger.info(`Removed orphaned recurring job: ${orphanedJobId}`);
+          }
+        }
+      } catch (error) {
+        logger.warn(`Failed to remove orphaned job for feed ${feedId}:`, error);
+      }
+      
       return {
         success: false,
         message: `Feed ${feedId} not found`,
