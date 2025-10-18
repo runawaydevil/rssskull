@@ -305,13 +305,19 @@ export class FeedQueueService {
         try {
           const jobId = job.id;
           if (!jobId) {
-            logger.warn(`⚠️ Job ID is null or undefined`);
+            // Remove jobs with null/undefined IDs
+            await this.feedCheckQueue.removeRepeatableByKey(job.key);
+            logger.info(`🗑️ Removed job with null/undefined ID (key: ${job.key})`);
+            cleanedCount++;
             continue;
           }
           
           const feedIdMatch = jobId.match(/^recurring-feed-(.+)$/);
           if (!feedIdMatch) {
-            logger.warn(`⚠️ Unexpected job ID format: ${jobId}`);
+            // Remove jobs with unexpected ID format
+            await this.feedCheckQueue.removeRepeatableByKey(job.key);
+            logger.info(`🗑️ Removed job with unexpected ID format: ${jobId}`);
+            cleanedCount++;
             continue;
           }
 
@@ -324,7 +330,7 @@ export class FeedQueueService {
           }
         } catch (error) {
           errorCount++;
-          logger.error(`❌ Error processing job ${job.id}:`, error);
+          logger.error(`❌ Error processing job ${job.id || 'unknown'}:`, error);
         }
       }
 
@@ -400,14 +406,20 @@ export class FeedQueueService {
           const jobId = job.id;
           
           if (!jobId) {
-            logger.warn(`⚠️ Job ID is null or undefined`);
+            // Remove jobs with null/undefined IDs
+            await this.feedCheckQueue.removeRepeatableByKey(job.key);
+            logger.info(`🗑️ Removed job with null/undefined ID (key: ${job.key})`);
+            cleanedCount++;
             continue;
           }
           
           const feedIdMatch = jobId.match(/^recurring-feed-(.+)$/);
           
           if (!feedIdMatch) {
-            logger.warn(`⚠️ Unexpected job ID format: ${jobId}`);
+            // Remove jobs with unexpected ID format
+            await this.feedCheckQueue.removeRepeatableByKey(job.key);
+            logger.info(`🗑️ Removed job with unexpected ID format: ${jobId}`);
+            cleanedCount++;
             continue;
           }
 
