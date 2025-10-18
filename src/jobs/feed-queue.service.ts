@@ -41,8 +41,12 @@ export class FeedQueueService {
     logger.info(`Created feed check worker for queue: ${FEED_QUEUE_NAMES.FEED_CHECK}`);
     logger.info(`Created message send worker for queue: ${FEED_QUEUE_NAMES.MESSAGE_SEND}`);
 
-    // Clean up orphaned jobs on startup
+    // Clean up orphaned jobs and auto-reset problematic feeds on startup
     this.cleanupOrphanedJobs();
+    this.autoResetProblematicFeeds();
+    
+    // Schedule automatic maintenance tasks
+    this.scheduleMaintenanceTasks();
   }
 
   /**
@@ -171,6 +175,200 @@ export class FeedQueueService {
     } catch (error) {
       logger.error('Failed to clear queues:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Auto-reset problematic feeds that haven't detected new items for a long time
+   */
+  private async autoResetProblematicFeeds(): Promise<void> {
+    try {
+      logger.info('🔄 Starting auto-reset of problematic feeds...');
+      
+      const { database } = await import('../database/database.service.js');
+      
+      // Find feeds that haven't been updated in the last 6 hours (more aggressive)
+      const cutoffTime = new Date(Date.now() - 6 * 60 * 60 * 1000); // 6 hours ago
+      
+      const problematicFeeds = await database.client.feed.findMany({
+        where: {
+          enabled: true,
+          lastCheck: {
+            lt: cutoffTime,
+          },
+          lastItemId: {
+            not: null, // Only reset feeds that have a lastItemId
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          rssUrl: true,
+          lastItemId: true,
+          lastCheck: true,
+        },
+      });
+
+      logger.info(`Found ${problematicFeeds.length} potentially problematic feeds`);
+
+      if (problematicFeeds.length === 0) {
+        logger.info('✅ No problematic feeds to reset');
+        return;
+      }
+
+      let resetCount = 0;
+      let errorCount = 0;
+
+      for (const feed of problematicFeeds) {
+        try {
+          // Reset lastItemId to null to force processing all items
+          await database.client.feed.update({
+            where: { id: feed.id },
+            data: { lastItemId: null },
+          });
+
+          logger.info(`🔄 Reset lastItemId for feed: ${feed.name} (${feed.id}) - Last check: ${feed.lastCheck?.toISOString()}`);
+          resetCount++;
+        } catch (error) {
+          errorCount++;
+          logger.error(`❌ Failed to reset feed ${feed.name} (${feed.id}):`, error);
+        }
+      }
+
+      logger.info(`🔄 Auto-reset completed: ${resetCount} feeds reset, ${errorCount} errors`);
+      
+      if (resetCount > 0) {
+        logger.info('✅ Problematic feeds reset - they will process all items on next check');
+      }
+    } catch (error) {
+      logger.error('❌ Failed to auto-reset problematic feeds:', error);
+    }
+  }
+
+  /**
+   * Schedule automatic cleanup and maintenance tasks
+   */
+  private scheduleMaintenanceTasks(): void {
+    // Run cleanup every 30 minutes
+    setInterval(async () => {
+      try {
+        logger.info('🧹 Running scheduled maintenance tasks...');
+        await this.cleanupOrphanedJobs();
+        await this.autoResetProblematicFeeds();
+        logger.info('✅ Scheduled maintenance completed');
+      } catch (error) {
+        logger.error('❌ Scheduled maintenance failed:', error);
+      }
+    }, 30 * 60 * 1000); // 30 minutes
+
+    // Run cleanup every 2 hours for more thorough cleanup
+    setInterval(async () => {
+      try {
+        logger.info('🧹 Running thorough maintenance tasks...');
+        await this.thoroughCleanup();
+        logger.info('✅ Thorough maintenance completed');
+      } catch (error) {
+        logger.error('❌ Thorough maintenance failed:', error);
+      }
+    }, 2 * 60 * 60 * 1000); // 2 hours
+  }
+
+  /**
+   * Thorough cleanup that removes ALL orphaned jobs and resets problematic feeds
+   */
+  private async thoroughCleanup(): Promise<void> {
+    try {
+      logger.info('🧹 Starting thorough cleanup...');
+      
+      const { database } = await import('../database/database.service.js');
+      
+      // Get ALL recurring jobs from Redis
+      const recurringJobs = await this.feedCheckQueue.getRepeatableJobs();
+      logger.info(`Found ${recurringJobs.length} recurring jobs in Redis`);
+
+      if (recurringJobs.length === 0) {
+        logger.info('✅ No recurring jobs to clean up');
+        return;
+      }
+
+      // Get ALL feeds from database
+      const allFeeds = await database.client.feed.findMany({
+        select: { id: true, name: true },
+      });
+      const existingFeedIds = new Set(allFeeds.map(feed => feed.id));
+
+      let cleanedCount = 0;
+      let errorCount = 0;
+
+      // Remove jobs for non-existent feeds
+      for (const job of recurringJobs) {
+        try {
+          const jobId = job.id;
+          if (!jobId) {
+            logger.warn(`⚠️ Job ID is null or undefined`);
+            continue;
+          }
+          
+          const feedIdMatch = jobId.match(/^recurring-feed-(.+)$/);
+          if (!feedIdMatch) {
+            logger.warn(`⚠️ Unexpected job ID format: ${jobId}`);
+            continue;
+          }
+
+          const feedId = feedIdMatch[1];
+          
+          if (feedId && !existingFeedIds.has(feedId)) {
+            await this.feedCheckQueue.removeRepeatableByKey(job.key);
+            logger.info(`🗑️ Removed orphaned job for non-existent feed: ${feedId} (${jobId})`);
+            cleanedCount++;
+          }
+        } catch (error) {
+          errorCount++;
+          logger.error(`❌ Error processing job ${job.id}:`, error);
+        }
+      }
+
+      // Reset feeds that haven't been updated in the last 2 hours
+      const cutoffTime = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2 hours ago
+      
+      const staleFeeds = await database.client.feed.findMany({
+        where: {
+          enabled: true,
+          lastCheck: {
+            lt: cutoffTime,
+          },
+          lastItemId: {
+            not: null,
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          lastCheck: true,
+        },
+      });
+
+      let resetCount = 0;
+      for (const feed of staleFeeds) {
+        try {
+          await database.client.feed.update({
+            where: { id: feed.id },
+            data: { lastItemId: null },
+          });
+          logger.info(`🔄 Reset stale feed: ${feed.name} (${feed.id}) - Last check: ${feed.lastCheck?.toISOString()}`);
+          resetCount++;
+        } catch (error) {
+          logger.error(`❌ Failed to reset stale feed ${feed.name} (${feed.id}):`, error);
+        }
+      }
+
+      logger.info(`🧹 Thorough cleanup completed: ${cleanedCount} orphaned jobs removed, ${resetCount} stale feeds reset, ${errorCount} errors`);
+      
+      if (cleanedCount > 0 || resetCount > 0) {
+        logger.info('✅ Thorough cleanup successful - system is now clean');
+      }
+    } catch (error) {
+      logger.error('❌ Failed to perform thorough cleanup:', error);
     }
   }
 

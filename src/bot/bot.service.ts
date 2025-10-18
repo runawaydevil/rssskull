@@ -22,6 +22,7 @@ import {
   RemoveFeedCommand,
   ResetCircuitBreakerCommand,
   ResetCommand,
+  ResetFeedCommand,
   SettingsCommand,
   StartCommand,
   StatsCommand,
@@ -341,6 +342,7 @@ export class BotService {
     this.commandRouter.register(StatsCommand.create());
     this.commandRouter.register(ProcessFeedsCommand.create());
     this.commandRouter.register(ProcessFeedCommand.create());
+    this.commandRouter.register(ResetFeedCommand.create());
     this.commandRouter.register(LogCommand.create());
     this.commandRouter.register(LogErrorCommand.create());
 

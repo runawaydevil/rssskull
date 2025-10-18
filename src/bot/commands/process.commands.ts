@@ -166,6 +166,62 @@ export class ProcessFeedsCommand extends BaseCommandHandler {
 }
 
 /**
+ * Secret command to reset lastItemId of a specific feed
+ */
+export class ResetFeedCommand extends BaseCommandHandler {
+  static create(): CommandHandler {
+    const instance = new ResetFeedCommand();
+    return {
+      name: 'resetfeed',
+      aliases: [],
+      description: 'Reset lastItemId of a specific feed',
+      schema: CommandSchemas.singleString,
+      handler: instance.validateAndExecute.bind(instance),
+    };
+  }
+
+  protected async execute(ctx: CommandContext, args: [string]): Promise<void> {
+    const [feedName] = args;
+
+    try {
+      await ctx.reply(`🔄 **Resetando lastItemId do feed "${feedName}"...**\n\n⏳ Aguarde...`);
+
+      // Find the specific feed
+      const feed = await database.client.feed.findFirst({
+        where: {
+          chatId: ctx.chatIdString,
+          name: feedName,
+          enabled: true,
+        },
+        include: {
+          filters: true,
+        },
+      });
+
+      if (!feed) {
+        await ctx.reply(`❌ **Feed não encontrado**\n\nO feed "${feedName}" não foi encontrado ou não está habilitado.`);
+        return;
+      }
+
+      logger.info(`Resetting lastItemId for feed: ${feed.name} (${feed.id})`);
+
+      // Reset lastItemId to null
+      await database.client.feed.update({
+        where: { id: feed.id },
+        data: { lastItemId: null },
+      });
+
+      await ctx.reply(`✅ **lastItemId Resetado!**\n\n📰 **Feed:** ${feed.name}\n🔗 **URL:** ${feed.rssUrl}\n\n🔄 O próximo processamento irá detectar todos os itens como novos.`);
+      
+      logger.info(`Successfully reset lastItemId for feed: ${feed.name} (${feed.id})`);
+    } catch (error) {
+      logger.error(`Failed to reset lastItemId for feed "${feedName}":`, error);
+      await ctx.reply(`❌ **Erro ao resetar lastItemId**\n\nErro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    }
+  }
+}
+
+/**
  * Secret command to process a specific feed immediately
  */
 export class ProcessFeedCommand extends BaseCommandHandler {
