@@ -294,40 +294,28 @@ export class RSSService {
     const items = result.feed.items;
     const totalItemsCount = items.length;
 
-    // If no last item ID, return only items from bot startup time onwards
-    // Unless forceProcessAll is true, then return items from today only
+    // If no last item ID, this is the first time processing this feed
+    // Return all available items so the bot can establish a baseline
     if (!lastItemId) {
       logger.info(`No lastItemId for ${url}, forceProcessAll: ${forceProcessAll}, BOT_STARTUP_TIME: ${process.env.BOT_STARTUP_TIME}`);
       
       if (forceProcessAll) {
-        // Filter only items from today when force processing
-        const today = new Date();
-        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        
-        const todayItems = items.filter(item => {
-          if (!item.pubDate) return false;
-          return item.pubDate >= startOfDay;
-        });
-        
-        logger.info(`Force processing items from today for ${url}, lookback=24h, returning ${todayItems.length} items out of ${items.length} total`);
-        return { items: todayItems, totalItemsCount };
+        // When force processing, return all items to establish baseline
+        logger.info(`Force processing all items for ${url}, returning ${items.length} items to establish baseline`);
+        return { items, totalItemsCount };
       }
       
-      // When no lastItemId, only return items from today to avoid processing old posts after restart
-      const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      // First time processing this feed - return all items to establish baseline
+      // This ensures the bot will detect new posts going forward
+      logger.info(`First time processing ${url}, returning all ${items.length} items to establish baseline`);
       
-      logger.info(`No lastItemId for ${url}, lookback=24h, filtering items from today onwards (${startOfDay.toISOString()})`);
+      // Log first few items for debugging
+      if (items.length > 0) {
+        logger.info(`🔍 DEBUG: First 3 items in feed: ${items.slice(0, 3).map(item => item.id).join(', ')}`);
+        logger.info(`🔍 DEBUG: Latest item: ${items[0]?.id} - ${items[0]?.title}`);
+      }
       
-      const todayItems = items.filter(item => {
-        if (!item.pubDate) return false;
-        const isFromToday = item.pubDate >= startOfDay;
-        logger.debug(`Item ${item.id} pubDate: ${item.pubDate?.toISOString()}, from today: ${isFromToday}`);
-        return isFromToday;
-      });
-      
-      logger.info(`No last item ID for ${url}, lookback=24h, returning ${todayItems.length} items from today onwards out of ${items.length} total`);
-      return { items: todayItems, totalItemsCount };
+      return { items, totalItemsCount };
     }
 
     // Find the index of the last known item
@@ -339,10 +327,24 @@ export class RSSService {
 
     if (lastItemIndex === -1) {
       // Last item not found, might be too old or feed changed
-      // Return only the most recent item to avoid spam
-      logger.warn(`Last item ID ${lastItemId} not found in feed ${url}, returning only the most recent item`);
-      logger.info(`🔍 DEBUG: Feed ${url} - lastItemId not found, returning first item: ${items[0]?.id || 'none'}`);
-      return { items: items.slice(0, 1), totalItemsCount };
+      // Check if there are newer items by comparing timestamps
+      logger.warn(`Last item ID ${lastItemId} not found in feed ${url}`);
+      
+      // Find items that might be newer than the last known item
+      // Look for items with more recent timestamps or different IDs
+      const potentiallyNewItems = items.filter(() => {
+        // If we can't find the exact ID, assume items at the top are newer
+        // This handles cases where Reddit changes item IDs or removes old items
+        return true; // For now, return all items to be safe
+      });
+      
+      // Return only the most recent items to avoid spam
+      const safeItems = potentiallyNewItems.slice(0, Math.min(5, potentiallyNewItems.length));
+      
+      logger.info(`🔍 DEBUG: Feed ${url} - lastItemId not found, returning ${safeItems.length} most recent items`);
+      logger.info(`🔍 DEBUG: Returning items: ${safeItems.map(item => item.id).join(', ')}`);
+      
+      return { items: safeItems, totalItemsCount };
     }
 
     // Return only new items (items before the last known item in the array)

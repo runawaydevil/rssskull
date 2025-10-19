@@ -50,7 +50,7 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
   // Add lock to prevent duplicate processing
   const lockKey = `feed-check-lock:${feedId}`;
   const lockValue = `${Date.now()}-${Math.random()}`;
-  const lockTTL = 300; // 5 minutes lock
+  const lockTTL = 60; // 1 minute lock (reduced from 5 minutes)
   
   try {
     // Try to acquire lock
