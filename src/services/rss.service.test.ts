@@ -221,7 +221,7 @@ describe('RSSService', () => {
       mockParseString.mockResolvedValue(mockFeedData);
     });
 
-    it('should return items from today onwards when no lastItemId is provided', async () => {
+    it('should return all items when no lastItemId is provided (first time processing)', async () => {
       // Create items with dates that are from "today" (2023-01-02)
       const mockFeedDataWithTodayItems = {
         title: 'Test Feed',
@@ -245,18 +245,22 @@ describe('RSSService', () => {
       
       const result = await rssService.getNewItems('https://example.com/feed.xml');
 
-      // Since we can't easily mock "today", we expect 0 items
-      // as the test items are from 2023 and we're in 2025
-      expect(result.items).toHaveLength(0);
+      // With the new logic, first time processing returns ALL items to establish baseline
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0].id).toBe('today-item');
+      expect(result.items[1].id).toBe('old-item');
     });
 
-    it('should return empty array when all items are older than bot startup', async () => {
+    it('should return all items when all items are older than bot startup (first time processing)', async () => {
       // Set bot startup time to after all test items
       process.env.BOT_STARTUP_TIME = '2023-01-04T00:00:00Z';
       
       const result = await rssService.getNewItems('https://example.com/feed.xml');
 
-      expect(result.items).toHaveLength(0);
+      // With the new logic, first time processing returns ALL items regardless of age
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0].id).toBe('new-item');
+      expect(result.items[1].id).toBe('old-item');
     });
 
     it('should return only new items when lastItemId is provided', async () => {
@@ -266,11 +270,13 @@ describe('RSSService', () => {
       expect(result.items[0].id).toBe('new-item');
     });
 
-    it('should return only the most recent item when lastItemId is not found', async () => {
+    it('should return up to 5 most recent items when lastItemId is not found', async () => {
       const result = await rssService.getNewItems('https://example.com/feed.xml', 'non-existent');
 
-      expect(result.items).toHaveLength(1);
+      // With the new logic, when lastItemId is not found, return up to 5 most recent items
+      expect(result.items).toHaveLength(2); // Only 2 items available in mock data
       expect(result.items[0].id).toBe('new-item');
+      expect(result.items[1].id).toBe('old-item');
     });
 
     it('should return empty array when feed fetch fails', async () => {
