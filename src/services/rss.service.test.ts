@@ -221,46 +221,46 @@ describe('RSSService', () => {
       mockParseString.mockResolvedValue(mockFeedData);
     });
 
-    it('should return all items when no lastItemId is provided (first time processing)', async () => {
-      // Create items with dates that are from "today" (2023-01-02)
-      const mockFeedDataWithTodayItems = {
+    it('should return only items from bot startup onwards when no lastItemId is provided', async () => {
+      // Set bot startup time to a specific time
+      process.env.BOT_STARTUP_TIME = '2023-01-02T10:00:00Z';
+      
+      // Create items with different dates
+      const mockFeedDataWithDifferentDates = {
         title: 'Test Feed',
         items: [
           {
-            title: 'Today Item',
-            link: 'https://example.com/today',
-            guid: 'today-item',
-            pubDate: '2023-01-02T12:00:00Z', // Today
+            title: 'After Startup Item',
+            link: 'https://example.com/after',
+            guid: 'after-startup-item',
+            pubDate: '2023-01-02T12:00:00Z', // After startup
           },
           {
-            title: 'Old Item',
-            link: 'https://example.com/old',
-            guid: 'old-item',
-            pubDate: '2023-01-01T00:00:00Z', // Yesterday
+            title: 'Before Startup Item',
+            link: 'https://example.com/before',
+            guid: 'before-startup-item',
+            pubDate: '2023-01-02T08:00:00Z', // Before startup
           },
         ],
       };
       
-      mockParseString.mockResolvedValue(mockFeedDataWithTodayItems);
+      mockParseString.mockResolvedValue(mockFeedDataWithDifferentDates);
       
       const result = await rssService.getNewItems('https://example.com/feed.xml');
 
-      // With the new logic, first time processing returns ALL items to establish baseline
-      expect(result.items).toHaveLength(2);
-      expect(result.items[0].id).toBe('today-item');
-      expect(result.items[1].id).toBe('old-item');
+      // Should only return items from startup onwards
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].id).toBe('after-startup-item');
     });
 
-    it('should return all items when all items are older than bot startup (first time processing)', async () => {
+    it('should return empty array when all items are older than bot startup', async () => {
       // Set bot startup time to after all test items
       process.env.BOT_STARTUP_TIME = '2023-01-04T00:00:00Z';
       
       const result = await rssService.getNewItems('https://example.com/feed.xml');
 
-      // With the new logic, first time processing returns ALL items regardless of age
-      expect(result.items).toHaveLength(2);
-      expect(result.items[0].id).toBe('new-item');
-      expect(result.items[1].id).toBe('old-item');
+      // Should return empty array when all items are older than startup
+      expect(result.items).toHaveLength(0);
     });
 
     it('should return only new items when lastItemId is provided', async () => {

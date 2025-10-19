@@ -295,7 +295,7 @@ export class RSSService {
     const totalItemsCount = items.length;
 
     // If no last item ID, this is the first time processing this feed
-    // Return all available items so the bot can establish a baseline
+    // Return only items from bot startup time onwards to avoid processing old posts
     if (!lastItemId) {
       logger.info(`No lastItemId for ${url}, forceProcessAll: ${forceProcessAll}, BOT_STARTUP_TIME: ${process.env.BOT_STARTUP_TIME}`);
       
@@ -305,17 +305,30 @@ export class RSSService {
         return { items, totalItemsCount };
       }
       
-      // First time processing this feed - return all items to establish baseline
-      // This ensures the bot will detect new posts going forward
-      logger.info(`First time processing ${url}, returning all ${items.length} items to establish baseline`);
+      // First time processing this feed - return only items from bot startup onwards
+      // This prevents processing old posts when bot is restarted
+      const botStartupTime = process.env.BOT_STARTUP_TIME ? new Date(process.env.BOT_STARTUP_TIME) : new Date();
+      
+      logger.info(`First time processing ${url}, filtering items from bot startup onwards (${botStartupTime.toISOString()})`);
+      
+      const newItems = items.filter(item => {
+        if (!item.pubDate) return false;
+        const isFromStartup = item.pubDate >= botStartupTime;
+        logger.debug(`Item ${item.id} pubDate: ${item.pubDate?.toISOString()}, from startup: ${isFromStartup}`);
+        return isFromStartup;
+      });
+      
+      logger.info(`First time processing ${url}, returning ${newItems.length} items from startup onwards out of ${items.length} total`);
       
       // Log first few items for debugging
-      if (items.length > 0) {
-        logger.info(`🔍 DEBUG: First 3 items in feed: ${items.slice(0, 3).map(item => item.id).join(', ')}`);
-        logger.info(`🔍 DEBUG: Latest item: ${items[0]?.id} - ${items[0]?.title}`);
+      if (newItems.length > 0) {
+        logger.info(`🔍 DEBUG: First 3 new items: ${newItems.slice(0, 3).map(item => item.id).join(', ')}`);
+        logger.info(`🔍 DEBUG: Latest new item: ${newItems[0]?.id} - ${newItems[0]?.title}`);
+      } else {
+        logger.info(`🔍 DEBUG: No new items found since bot startup`);
       }
       
-      return { items, totalItemsCount };
+      return { items: newItems, totalItemsCount };
     }
 
     // Find the index of the last known item
