@@ -365,6 +365,28 @@ export class RSSService {
     logger.info(`🔍 DEBUG: Found ${newItems.length} new items in feed ${url} (lastItemIndex: ${lastItemIndex})`);
     logger.info(`🔍 DEBUG: New items IDs: ${newItems.map(item => item.id).join(', ')}`);
 
+    // If lastItemIndex is 0, it means the lastItemId is the most recent item
+    // Check if there are actually newer items by comparing timestamps
+    if (lastItemIndex === 0 && items.length > 0) {
+      const lastKnownItem = items[0];
+      if (!lastKnownItem) return { items: newItems, totalItemsCount };
+      
+      const lastKnownTime = lastKnownItem.pubDate;
+      
+      // Check if there are items with more recent timestamps
+      const potentiallyNewItems = items.filter(item => {
+        if (!item.pubDate || !lastKnownTime) return false;
+        return item.pubDate > lastKnownTime;
+      });
+      
+      if (potentiallyNewItems.length > 0) {
+        logger.info(`🔍 DEBUG: Found ${potentiallyNewItems.length} items with newer timestamps`);
+        return { items: potentiallyNewItems, totalItemsCount };
+      } else {
+        logger.info(`🔍 DEBUG: No items with newer timestamps found`);
+      }
+    }
+
     return { items: newItems, totalItemsCount };
   }
 
