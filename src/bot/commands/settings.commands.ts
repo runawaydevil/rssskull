@@ -653,7 +653,7 @@ export class SettingsCommand extends BaseCommandHandler {
   private async updateCache(ctx: CommandContext, chatId: string, params: string[]): Promise<void> {
     try {
       if (params.length === 0) {
-        await ctx.reply('💾 **Cache Settings:**\n\nUsage: `/settings cache <enabled|disabled> [ttlMinutes]`\n\nExample: `/settings cache enabled 30`');
+        await ctx.reply('💾 **Cache Settings:**\n\nUsage: `/settings cache <enabled|disabled> [ttlMinutes]`\n\nExample: `/settings cache enabled 30`\n\n⚠️ **Note:** Reddit feeds use fixed cache settings (20min TTL) and cannot be modified for optimal performance.');
         return;
       }
 
@@ -665,7 +665,7 @@ export class SettingsCommand extends BaseCommandHandler {
         cacheTTLMinutes: ttlMinutes,
       });
 
-      await ctx.reply(`✅ Cache ${enabled ? 'enabled' : 'disabled'}${ttlMinutes ? ` (${ttlMinutes}min TTL)` : ''}`);
+      await ctx.reply(`✅ Cache ${enabled ? 'enabled' : 'disabled'}${ttlMinutes ? ` (${ttlMinutes}min TTL)` : ''}\n\n⚠️ **Note:** Reddit feeds use fixed cache settings (20min TTL) and cannot be modified for optimal performance.`);
     } catch (error) {
       logger.error('Failed to update cache settings', { error, chatId });
       await ctx.reply('❌ Failed to update cache settings. Check values.');

@@ -9,6 +9,10 @@ export interface FeedDomainConfig {
     maxRequests: number;
     windowMs: number;
     minDelayMs: number;
+    adaptiveEnabled?: boolean;  // Enable adaptive throttling
+    successThreshold?: number;   // Success rate threshold for adjustment
+    failurePenalty?: number;     // Penalty multiplier for failures
+    successReward?: number;     // Reward multiplier for successes
   };
   // Feed checking interval
   checkIntervalMinutes: number;
@@ -24,15 +28,19 @@ export interface FeedDomainConfig {
 }
 
 export const FEED_DOMAIN_CONFIGS: Record<string, FeedDomainConfig> = {
-  // Reddit - Balanced rate limiting
+  // Reddit - Improved rate limiting with adaptive throttling
   'reddit.com': {
     rateLimit: {
-      maxRequests: 2, // 2 requests per 15 minutes
-      windowMs: 900000, // 15 minutes (900 seconds)
-      minDelayMs: 900000, // 15 minutes minimum between requests
+      maxRequests: 5, // 5 requests per 10 minutes
+      windowMs: 600000, // 10 minutes (600 seconds)
+      minDelayMs: 300000, // 5 minutes minimum between requests
+      adaptiveEnabled: true, // Enable adaptive throttling
+      successThreshold: 0.8, // 80% success rate threshold
+      failurePenalty: 1.5,   // 50% penalty for failures
+      successReward: 0.8,    // 20% reward for successes
     },
-    checkIntervalMinutes: 15, // Check every 15 minutes
-    description: 'Reddit feeds (balanced rate limiting)',
+    checkIntervalMinutes: 10, // Check every 10 minutes
+    description: 'Reddit feeds (improved rate limiting with adaptive throttling)',
     flags: {
       requiresUserAgent: true,
       isHighVolume: true,

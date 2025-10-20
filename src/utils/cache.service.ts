@@ -32,7 +32,7 @@ export class CacheService {
   // TTL base por tipo de domínio (em milliseconds)
   private domainTTL: Record<string, number> = {
     // Alta frequência - cache curto
-    'reddit.com': 10 * 60 * 1000, // 10 minutos
+    'reddit.com': 20 * 60 * 1000, // 20 minutos (aumentado de 10)
     'hackernews': 5 * 60 * 1000,  // 5 minutos
     'techcrunch.com': 5 * 60 * 1000, // 5 minutos
     
@@ -203,9 +203,21 @@ export class CacheService {
 
   /**
    * Get TTL for a specific URL based on domain and feed characteristics
+   * Reddit URLs always use fixed TTL regardless of user settings
    */
   private getTTLForUrl(url: string): number {
-    return this.calculateTTL(url); // Usar TTL aleatório
+    // For Reddit URLs, always use fixed TTL (not configurable by user)
+    if (url.includes('reddit.com')) {
+      const baseTTL = this.domainTTL['reddit.com'] || 20 * 60 * 1000; // 20 minutes fixed
+      const variation = Math.random() * 0.5 * baseTTL - 0.25 * baseTTL;
+      const randomTTL = Math.max(baseTTL * 0.5, baseTTL + variation);
+      
+      logger.debug(`REDDIT FIXED TTL: ${randomTTL}ms (base: ${baseTTL}ms, variation: ${variation.toFixed(0)}ms)`);
+      return randomTTL;
+    }
+    
+    // For other domains, use configurable TTL
+    return this.calculateTTL(url);
   }
 
   /**

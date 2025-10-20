@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-echo "Starting RSS Skull Bot v0.02.5..."
+echo "Starting RSS Skull Bot v0.2.0..."
 
 # Wait for database file to be accessible
 echo "Ensuring database directory exists..."

@@ -19,6 +19,7 @@ const messages = {
     'help.settings': '⚙️ *Settings:*',
     'help.other': 'ℹ️ *Other:*',
     'help.developer': '👨‍💻 *Developer:* Pablo Murad - https://github.com/runawaydevil',
+    'help.reddit_cache': '⚠️ *Note:* Reddit feeds use fixed cache settings (20min TTL) for optimal performance.',
 
     // Commands
     'cmd.add': '/add <name> <url> - Add RSS feed',
@@ -161,6 +162,7 @@ const messages = {
     'help.settings': '⚙️ *Configurações:*',
     'help.other': 'ℹ️ *Outros:*',
     'help.developer': '👨‍💻 *Desenvolvedor:* Pablo Murad - https://github.com/runawaydevil',
+    'help.reddit_cache': '⚠️ *Nota:* Feeds do Reddit usam configurações de cache fixas (20min TTL) para melhor performance.',
 
     // Commands
     'cmd.add': '/adicionar <nome> <url> - Adicionar feed RSS',

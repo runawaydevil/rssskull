@@ -171,6 +171,7 @@ export class UserAgentService {
     // Headers específicos por domínio com variação aleatória
     if (url.includes('reddit.com')) {
       headers['Referer'] = 'https://www.reddit.com/';
+      
       // Variação aleatória de Accept-Language
       const languages = [
         'en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7',
@@ -179,6 +180,26 @@ export class UserAgentService {
         'en-US,en;q=0.9,es;q=0.8',
       ];
       headers['Accept-Language'] = languages[Math.floor(Math.random() * languages.length)]!;
+      
+      // Adicionar headers específicos do Reddit para parecer mais humano
+      headers['Sec-Fetch-Site'] = 'same-origin';
+      headers['Sec-Fetch-Mode'] = 'navigate';
+      headers['Sec-Fetch-User'] = '?1';
+      headers['Sec-Fetch-Dest'] = 'document';
+      
+      // Adicionar DNT (Do Not Track) ocasionalmente
+      if (Math.random() > 0.7) {
+        headers['DNT'] = '1';
+      }
+      
+      // Variação no Accept para RSS
+      const acceptVariations = [
+        'application/atom+xml, application/rss+xml, text/xml;q=0.9, */*;q=0.8',
+        'application/rss+xml, application/atom+xml, text/xml;q=0.9, */*;q=0.8',
+        'text/xml, application/rss+xml, application/atom+xml;q=0.9, */*;q=0.8',
+      ];
+      headers['Accept'] = acceptVariations[Math.floor(Math.random() * acceptVariations.length)]!;
+      
       // 🔥 REMOVIDO: User-Agent específico que estava sendo detectado
       // headers['User-Agent'] = 'PortalIdeaFeedBot/1.0 (+https://portalidea.com.br)';
     } else if (url.includes('youtube.com')) {

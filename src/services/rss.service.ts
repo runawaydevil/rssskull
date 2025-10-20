@@ -43,7 +43,7 @@ export class RSSService {
   private readonly maxDelay = 30000; // 30 seconds
 
   constructor() {
-    // Parser instances are created per request with domain-specific headers
+    logger.info('RSS Service initialized');
   }
 
   /**
@@ -121,10 +121,10 @@ export class RSSService {
           }
         }
         
-        // Use fetch API to get response headers for conditional caching
+        // Use fetch API with connection pooling
         const response = await fetch(url, {
           headers: browserHeaders,
-          signal: AbortSignal.timeout(20000), // Increased timeout to 20 seconds
+          signal: AbortSignal.timeout(30000), // 30 second timeout
         });
 
         // Check if we got a 304 Not Modified response
@@ -343,11 +343,33 @@ export class RSSService {
       // Check if there are newer items by comparing timestamps
       logger.warn(`Last item ID ${lastItemId} not found in feed ${url}`);
       
-      // Find items that might be newer than the last known item
-      // Look for items with more recent timestamps or different IDs
+      // For Reddit, use more intelligent strategy
+      if (url.includes('reddit.com')) {
+        logger.info(`🔍 REDDIT DEBUG: lastItemId not found, using intelligent fallback for ${url}`);
+        
+        // Try to find items with timestamps newer than a reasonable threshold
+        // For Reddit, assume items older than 1 hour are not "new"
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        const recentItems = items.filter(item => {
+          if (!item.pubDate) return false;
+          return item.pubDate > oneHourAgo;
+        });
+        
+        if (recentItems.length > 0) {
+          logger.info(`🔍 REDDIT DEBUG: Found ${recentItems.length} items from last hour, returning those`);
+          return { items: recentItems, totalItemsCount };
+        }
+        
+        // If no recent items, return only the 3 most recent to avoid spam
+        const safeItems = items.slice(0, Math.min(3, items.length));
+        logger.info(`🔍 REDDIT DEBUG: No recent items, returning ${safeItems.length} most recent items`);
+        return { items: safeItems, totalItemsCount };
+      }
+      
+      // For non-Reddit feeds, use original logic
       const potentiallyNewItems = items.filter(() => {
         // If we can't find the exact ID, assume items at the top are newer
-        // This handles cases where Reddit changes item IDs or removes old items
+        // This handles cases where feeds change item IDs or remove old items
         return true; // For now, return all items to be safe
       });
       
@@ -667,12 +689,35 @@ export class RSSService {
    * Generate a unique ID for an RSS item
    */
   private generateItemId(item: any): string {
-    // For Reddit posts, extract the post ID from the link
+    // For Reddit posts, extract the post ID from the link with multiple patterns
     if (item.link && item.link.includes('reddit.com')) {
-      const redditIdMatch = item.link.match(/\/comments\/([a-zA-Z0-9]+)/);
-      if (redditIdMatch) {
-        return `reddit_${redditIdMatch[1]}`;
+      // Try multiple patterns for Reddit post IDs
+      const patterns = [
+        /\/comments\/([a-zA-Z0-9]+)/, // Standard pattern: /comments/abc123
+        /\/r\/\w+\/comments\/([a-zA-Z0-9]+)/, // With subreddit: /r/programming/comments/abc123
+        /\/user\/\w+\/comments\/([a-zA-Z0-9]+)/, // User posts: /user/username/comments/abc123
+        /\/u\/\w+\/comments\/([a-zA-Z0-9]+)/, // Short user: /u/username/comments/abc123
+      ];
+      
+      for (const pattern of patterns) {
+        const match = item.link.match(pattern);
+        if (match) {
+          return `reddit_${match[1]}`;
+        }
       }
+      
+      // If no pattern matches, try to extract from GUID
+      if (item.guid) {
+        // Reddit GUIDs often contain the post ID
+        const guidMatch = item.guid.match(/([a-zA-Z0-9]+)$/);
+        if (guidMatch) {
+          return `reddit_guid_${guidMatch[1]}`;
+        }
+        return `reddit_guid_${item.guid}`;
+      }
+      
+      // Fallback: use link hash for Reddit
+      return `reddit_link_${this.hashString(item.link)}`;
     }
 
     // Try to use GUID first, then link, then title + pubDate
@@ -688,6 +733,19 @@ export class RSSService {
     const title = item.title || 'untitled';
     const pubDate = item.pubDate || new Date().toISOString();
     return `${title}-${pubDate}`.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase();
+  }
+
+  /**
+   * Simple hash function for generating consistent IDs
+   */
+  private hashString(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash).toString(36);
   }
 
 

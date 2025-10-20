@@ -117,6 +117,8 @@ ${ctx.t('cmd.process')}
 ${ctx.t('help.other')}
 ${ctx.t('cmd.help')}
 
+${ctx.t('help.reddit_cache')}
+
 ${ctx.t('help.developer')}`;
 
     await ctx.reply(helpMessage, { parse_mode: 'Markdown' });

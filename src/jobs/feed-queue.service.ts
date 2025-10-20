@@ -17,9 +17,10 @@ import {
 export class FeedQueueService {
   private feedCheckQueue: Queue;
   private messageSendQueue: Queue;
-  private feedCheckWorker: Worker<FeedCheckJobData, FeedCheckJobResult>;
-  private messageSendWorker: Worker<MessageSendJobData, MessageSendJobResult>;
+  private feedCheckWorkers: Worker<FeedCheckJobData, FeedCheckJobResult>[] = [];
+  private messageSendWorkers: Worker<MessageSendJobData, MessageSendJobResult>[] = [];
   private scheduledFeeds: Set<string> = new Set();
+  private readonly maxConcurrentWorkers = 5; // Processamento paralelo
 
   constructor() {
     // Create the feed check queue
@@ -28,18 +29,12 @@ export class FeedQueueService {
     // Create the message send queue
     this.messageSendQueue = jobService.createQueue(FEED_QUEUE_NAMES.MESSAGE_SEND);
 
-    // Create the worker for processing feed checks
-    this.feedCheckWorker = jobService.createWorker(FEED_QUEUE_NAMES.FEED_CHECK, processFeedCheck);
+    // Create multiple workers for parallel processing
+    this.createParallelWorkers();
 
-    // Create the worker for processing message sends
-    this.messageSendWorker = jobService.createWorker(
-      FEED_QUEUE_NAMES.MESSAGE_SEND,
-      processMessageSend
-    );
-
-    logger.info('Feed queue service initialized');
-    logger.info(`Created feed check worker for queue: ${FEED_QUEUE_NAMES.FEED_CHECK}`);
-    logger.info(`Created message send worker for queue: ${FEED_QUEUE_NAMES.MESSAGE_SEND}`);
+    logger.info('Feed queue service initialized with parallel processing');
+    logger.info(`Created ${this.maxConcurrentWorkers} feed check workers for queue: ${FEED_QUEUE_NAMES.FEED_CHECK}`);
+    logger.info(`Created ${this.maxConcurrentWorkers} message send workers for queue: ${FEED_QUEUE_NAMES.MESSAGE_SEND}`);
 
     // Clean up orphaned jobs and auto-reset problematic feeds on startup
     this.cleanupOrphanedJobs();
@@ -50,14 +45,53 @@ export class FeedQueueService {
   }
 
   /**
-   * Schedule a feed check job
+   * Create multiple workers for parallel processing with sharding
+   */
+  private createParallelWorkers(): void {
+    // Create multiple feed check workers with sharding
+    for (let i = 0; i < this.maxConcurrentWorkers; i++) {
+      const worker = jobService.createWorker(FEED_QUEUE_NAMES.FEED_CHECK, processFeedCheck);
+      this.feedCheckWorkers.push(worker);
+    }
+
+    // Create multiple message send workers with sharding
+    for (let i = 0; i < this.maxConcurrentWorkers; i++) {
+      const worker = jobService.createWorker(FEED_QUEUE_NAMES.MESSAGE_SEND, processMessageSend);
+      this.messageSendWorkers.push(worker);
+    }
+  }
+
+  /**
+   * Get worker index for sharding based on feed ID
+   */
+  private getWorkerIndex(feedId: string): number {
+    // Simple hash-based sharding
+    let hash = 0;
+    for (let i = 0; i < feedId.length; i++) {
+      const char = feedId.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash) % this.maxConcurrentWorkers;
+  }
+
+  /**
+   * Schedule a feed check job with sharding
    */
   async scheduleFeedCheck(data: FeedCheckJobData, delayMs?: number): Promise<void> {
+    const workerIndex = this.getWorkerIndex(data.feedId);
     const options = delayMs ? { delay: delayMs } : {};
 
-    await jobService.addJob(FEED_QUEUE_NAMES.FEED_CHECK, FEED_JOB_NAMES.CHECK_FEED, data, options);
+    // Add sharding information to job data
+    const shardedData = {
+      ...data,
+      shardIndex: workerIndex,
+      workerId: `worker-${workerIndex}`,
+    };
 
-    logger.debug(`Scheduled feed check for feed ${data.feedId} in chat ${data.chatId}`);
+    await jobService.addJob(FEED_QUEUE_NAMES.FEED_CHECK, FEED_JOB_NAMES.CHECK_FEED, shardedData, options);
+
+    logger.debug(`Scheduled feed check for feed ${data.feedId} in chat ${data.chatId} (shard: ${workerIndex})`);
   }
 
   /**
@@ -460,9 +494,13 @@ export class FeedQueueService {
    * Close the service
    */
   async close(): Promise<void> {
-    await this.feedCheckWorker.close();
-    await this.messageSendWorker.close();
-    logger.info('Feed queue service closed');
+    // Close all feed check workers
+    await Promise.all(this.feedCheckWorkers.map(worker => worker.close()));
+    
+    // Close all message send workers
+    await Promise.all(this.messageSendWorkers.map(worker => worker.close()));
+    
+    logger.info(`Feed queue service closed (${this.maxConcurrentWorkers} workers each)`);
   }
 }
 

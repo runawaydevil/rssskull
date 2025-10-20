@@ -115,6 +115,8 @@ export class SimpleBotService {
 /ajuda - Mostrar esta mensagem
 /ping - Testar resposta do bot
 
+⚠️ *Nota:* Feeds do Reddit usam configurações de cache fixas (20min TTL) para melhor performance.
+
 👨‍💻 *Desenvolvedor:* Pablo Murad - https://github.com/runawaydevil`;
 
       await ctx.reply(helpText, { parse_mode: 'Markdown' });

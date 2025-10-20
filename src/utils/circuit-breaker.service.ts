@@ -4,13 +4,21 @@ export interface CircuitBreakerConfig {
   failureThreshold: number;    // Número de falhas para abrir
   resetTimeout: number;        // Tempo para tentar resetar (ms)
   monitoringWindow: number;    // Janela de monitoramento (ms)
+  adaptiveThreshold: boolean;  // Usar threshold adaptativo
+  successThreshold: number;    // Número de sucessos para fechar
+  slowResponseThreshold: number; // Threshold para resposta lenta (ms)
 }
 
 export interface CircuitBreakerState {
   state: 'CLOSED' | 'OPEN' | 'HALF_OPEN';
   failureCount: number;
+  successCount: number;
   lastFailureTime: number;
+  lastSuccessTime: number;
   nextAttemptTime: number;
+  averageResponseTime: number;
+  slowResponseCount: number;
+  adaptiveThreshold: number;
 }
 
 export class CircuitBreakerService {
@@ -22,6 +30,9 @@ export class CircuitBreakerService {
       failureThreshold: 10,          // 10 falhas consecutivas (mais tolerante)
       resetTimeout: 3 * 60 * 1000,   // 3 minutos (reset mais rápido)
       monitoringWindow: 15 * 60 * 1000, // 15 minutos (janela maior)
+      adaptiveThreshold: true,        // Usar threshold adaptativo
+      successThreshold: 3,            // 3 sucessos para fechar
+      slowResponseThreshold: 10000,   // 10 segundos para resposta lenta
       ...config,
     };
   }
@@ -56,19 +67,45 @@ export class CircuitBreakerService {
   }
 
   /**
-   * Registra sucesso da requisição
+   * Registra sucesso da requisição com tempo de resposta
    */
-  recordSuccess(domain: string): void {
+  recordSuccess(domain: string, responseTime?: number): void {
     const breaker = this.getBreaker(domain);
-    
+    const now = Date.now();
+
+    breaker.successCount++;
+    breaker.lastSuccessTime = now;
+
+    // Atualizar tempo médio de resposta
+    if (responseTime) {
+      if (breaker.averageResponseTime === 0) {
+        breaker.averageResponseTime = responseTime;
+      } else {
+        breaker.averageResponseTime = (breaker.averageResponseTime + responseTime) / 2;
+      }
+
+      // Contar respostas lentas
+      if (responseTime > this.config.slowResponseThreshold) {
+        breaker.slowResponseCount++;
+      }
+    }
+
     if (breaker.state === 'HALF_OPEN') {
       // Sucesso em HALF_OPEN significa que podemos fechar o circuit breaker
-      breaker.state = 'CLOSED';
-      breaker.failureCount = 0;
-      logger.info(`Circuit breaker for ${domain} closed after successful request`);
+      if (breaker.successCount >= this.config.successThreshold) {
+        breaker.state = 'CLOSED';
+        breaker.failureCount = 0;
+        breaker.successCount = 0;
+        logger.info(`Circuit breaker for ${domain} closed after ${breaker.successCount} successful requests in HALF_OPEN state`);
+      }
     } else if (breaker.state === 'CLOSED') {
       // Reset contador de falhas em caso de sucesso
       breaker.failureCount = 0;
+      
+      // Ajustar threshold adaptativo
+      if (this.config.adaptiveThreshold) {
+        this.adjustAdaptiveThreshold(breaker);
+      }
     }
   }
 
@@ -103,11 +140,38 @@ export class CircuitBreakerService {
       this.breakers.set(domain, {
         state: 'CLOSED',
         failureCount: 0,
+        successCount: 0,
         lastFailureTime: 0,
+        lastSuccessTime: 0,
         nextAttemptTime: 0,
+        averageResponseTime: 0,
+        slowResponseCount: 0,
+        adaptiveThreshold: this.config.failureThreshold,
       });
     }
     return this.breakers.get(domain)!;
+  }
+
+  /**
+   * Ajusta threshold adaptativo baseado na performance
+   */
+  private adjustAdaptiveThreshold(breaker: CircuitBreakerState): void {
+    const baseThreshold = this.config.failureThreshold;
+    
+    // Se há muitas respostas lentas, ser mais tolerante
+    if (breaker.slowResponseCount > 5) {
+      breaker.adaptiveThreshold = Math.min(baseThreshold * 1.5, 20);
+      logger.debug(`Increased adaptive threshold to ${breaker.adaptiveThreshold} due to slow responses`);
+    }
+    // Se tempo médio de resposta é bom, ser mais restritivo
+    else if (breaker.averageResponseTime > 0 && breaker.averageResponseTime < 2000) {
+      breaker.adaptiveThreshold = Math.max(baseThreshold * 0.8, 5);
+      logger.debug(`Decreased adaptive threshold to ${breaker.adaptiveThreshold} due to fast responses`);
+    }
+    // Reset para threshold base
+    else {
+      breaker.adaptiveThreshold = baseThreshold;
+    }
   }
 
   /**
@@ -117,8 +181,13 @@ export class CircuitBreakerService {
     const breaker = this.getBreaker(domain);
     breaker.state = 'CLOSED';
     breaker.failureCount = 0;
+    breaker.successCount = 0;
     breaker.lastFailureTime = 0;
+    breaker.lastSuccessTime = 0;
     breaker.nextAttemptTime = 0;
+    breaker.averageResponseTime = 0;
+    breaker.slowResponseCount = 0;
+    breaker.adaptiveThreshold = this.config.failureThreshold;
     logger.info(`Circuit breaker for ${domain} manually reset`);
   }
 

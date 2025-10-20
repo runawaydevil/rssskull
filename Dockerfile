@@ -4,7 +4,7 @@ FROM node:20 AS builder
 
 # Install build tools for native dependencies (sqlite3, prisma, etc.)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 make g++ git pkg-config \
+    python3 make g++ git pkg-config libc6-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Configure npm settings for maximum performance and reliability
@@ -15,10 +15,7 @@ RUN npm config set fetch-timeout 300000 && \
     npm config set maxsockets 15 && \
     npm config set progress false && \
     npm config set audit false && \
-    npm config set fund false && \
-    npm config set registry https://registry.npmmirror.com/ && \
-    npm config set strict-ssl false && \
-    npm config set prefer-offline true
+    npm config set fund false
 
 WORKDIR /app
 
@@ -28,33 +25,20 @@ COPY tsconfig.json ./
 COPY biome.json ./
 
 # Install all dependencies (including dev dependencies for build)
-# Modern cache mount for persistent npm cache across builds
-RUN --mount=type=cache,target=/root/.npm \
-    for i in 1 2 3; do \
-        echo "npm ci attempt $i..." && \
-        npm ci --prefer-offline --no-audit --no-fund --maxsockets 15 && \
-        break || (echo "Attempt $i failed, retrying..." && sleep 10); \
-    done
+RUN npm ci --no-audit --no-fund
 
 # Copy source code
 COPY src/ ./src/
 COPY prisma/ ./prisma/
 
 # Generate Prisma client with correct binary targets
-# Optimized Prisma generation with cache
 RUN npx prisma generate --schema=./prisma/schema.prisma
 
 # Build the application with optimizations
 RUN npm run build
 
 # Install only production dependencies
-# Modern cache mount for persistent npm cache across builds
-RUN --mount=type=cache,target=/root/.npm \
-    for i in 1 2 3; do \
-        echo "production npm ci attempt $i..." && \
-        npm ci --only=production --prefer-offline --no-audit --no-fund --maxsockets 15 && \
-        break || (echo "Production attempt $i failed, retrying..." && sleep 10); \
-    done
+RUN npm ci --only=production --no-audit --no-fund
 
 # Production stage
 FROM node:20-slim AS production
@@ -62,7 +46,7 @@ FROM node:20-slim AS production
 # Add metadata labels
 LABEL org.opencontainers.image.title="RSS Skull Bot"
 LABEL org.opencontainers.image.description="Modern, high-performance RSS to Telegram bot with channel support and bilingual commands"
-LABEL org.opencontainers.image.version="0.1.0"
+LABEL org.opencontainers.image.version="0.2.0"
 LABEL org.opencontainers.image.authors="Pablo Murad <runawaydevil@pm.me>"
 LABEL org.opencontainers.image.url="https://github.com/runawaydevil/rssskull"
 LABEL org.opencontainers.image.source="https://github.com/runawaydevil/rssskull"
@@ -71,8 +55,7 @@ LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.vendor="runawaydevil"
 
 # Install curl and OpenSSL for health checks and Prisma compatibility
-# Optimized package installation
-RUN apt-get update --fix-missing && \
+RUN apt-get update && \
     apt-get install -y --no-install-recommends curl openssl ca-certificates && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean
@@ -89,7 +72,7 @@ COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/package.json ./
 COPY --from=builder --chown=nodejs:nodejs /app/prisma ./prisma
 
-# Copy entrypoint script
+# Copy entrypoint script if it exists
 COPY --chown=nodejs:nodejs scripts/docker-entrypoint.sh ./scripts/
 RUN chmod +x ./scripts/docker-entrypoint.sh
 
