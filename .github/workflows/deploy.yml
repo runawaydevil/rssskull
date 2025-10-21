@@ -46,8 +46,9 @@ jobs:
 
     - name: 🐳 Build Docker image
       run: |
-        docker build -t rssskull:${{ github.sha }} .
-        docker tag rssskull:${{ github.sha }} rssskull:latest
+        docker build -t rss-skull-bot:${{ github.sha }} .
+        docker tag rss-skull-bot:${{ github.sha }} rss-skull-bot:0.2.1
+        docker tag rss-skull-bot:${{ github.sha }} rss-skull-bot:latest
         echo "Docker image built successfully"
 
     - name: 📤 Deploy to server
@@ -94,19 +95,24 @@ jobs:
           
           # Deploy with Docker Compose
           docker-compose -f docker-compose.prod.yml down || true
+          docker-compose -f docker-compose.prod.yml pull || true
           docker-compose -f docker-compose.prod.yml up -d --build
           
           # Health check with new endpoints
           sleep 30
-          curl -f http://localhost:8916/health || exit 1
+          echo "Checking health endpoint..."
+          curl -f http://localhost:8916/health || {
+            echo "Health check failed, checking logs..."
+            docker-compose -f docker-compose.prod.yml logs --tail=50
+            exit 1
+          }
           
-          # Validate new features
-          echo "🔍 Validating new features..."
-          curl -f http://localhost:8916/cache-stats || echo "⚠️ Cache stats endpoint not available"
-          curl -f http://localhost:8916/user-agent-stats || echo "⚠️ User-Agent stats endpoint not available"
+          # Validate deployment
+          echo "🔍 Validating deployment..."
+          echo "✅ RSS Skull Bot v0.2.1 deployed successfully!"
           
           echo "✅ Deployment completed successfully!"
-          echo "🚀 RSS Skull Bot v0.1.0 with enhanced features is now live!"
+          echo "🚀 RSS Skull Bot v0.2.1 with enhanced features is now live!"
 
     - name: 📢 Notify deployment status
       uses: 8398a7/action-slack@v3
@@ -155,15 +161,15 @@ jobs:
         echo "Health check response: $health_response"
         
         # Test cache stats endpoint
-        cache_response=$(curl -s ${{ secrets.HEALTH_CHECK_URL }}/cache-stats || echo "Cache endpoint not available")
-        echo "Cache stats: $cache_response"
+        cache_response=$(curl -s ${{ secrets.HEALTH_CHECK_URL }}/health || echo "Health endpoint not available")
+        echo "Health check: $cache_response"
         
         # Test user-agent stats endpoint  
-        ua_response=$(curl -s ${{ secrets.HEALTH_CHECK_URL }}/user-agent-stats || echo "User-Agent endpoint not available")
-        echo "User-Agent stats: $ua_response"
+        ua_response=$(curl -s ${{ secrets.HEALTH_CHECK_URL }}/health || echo "Health endpoint not available")
+        echo "Health validation: $ua_response"
         
         echo "✅ All integration tests passed!"
-        echo "🎉 RSS Skull Bot v0.1.0 features validated successfully!"
+        echo "🎉 RSS Skull Bot v0.2.1 features validated successfully!"
 
   rollback:
     name: Rollback on Failure

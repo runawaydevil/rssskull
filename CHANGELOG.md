@@ -5,6 +5,39 @@ All notable changes to RSS Skull Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2025-01-15
+
+### 🔧 **Bug Fixes & Improvements**
+
+This patch release focuses on code cleanup, log optimization, and deployment improvements.
+
+### Fixed
+- **📝 Log Cleanup**: Removed unnecessary debug logs for cleaner production output
+- **⚙️ Log Level Configuration**: Improved default log levels (info for production, warn for development)
+- **🐳 Docker Versioning**: Updated all Docker references to v0.2.1
+- **🚀 GitHub Actions**: Updated deployment workflow to reflect v0.2.1
+
+### Improved
+- **🔍 Debug Logging**: Streamlined debug output while maintaining essential logging
+- **📊 Cache Service**: Reduced verbose cache logging for better performance
+- **🛠️ RSS Service**: Cleaned up debug logs while preserving important information
+- **⚡ Performance**: Optimized logging overhead in production environment
+
+### Technical
+- **📝 Code Quality**: Removed redundant debug statements across services
+- **🔧 Configuration**: Better default log level handling based on environment
+- **📦 Build Process**: Cleaner build output with essential information only
+
+### Breaking Changes
+- **None** - This release is fully backward compatible
+
+### Migration Notes
+- **Automatic**: All existing configurations preserved
+- **Logging**: Improved log levels applied automatically
+- **Performance**: Immediate logging performance improvements
+
+---
+
 ## [0.2.0] - 2025-01-15
 
 ### 🚀 **MAJOR PERFORMANCE UPDATE - High-Speed Feed Processing**

@@ -60,7 +60,7 @@ export class CacheService {
     const variation = Math.random() * 0.5 * baseTTL - 0.25 * baseTTL;
     const randomTTL = Math.max(baseTTL * 0.5, baseTTL + variation); // Mínimo 50% do TTL base
     
-    logger.debug(`Calculated TTL for ${domain}: ${randomTTL}ms (base: ${baseTTL}ms, variation: ${variation.toFixed(0)}ms)`);
+    // Calculated TTL for domain
     return randomTTL;
   }
 
@@ -72,7 +72,7 @@ export class CacheService {
     
     if (!entry) {
       this.stats.misses++;
-      logger.debug(`Cache MISS: ${this.extractDomain(url)}`, { url });
+      // Cache miss
       return null;
     }
 
@@ -81,11 +81,7 @@ export class CacheService {
     if (now - entry.timestamp > entry.ttl) {
       this.cache.delete(url);
       this.stats.misses++;
-      logger.debug(`Cache EXPIRED: ${this.extractDomain(url)}`, { 
-        url, 
-        age: now - entry.timestamp,
-        ttl: entry.ttl 
-      });
+      // Cache expired
       return null;
     }
 
@@ -152,7 +148,7 @@ export class CacheService {
     
     if (!entry) {
       this.stats.misses++;
-      logger.debug(`Cache MISS: ${this.extractDomain(url)}`, { url });
+      // Cache miss
       return null;
     }
 
@@ -161,11 +157,7 @@ export class CacheService {
     if (now - entry.timestamp > entry.ttl) {
       this.cache.delete(url);
       this.stats.misses++;
-      logger.debug(`Cache EXPIRED: ${this.extractDomain(url)}`, { 
-        url, 
-        age: now - entry.timestamp,
-        ttl: entry.ttl 
-      });
+      // Cache expired
       return null;
     }
 

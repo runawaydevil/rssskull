@@ -39,3 +39,5 @@ Write-Host ""
 Write-Host "To stop the bot:" -ForegroundColor Cyan
 Write-Host "  docker-compose down" -ForegroundColor White
 
+
+

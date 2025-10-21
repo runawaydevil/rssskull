@@ -61,7 +61,7 @@ export class RSSService {
       }
       // If this URL failed but it's not the original, log it but continue
       if (tryUrl !== url) {
-        logger.debug(`Alternative URL failed: ${tryUrl}, trying next...`);
+        // Try alternative URL silently
       }
     }
     
@@ -76,7 +76,7 @@ export class RSSService {
     // Check cache first
     const cachedEntry = cacheService.getEntry(url);
     if (cachedEntry) {
-      logger.debug(`Using cached RSS feed: ${url} (${cachedEntry.feed.items.length} items)`);
+      // Using cached feed
       return {
         success: true,
         feed: cachedEntry.feed,
@@ -96,7 +96,7 @@ export class RSSService {
 
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
-        logger.debug(`Fetching RSS feed (attempt ${attempt}/${this.maxRetries}): ${url}`);
+        // Fetching RSS feed
 
         // Check circuit breaker before making the request
         const domain = this.extractDomain(url);
@@ -129,7 +129,7 @@ export class RSSService {
 
         // Check if we got a 304 Not Modified response
         if (response.status === 304) {
-          logger.debug(`Received 304 Not Modified for ${url}, using cached feed`);
+          // Received 304 Not Modified, using cached feed
           if (currentCachedEntry) {
             return {
               success: true,
@@ -196,7 +196,7 @@ export class RSSService {
         logger.info(`Detected feed type: ${FeedTypeDetector.getFeedTypeDescription(feedTypeInfo.type)} (confidence: ${feedTypeInfo.confidence}) for ${url}`);
         
         if (feedTypeInfo.features.length > 0) {
-          logger.debug(`Feed features: ${feedTypeInfo.features.join(', ')}`);
+        // Feed features detected
         }
         
         if (feedTypeInfo.issues && feedTypeInfo.issues.length > 0) {
@@ -226,7 +226,7 @@ export class RSSService {
         // Cache the successful result with conditional headers
         cacheService.setWithHeaders(url, processedFeed, responseHeaders);
 
-        logger.debug(`Successfully parsed RSS feed: ${url} (${processedFeed.items.length} items)`);
+        // Successfully parsed RSS feed
 
         return {
           success: true,
@@ -241,7 +241,7 @@ export class RSSService {
           // For rate limit errors, wait longer before retry
           if (attempt < this.maxRetries) {
             const rateLimitDelay = this.getRateLimitDelay(url, attempt);
-            logger.debug(`Waiting ${rateLimitDelay}ms due to rate limiting...`);
+            // Waiting due to rate limiting
             await this.sleep(rateLimitDelay);
           }
         } else {
@@ -257,7 +257,7 @@ export class RSSService {
           // Wait before retrying (exponential backoff)
           if (attempt < this.maxRetries) {
             const delay = Math.min(this.baseDelay * 2 ** (attempt - 1), this.maxDelay);
-            logger.debug(`Waiting ${delay}ms before retry...`);
+            // Waiting before retry
             await this.sleep(delay);
           }
         }
@@ -314,7 +314,7 @@ export class RSSService {
       const newItems = items.filter(item => {
         if (!item.pubDate) return false;
         const isFromStartup = item.pubDate >= botStartupTime;
-        logger.debug(`Item ${item.id} pubDate: ${item.pubDate?.toISOString()}, from startup: ${isFromStartup}`);
+        // Item from startup period
         return isFromStartup;
       });
       
@@ -436,13 +436,8 @@ export class RSSService {
       isRegex: f.isRegex,
     }));
 
-    logger.debug(
-      `Applying ${filterObjects.length} filters to ${newItems.length} new items for feed`
-    );
+    // Applying filters to new items
     const filteredItems = filterService.applyFilters(newItems, filterObjects);
-    logger.debug(
-      `Filter processing complete: ${filteredItems.length}/${newItems.length} items passed filters`
-    );
 
     return filteredItems;
   }
@@ -890,7 +885,7 @@ export class RSSService {
       
     } catch (error) {
       // If URL parsing fails, don't add alternatives
-      logger.debug(`Failed to parse URL for alternatives: ${originalUrl}`);
+      // Failed to parse URL for alternatives
     }
     
     return alternatives;

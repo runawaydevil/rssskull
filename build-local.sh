@@ -38,3 +38,5 @@ echo ""
 echo "To stop the bot:"
 echo "  docker-compose down"
 
+
+
