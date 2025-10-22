@@ -9,6 +9,118 @@ import {
 import { logger } from '../../utils/logger/logger.service.js';
 
 /**
+ * Secret command to reset database (admin only)
+ */
+export class ResetDatabaseCommand extends BaseCommandHandler {
+  static create(): CommandHandler {
+    const instance = new ResetDatabaseCommand();
+    return {
+      name: 'resetdb',
+      aliases: ['resetdatabase'],
+      description: 'Reset database (admin only)',
+      schema: CommandSchemas.noArgs,
+      handler: instance.validateAndExecute.bind(instance),
+    };
+  }
+
+  protected async execute(ctx: CommandContext): Promise<void> {
+    try {
+      // Check if user is admin (you can customize this logic)
+      const isAdmin = ctx.from?.id === 123456789; // Replace with your Telegram user ID
+      
+      if (!isAdmin) {
+        await ctx.reply('❌ **Acesso Negado**\n\nApenas administradores podem usar este comando.');
+        return;
+      }
+
+      await ctx.reply('⚠️ **ATENÇÃO: Reset do Banco de Dados**\n\n' +
+        'Esta ação irá:\n' +
+        '• Apagar TODOS os feeds\n' +
+        '• Apagar TODAS as configurações\n' +
+        '• Apagar TODAS as estatísticas\n\n' +
+        'Digite `/confirmreset` para confirmar ou `/cancelreset` para cancelar.');
+
+      // Store confirmation state (you might want to use Redis for this)
+      logger.warn(`Database reset requested by admin user ${ctx.from?.id} in chat ${ctx.chatIdString}`);
+
+    } catch (error) {
+      logger.error('Failed to initiate database reset', { error, chatId: ctx.chatIdString });
+      await ctx.reply('❌ Erro ao iniciar reset do banco de dados.');
+    }
+  }
+}
+
+/**
+ * Confirmation command for database reset
+ */
+export class ConfirmResetCommand extends BaseCommandHandler {
+  static create(): CommandHandler {
+    const instance = new ConfirmResetCommand();
+    return {
+      name: 'confirmreset',
+      aliases: [],
+      description: 'Confirm database reset',
+      schema: CommandSchemas.noArgs,
+      handler: instance.validateAndExecute.bind(instance),
+    };
+  }
+
+  protected async execute(ctx: CommandContext): Promise<void> {
+    try {
+      // Check if user is admin
+      const isAdmin = ctx.from?.id === 123456789; // Replace with your Telegram user ID
+      
+      if (!isAdmin) {
+        await ctx.reply('❌ **Acesso Negado**\n\nApenas administradores podem usar este comando.');
+        return;
+      }
+
+      await ctx.reply('🔄 **Resetando banco de dados...**\n\n⏳ Aguarde, isso pode levar alguns segundos...');
+
+      // Reset database
+      await database.client.feed.deleteMany({});
+      await database.client.chatSettings.deleteMany({});
+      await database.client.feedFilter.deleteMany({});
+      await database.client.statistic.deleteMany({});
+      await database.client.chat.deleteMany({});
+
+      logger.info(`Database reset completed by admin user ${ctx.from?.id}`);
+
+      await ctx.reply('✅ **Banco de dados resetado com sucesso!**\n\n' +
+        'Todos os dados foram apagados:\n' +
+        '• Feeds removidos\n' +
+        '• Configurações resetadas\n' +
+        '• Estatísticas apagadas\n\n' +
+        'O bot está pronto para uso novamente.');
+
+    } catch (error) {
+      logger.error('Failed to reset database', { error, chatId: ctx.chatIdString });
+      await ctx.reply('❌ Erro ao resetar banco de dados.');
+    }
+  }
+}
+
+/**
+ * Cancel database reset command
+ */
+export class CancelResetCommand extends BaseCommandHandler {
+  static create(): CommandHandler {
+    const instance = new CancelResetCommand();
+    return {
+      name: 'cancelreset',
+      aliases: [],
+      description: 'Cancel database reset',
+      schema: CommandSchemas.noArgs,
+      handler: instance.validateAndExecute.bind(instance),
+    };
+  }
+
+  protected async execute(ctx: CommandContext): Promise<void> {
+    await ctx.reply('✅ **Reset cancelado**\n\nNenhuma alteração foi feita no banco de dados.');
+  }
+}
+
+/**
  * Secret command to process feeds immediately
  * This command is not listed in help and is for admin/debug purposes
  */
@@ -26,7 +138,7 @@ export class ProcessFeedsCommand extends BaseCommandHandler {
 
   protected async execute(ctx: CommandContext): Promise<void> {
     try {
-      const processingMessage = await ctx.reply('🔄 **Processando feeds...**\n\n⏳ Aguarde, verificando todos os feeds...');
+      const processingMessage = await ctx.reply('🔄 **Processando feeds perdidos...**\n\n⏳ Verificando itens que o bot perdeu desde que ficou online...');
 
       // Get all enabled feeds for this chat
       const feeds = await database.client.feed.findMany({
@@ -64,7 +176,7 @@ export class ProcessFeedsCommand extends BaseCommandHandler {
             feedUrl: feed.rssUrl,
             lastItemId: feed.lastItemId ?? undefined,
             failureCount: 0,
-            forceProcessAll: !feed.lastItemId, // Force process all items if no lastItemId
+            forceProcessAll: true, // Always force process to catch missed items
           }, 0); // 0 delay = immediate processing
 
           // Wait a bit for processing to complete
@@ -119,7 +231,7 @@ export class ProcessFeedsCommand extends BaseCommandHandler {
           }
         });
         
-        resultMessage += `\n🚀 Os novos itens serão enviados em breve!`;
+        resultMessage += `\n💡 **Nota:** Apenas itens publicados desde que o bot ficou online foram processados.`;
       } else if (errorCount > 0) {
         resultMessage += `⚠️ **Alguns feeds tiveram erros**\n\n`;
         resultMessage += `📋 **Detalhes:**\n`;

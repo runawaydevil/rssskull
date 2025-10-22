@@ -300,9 +300,19 @@ export class RSSService {
       logger.info(`No lastItemId for ${url}, forceProcessAll: ${forceProcessAll}, BOT_STARTUP_TIME: ${process.env.BOT_STARTUP_TIME}`);
       
       if (forceProcessAll) {
-        // When force processing, return all items to establish baseline
-        logger.info(`Force processing all items for ${url}, returning ${items.length} items to establish baseline`);
-        return { items, totalItemsCount };
+        // When force processing, only process items from bot startup to now
+        // This ensures we only catch items the bot missed while online
+        const botStartupTime = process.env.BOT_STARTUP_TIME ? new Date(process.env.BOT_STARTUP_TIME) : new Date();
+        const now = new Date();
+        
+        const missedItems = items.filter(item => {
+          if (!item.pubDate) return false;
+          // Only items published between bot startup and now
+          return item.pubDate >= botStartupTime && item.pubDate <= now;
+        });
+        
+        logger.info(`Force processing missed items for ${url}, returning ${missedItems.length} items from ${botStartupTime.toISOString()} to ${now.toISOString()} out of ${items.length} total`);
+        return { items: missedItems, totalItemsCount };
       }
       
       // First time processing this feed - return only items from bot startup onwards

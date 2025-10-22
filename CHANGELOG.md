@@ -5,6 +5,46 @@ All notable changes to RSS Skull Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2025-01-15
+
+### 🔧 **Critical Fixes & Database Management**
+
+This patch release fixes critical issues with database persistence and feed processing.
+
+### Fixed
+- **🗄️ Database Persistence Issue**: Fixed database persisting in Docker volumes even after folder deletion
+- **🔄 Process Command Logic**: Fixed `/processar` command to only process items from bot startup to now
+- **📊 Feed Processing**: Prevented processing of items older than bot startup time
+- **⚡ Performance**: Eliminated processing of years-old feed items
+
+### Added
+- **🛠️ Database Reset Commands**: Added `/resetdb`, `/confirmreset`, `/cancelreset` commands for admin database management
+- **📜 Reset Scripts**: Added `reset-database.sh` and `reset-database.ps1` for complete database cleanup
+- **🔒 Admin Protection**: Added admin-only access to database reset commands
+- **📝 Better Logging**: Improved logging for missed items processing
+
+### Improved
+- **🎯 Process Logic**: `/processar` now only processes items published between bot startup and current time
+- **💡 User Feedback**: Better messages explaining what the process command does
+- **🛡️ Safety**: Added confirmation steps for destructive database operations
+- **📚 Documentation**: Added database reset instructions and admin commands
+
+### Technical
+- **🔧 RSS Service**: Enhanced `getNewItems` logic for better time-based filtering
+- **⚙️ Process Commands**: Improved feed processing with `forceProcessAll` logic
+- **🗃️ Database Management**: Added comprehensive database reset functionality
+- **📋 Scripts**: Created automated database reset scripts for all platforms
+
+### Breaking Changes
+- **None** - This release is fully backward compatible
+
+### Migration Notes
+- **Automatic**: All existing configurations preserved
+- **Database**: Use reset scripts if you need a clean database
+- **Process Command**: Now safer and more targeted
+
+---
+
 ## [0.2.1] - 2025-01-15
 
 ### 🔧 **Bug Fixes & Improvements**

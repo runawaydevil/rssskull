@@ -121,6 +121,26 @@ RSS_CHECK_INTERVAL=300
 
 ⚠️ **Importante**: Feeds do Reddit usam configurações de cache fixas (20min TTL) para melhor performance e não podem ser modificadas pelo usuário.
 
+### Reset do Banco de Dados
+
+Se você precisar resetar completamente o banco de dados (por exemplo, após recriar o bot):
+
+```bash
+# Linux/Mac
+./scripts/reset-database.sh
+
+# Windows PowerShell
+.\scripts\reset-database.ps1
+```
+
+**⚠️ Atenção:** Isso apagará TODOS os dados (feeds, configurações, estatísticas).
+
+### Comandos de Administração
+
+- `/resetdb` - Resetar banco de dados (apenas administradores)
+- `/processar` - Processar feeds perdidos desde que o bot ficou online
+- `/processarfeed <nome>` - Processar um feed específico
+
 ## 🐳 Docker
 
 ### Build Local
