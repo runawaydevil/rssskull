@@ -120,7 +120,14 @@ export class ListFeedsCommand extends BaseCommandHandler {
     const feeds = await this.feedService.listFeeds(ctx.chatIdString);
 
     if (feeds.length === 0) {
-      await ctx.reply(ctx.t('feed.empty'));
+      await ctx.reply(
+        '📭 **Nenhum feed cadastrado**\n\n' +
+        '💡 Para adicionar feeds:\n' +
+        '• `/add nome https://exemplo.com/rss`\n' +
+        '• `/discover https://site.com` - Descobrir feeds automaticamente\n\n' +
+        '📚 Use `/help` para ver todos os comandos disponíveis.',
+        { parse_mode: 'Markdown' }
+      );
       return;
     }
 
