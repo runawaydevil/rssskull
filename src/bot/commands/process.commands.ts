@@ -1,5 +1,6 @@
 import { database } from '../../database/database.service.js';
 import { feedQueueService } from '../../jobs/index.js';
+import { feedIntervalService } from '../../utils/feed-interval.service.js';
 import {
   BaseCommandHandler,
   type CommandContext,
@@ -427,6 +428,121 @@ export class ProcessFeedCommand extends BaseCommandHandler {
     } catch (error) {
       logger.error(`Failed to process feed ${feedName}:`, error);
       await ctx.reply('❌ **Erro no processamento**\n\nFalha ao processar o feed. Tente novamente mais tarde.');
+    }
+  }
+}
+
+/**
+ * Reload feeds command - forces re-scheduling of all enabled feeds
+ */
+export class ReloadFeedsCommand extends BaseCommandHandler {
+  static create(): CommandHandler {
+    const instance = new ReloadFeedsCommand();
+    return {
+      name: 'reload',
+      aliases: ['reloadfeeds', 'reagendar'],
+      description: 'Force re-scheduling of all enabled feeds',
+      schema: CommandSchemas.noArgs,
+      handler: instance.validateAndExecute.bind(instance),
+    };
+  }
+
+  protected async execute(ctx: CommandContext): Promise<void> {
+    try {
+      await ctx.reply('🔄 **Recarregando feeds...**\n\n⏳ Aguarde, isso pode levar alguns segundos...');
+
+      // Get all enabled feeds for this chat
+      const feeds = await database.client.feed.findMany({
+        where: {
+          chatId: ctx.chatIdString,
+          enabled: true,
+        },
+        include: {
+          filters: true,
+        },
+      });
+
+      if (feeds.length === 0) {
+        await ctx.reply('❌ **Nenhum feed habilitado**\n\nNão há feeds habilitados neste chat para recarregar.');
+        return;
+      }
+
+      logger.info(`Starting feed reload for chat ${ctx.chatIdString}: ${feeds.length} feeds`);
+
+      let scheduledCount = 0;
+      let errorCount = 0;
+      const errors: Array<{ name: string; error: string }> = [];
+
+      // Clear existing jobs for these feeds first
+      for (const feed of feeds) {
+        try {
+          await feedQueueService.removeRecurringFeedCheck(feed.id);
+          logger.debug(`Removed existing job for feed ${feed.id}`);
+        } catch (error) {
+          // Ignore errors when removing non-existent jobs
+          logger.debug(`No existing job to remove for feed ${feed.id}`);
+        }
+      }
+
+      // Schedule all feeds with force=true to bypass duplicate checks
+      for (const feed of feeds) {
+        try {
+          const intervalMinutes = feedIntervalService.getIntervalForUrl(feed.rssUrl);
+          
+          await feedQueueService.scheduleRecurringFeedCheck({
+            feedId: feed.id,
+            chatId: feed.chatId,
+            feedUrl: feed.rssUrl,
+            lastItemId: feed.lastItemId ?? undefined,
+          }, intervalMinutes, true); // force=true to bypass duplicate checks
+
+          scheduledCount++;
+          logger.info(`Scheduled feed ${feed.name} (${feed.id}) with ${intervalMinutes}min interval`);
+        } catch (error) {
+          errorCount++;
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          errors.push({ name: feed.name, error: errorMessage });
+          logger.error(`Failed to schedule feed ${feed.name}:`, error);
+        }
+      }
+
+      // Build result message
+      let message = `✅ **Recarregamento Concluído!**\n\n`;
+      message += `📊 **Resumo:**\n`;
+      message += `• Feeds agendados: ${scheduledCount}/${feeds.length}\n`;
+      message += `• Erros: ${errorCount}\n\n`;
+
+      if (scheduledCount > 0) {
+        message += `🔄 **Feeds agendados com sucesso:**\n`;
+        feeds.forEach(feed => {
+          if (!errors.find(e => e.name === feed.name)) {
+            message += `• ✅ ${feed.name}\n`;
+          }
+        });
+        
+        if (errorCount > 0) {
+          message += `\n❌ **Feeds com erro:**\n`;
+          errors.forEach(({ name, error }) => {
+            message += `• ${name}: ${error}\n`;
+          });
+        }
+        
+        message += `\n💡 Os feeds serão verificados periodicamente agora.`;
+      } else {
+        message += `❌ **Nenhum feed foi agendado!**\n\n`;
+        message += `**Erros:**\n`;
+        errors.forEach(({ name, error }) => {
+          message += `• ${name}: ${error}\n`;
+        });
+        message += `\n💡 Verifique os logs para mais detalhes.`;
+      }
+
+      await ctx.reply(message, { parse_mode: 'Markdown' });
+
+      logger.info(`Feed reload completed for chat ${ctx.chatIdString}: ${scheduledCount}/${feeds.length} feeds scheduled`);
+    } catch (error) {
+      logger.error('Failed to reload feeds:', error);
+      await ctx.reply('❌ **Erro ao recarregar feeds**\n\nErro: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
     }
   }
 }

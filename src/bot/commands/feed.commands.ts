@@ -1,6 +1,8 @@
 import { database } from '../../database/database.service.js';
 import { FeedService } from '../../services/feed.service.js';
 import { UrlNormalizer } from '../../utils/url-normalizer.js';
+import { feedQueueService } from '../../jobs/index.js';
+import { logger } from '../../utils/logger/logger.service.js';
 import {
   BaseCommandHandler,
   type CommandContext,
@@ -347,6 +349,122 @@ export class DiscoverFeedsCommand extends BaseCommandHandler {
 
     } catch (error) {
       await ctx.reply('❌ An error occurred while discovering feeds. Please try again.');
+    }
+  }
+}
+
+/**
+ * Feed status command handler - shows detailed status of feeds and jobs
+ */
+export class FeedStatusCommand extends BaseCommandHandler {
+  static create(): CommandHandler {
+    const instance = new FeedStatusCommand();
+    return {
+      name: 'feedstatus',
+      aliases: ['status', 'feedstats'],
+      description: 'Show detailed feed status and job information',
+      schema: CommandSchemas.noArgs,
+      handler: instance.validateAndExecute.bind(instance),
+    };
+  }
+
+  protected async execute(ctx: CommandContext): Promise<void> {
+    try {
+      await ctx.reply('📊 **Verificando status dos feeds...**\n\n⏳ Aguarde...');
+
+      // Get all feeds for this chat
+      const feeds = await database.client.feed.findMany({
+        where: {
+          chatId: ctx.chatIdString,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      // Get recurring jobs from Redis
+      const recurringJobs = await feedQueueService.getFeedCheckQueue().getRepeatableJobs();
+      
+      // Count jobs for this chat
+      const chatJobIds = new Set(feeds.map(f => `recurring-feed-${f.id}`));
+      const jobsForThisChat = recurringJobs.filter(job => {
+        const jobId = job.id;
+        return jobId && chatJobIds.has(jobId);
+      });
+
+      // Calculate statistics
+      const enabledFeeds = feeds.filter(f => f.enabled);
+      const disabledFeeds = feeds.filter(f => !f.enabled);
+      const feedsWithJobs = new Set(jobsForThisChat.map(j => {
+        const match = j.id?.match(/^recurring-feed-(.+)$/);
+        return match ? match[1] : null;
+      }).filter(Boolean));
+
+      // Build status message
+      let message = `📊 **Status dos Feeds**\n\n`;
+      
+      // Summary
+      message += `📈 **Resumo:**\n`;
+      message += `• Total de feeds: ${feeds.length}\n`;
+      message += `• Habilitados: ${enabledFeeds.length} ✅\n`;
+      message += `• Desabilitados: ${disabledFeeds.length} ❌\n`;
+      message += `• Jobs agendados: ${jobsForThisChat.length} 🔄\n\n`;
+
+      // Redis status
+      message += `🔄 **Jobs no Redis:**\n`;
+      message += `• Total de jobs no sistema: ${recurringJobs.length}\n`;
+      message += `• Jobs deste chat: ${jobsForThisChat.length}\n\n`;
+
+      // Detailed feed list
+      if (feeds.length > 0) {
+        message += `📋 **Detalhes dos Feeds:**\n\n`;
+        
+        for (const feed of feeds) {
+          const hasJob = feedsWithJobs.has(feed.id);
+          const status = feed.enabled ? '✅' : '❌';
+          const jobStatus = hasJob ? '🔄' : '⚠️';
+          
+          message += `${status} ${jobStatus} **${feed.name}**\n`;
+          message += `   URL: ${feed.rssUrl}\n`;
+          
+          if (feed.lastCheck) {
+            const lastCheckDate = new Date(feed.lastCheck);
+            const minutesAgo = Math.floor((Date.now() - lastCheckDate.getTime()) / 60000);
+            message += `   Última verificação: ${minutesAgo} min atrás\n`;
+          } else {
+            message += `   Última verificação: Nunca\n`;
+          }
+          
+          if (feed.failures > 0) {
+            message += `   Erros: ${feed.failures}\n`;
+          }
+          
+          if (!hasJob && feed.enabled) {
+            message += `   ⚠️ **SEM JOB AGENDADO**\n`;
+          }
+          
+          message += `\n`;
+        }
+      } else {
+        message += `📭 **Nenhum feed cadastrado**\n\n`;
+        message += `💡 Use /add para adicionar feeds.`;
+      }
+
+      // Warnings
+      if (enabledFeeds.length > 0 && jobsForThisChat.length === 0) {
+        message += `\n⚠️ **ATENÇÃO:** Nenhum feed está agendado!\n`;
+        message += `💡 Use /reload para forçar o agendamento.`;
+      } else if (enabledFeeds.length > jobsForThisChat.length) {
+        message += `\n⚠️ **ATENÇÃO:** Alguns feeds não estão agendados!\n`;
+        message += `💡 Use /reload para forçar o agendamento.`;
+      }
+
+      await ctx.reply(message, { parse_mode: 'Markdown' });
+
+      logger.info(`Feed status checked for chat ${ctx.chatIdString}: ${feeds.length} feeds, ${jobsForThisChat.length} jobs scheduled`);
+    } catch (error) {
+      logger.error('Failed to get feed status:', error);
+      await ctx.reply('❌ **Erro ao verificar status**\n\nErro: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
     }
   }
 }

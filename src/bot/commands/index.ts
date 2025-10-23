@@ -9,6 +9,7 @@ export {
   EnableFeedCommand,
   DisableFeedCommand,
   DiscoverFeedsCommand,
+  FeedStatusCommand,
 } from './feed.commands.js';
 
 // Settings commands
@@ -24,4 +25,4 @@ export { TemplateCommand } from './template.commands.js';
 export { StatsCommand } from './stats.commands.js';
 
 // Secret/debug commands (not listed in help)
-export { ProcessFeedsCommand, ProcessFeedCommand, ResetFeedCommand } from './process.commands.js';
+export { ProcessFeedsCommand, ProcessFeedCommand, ResetFeedCommand, ReloadFeedsCommand } from './process.commands.js';

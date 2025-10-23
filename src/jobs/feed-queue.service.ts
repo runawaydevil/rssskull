@@ -97,25 +97,27 @@ export class FeedQueueService {
   /**
    * Schedule recurring feed checks for a feed
    */
-  async scheduleRecurringFeedCheck(data: FeedCheckJobData, intervalMinutes = 5): Promise<void> {
+  async scheduleRecurringFeedCheck(data: FeedCheckJobData, intervalMinutes = 5, force = false): Promise<void> {
     const jobId = `recurring-feed-${data.feedId}`;
     
-    // Global duplicate prevention - check if feed was already scheduled in this session
-    if (this.scheduledFeeds.has(data.feedId)) {
+    // Only check in-memory set if not forcing (prevents duplicates during same session for new adds)
+    if (!force && this.scheduledFeeds.has(data.feedId)) {
       logger.warn(`Feed ${data.feedId} already scheduled in this session, skipping duplicate creation`);
       return;
     }
     
-    // Check if job already exists in Redis to prevent duplicates
-    try {
-      const existingJob = await this.feedCheckQueue.getJob(jobId);
-      if (existingJob) {
-        logger.warn(`Recurring job for feed ${data.feedId} already exists in Redis, skipping duplicate creation`);
-        this.scheduledFeeds.add(data.feedId); // Mark as scheduled to prevent future attempts
-        return;
+    // Check if job already exists in Redis to prevent duplicates (unless forcing)
+    if (!force) {
+      try {
+        const existingJob = await this.feedCheckQueue.getJob(jobId);
+        if (existingJob) {
+          logger.warn(`Recurring job for feed ${data.feedId} already exists in Redis, skipping duplicate creation`);
+          this.scheduledFeeds.add(data.feedId); // Mark as scheduled to prevent future attempts
+          return;
+        }
+      } catch (error) {
+        // Job doesn't exist, continue with creation
       }
-    } catch (error) {
-      // Job doesn't exist, continue with creation
     }
 
     // Convert minutes to cron pattern (every X minutes)

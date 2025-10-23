@@ -10,6 +10,7 @@ import {
   CircuitBreakerStatsCommand,
   DiscoverFeedsCommand,
   EnableFeedCommand,
+  FeedStatusCommand,
   FiltersCommand,
   FixFeedsCommand,
   HelpCommand,
@@ -19,6 +20,7 @@ import {
   PingCommand,
   ProcessFeedCommand,
   ProcessFeedsCommand,
+  ReloadFeedsCommand,
   RemoveFeedCommand,
   ResetCircuitBreakerCommand,
   ResetCommand,
@@ -345,6 +347,8 @@ export class BotService {
     this.commandRouter.register(ResetFeedCommand.create());
     this.commandRouter.register(LogCommand.create());
     this.commandRouter.register(LogErrorCommand.create());
+    this.commandRouter.register(FeedStatusCommand.create());
+    this.commandRouter.register(ReloadFeedsCommand.create());
 
     logger.info('Command router initialized', {
       commandCount: this.commandRouter.getCommands().length,
@@ -1195,13 +1199,42 @@ export class BotService {
       try {
         await this.loadAndScheduleAllFeeds();
         logger.info('✅ All existing feeds loaded and scheduled successfully');
+        console.log('✅ All existing feeds loaded and scheduled successfully');
       } catch (error) {
         logger.error('❌ Failed to load feeds in background:', error);
-        // Retry after 30 seconds
-        logger.info('🔄 Retrying feed loading in 30 seconds...');
-        setTimeout(() => this.loadAndScheduleAllFeedsAsync(), 30000);
+        console.error('❌ Failed to load feeds in background:', error);
+        
+        // Retry more aggressively: 10 seconds, then 30 seconds, then give up
+        logger.info('🔄 Retrying feed loading in 10 seconds...');
+        console.log('🔄 Retrying feed loading in 10 seconds...');
+        
+        setTimeout(async () => {
+          try {
+            await this.loadAndScheduleAllFeeds();
+            logger.info('✅ Feed loading succeeded on retry');
+            console.log('✅ Feed loading succeeded on retry');
+          } catch (retryError) {
+            logger.error('❌ Feed loading failed again on retry:', retryError);
+            console.error('❌ Feed loading failed again on retry:', retryError);
+            
+            // Final retry after 30 seconds
+            logger.info('🔄 Final retry in 30 seconds...');
+            console.log('🔄 Final retry in 30 seconds...');
+            
+            setTimeout(async () => {
+              try {
+                await this.loadAndScheduleAllFeeds();
+                logger.info('✅ Feed loading succeeded on final retry');
+                console.log('✅ Feed loading succeeded on final retry');
+              } catch (finalError) {
+                logger.error('❌ Feed loading failed on final retry. Manual intervention may be required.', finalError);
+                console.error('❌ Feed loading failed on final retry. Manual intervention may be required.', finalError);
+              }
+            }, 30000);
+          }
+        }, 10000); // 10 seconds
       }
-    }, 5000); // Wait 5 seconds after bot starts
+    }, 2000); // Wait 2 seconds after bot starts (reduced from 5 seconds)
   }
 
   /**
@@ -1210,23 +1243,27 @@ export class BotService {
   async loadAndScheduleAllFeeds(): Promise<void> {
     // Prevent multiple initializations
     if (this.feedsLoaded) {
-      logger.warn('Feeds already loaded, skipping duplicate initialization');
+      logger.warn('⚠️ Feeds already loaded, skipping duplicate initialization');
       return;
     }
 
     try {
-      logger.info('Loading all existing feeds from database...');
+      logger.info('🔄 Starting feed loading process...');
+      console.log('🔄 Starting feed loading process...');
       this.feedsLoaded = true;
 
       // Import services with timeout
+      logger.info('📦 Importing database service...');
       const { database } = await Promise.race([
         import('../database/database.service.js'),
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Database import timeout')), 10000)
         )
       ]) as any;
+      logger.info('✅ Database service imported');
 
       // Get all chats with their feeds with timeout
+      logger.info('📊 Querying database for feeds...');
       const chats = await Promise.race([
         database.client.chat.findMany({
           include: {
@@ -1240,20 +1277,27 @@ export class BotService {
           setTimeout(() => reject(new Error('Database query timeout')), 15000)
         )
       ]) as any;
+      logger.info(`📊 Found ${chats.length} chats in database`);
 
       let totalScheduled = 0;
       let totalErrors = 0;
+      const errorDetails: Array<{ name: string; error: string }> = [];
 
       for (const chat of chats) {
-        if (chat.feeds.length === 0) continue;
+        if (chat.feeds.length === 0) {
+          logger.debug(`📭 Chat ${chat.id} has no enabled feeds`);
+          continue;
+        }
 
-        logger.info(`Loading ${chat.feeds.length} feeds for chat ${chat.id} (${chat.title || 'No title'})`);
+        logger.info(`📋 Chat ${chat.id} (${chat.title || 'No title'}): ${chat.feeds.length} enabled feeds`);
 
         for (const feed of chat.feeds) {
           try {
             // Use dynamic intervals based on feed URL
             const { feedIntervalService } = await import('../utils/feed-interval.service.js');
             const intervalMinutes = feedIntervalService.getIntervalForUrl(feed.rssUrl);
+
+            logger.info(`🔄 Scheduling feed "${feed.name}" (${feed.id}) with ${intervalMinutes}min interval...`);
 
             await feedQueueService.scheduleRecurringFeedCheck({
               feedId: feed.id,
@@ -1263,17 +1307,32 @@ export class BotService {
             }, intervalMinutes);
 
             totalScheduled++;
-            logger.debug(`Scheduled feed ${feed.id} (${feed.name}) for chat ${chat.id} with ${intervalMinutes}min interval`);
+            logger.info(`✅ Successfully scheduled feed "${feed.name}" (${feed.id})`);
           } catch (error) {
             totalErrors++;
-            logger.error(`Failed to schedule feed ${feed.id} (${feed.name}):`, error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            errorDetails.push({ name: feed.name, error: errorMessage });
+            logger.error(`❌ Failed to schedule feed "${feed.name}" (${feed.id}):`, error);
           }
         }
       }
 
-      logger.info(`Feed loading completed: ${totalScheduled} feeds scheduled, ${totalErrors} errors`);
+      logger.info(`✅ Feed loading completed: ${totalScheduled} feeds scheduled, ${totalErrors} errors`);
+      console.log(`✅ Feed loading completed: ${totalScheduled} feeds scheduled, ${totalErrors} errors`);
+      
+      if (totalErrors > 0) {
+        logger.warn(`⚠️ Errors during feed scheduling:`);
+        errorDetails.forEach(({ name, error }) => {
+          logger.warn(`  • ${name}: ${error}`);
+        });
+      }
+      
+      if (totalScheduled === 0) {
+        logger.warn('⚠️ No feeds were scheduled. This might be normal if no feeds exist yet.');
+      }
     } catch (error) {
-      logger.error('Failed to load and schedule feeds:', error);
+      logger.error('❌ Failed to load and schedule feeds:', error);
+      console.error('❌ Failed to load and schedule feeds:', error);
       throw error;
     }
   }
@@ -1608,3 +1667,4 @@ export class BotService {
     return this.bot;
   }
 }
+
