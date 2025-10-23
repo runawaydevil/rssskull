@@ -398,14 +398,21 @@ export class RSSService {
     logger.info(`🔍 DEBUG: New items IDs: ${newItems.map(item => item.id).join(', ')}`);
 
     // If lastItemIndex is 0, it means the lastItemId is the most recent item
-    // Check if there are actually newer items by comparing timestamps
+    // For Reddit feeds, don't use timestamp comparison fallback because IDs are not chronological
+    // Just return empty array as we're already at the most recent item
     if (lastItemIndex === 0 && items.length > 0) {
       const lastKnownItem = items[0];
       if (!lastKnownItem) return { items: newItems, totalItemsCount };
       
+      // For Reddit feeds, IDs are not in chronological order, so skip timestamp comparison
+      if (url.includes('reddit.com')) {
+        logger.info(`🔍 DEBUG: lastItemIndex is 0 for Reddit feed, returning no new items (already at most recent)`);
+        return { items: [], totalItemsCount };
+      }
+      
       const lastKnownTime = lastKnownItem.pubDate;
       
-      // Check if there are items with more recent timestamps
+      // Check if there are items with more recent timestamps (only for non-Reddit feeds)
       const potentiallyNewItems = items.filter(item => {
         if (!item.pubDate || !lastKnownTime) return false;
         return item.pubDate > lastKnownTime;
