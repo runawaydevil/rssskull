@@ -221,25 +221,26 @@ describe('RSSService', () => {
       mockParseString.mockResolvedValue(mockFeedData);
     });
 
-    it('should return only items from bot startup onwards when no lastItemId is provided', async () => {
-      // Set bot startup time to a specific time
-      process.env.BOT_STARTUP_TIME = '2023-01-02T10:00:00Z';
+    it('should return only items from the last 2 hours when no lastItemId is provided', async () => {
+      // Create items with dates: one within last 2 hours, one older than 2 hours
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000);
       
-      // Create items with different dates
       const mockFeedDataWithDifferentDates = {
         title: 'Test Feed',
         items: [
           {
-            title: 'After Startup Item',
-            link: 'https://example.com/after',
-            guid: 'after-startup-item',
-            pubDate: '2023-01-02T12:00:00Z', // After startup
+            title: 'Recent Item',
+            link: 'https://example.com/recent',
+            guid: 'recent-item',
+            pubDate: oneHourAgo.toISOString(), // Within last 2 hours
           },
           {
-            title: 'Before Startup Item',
-            link: 'https://example.com/before',
-            guid: 'before-startup-item',
-            pubDate: '2023-01-02T08:00:00Z', // Before startup
+            title: 'Old Item',
+            link: 'https://example.com/old',
+            guid: 'old-item',
+            pubDate: threeHoursAgo.toISOString(), // Older than 2 hours
           },
         ],
       };
@@ -248,18 +249,40 @@ describe('RSSService', () => {
       
       const result = await rssService.getNewItems('https://example.com/feed.xml');
 
-      // Should only return items from startup onwards
+      // Should only return items from the last 2 hours
       expect(result.items).toHaveLength(1);
-      expect(result.items[0].id).toBe('after-startup-item');
+      expect(result.items[0].id).toBe('recent-item');
     });
 
-    it('should return empty array when all items are older than bot startup', async () => {
-      // Set bot startup time to after all test items
-      process.env.BOT_STARTUP_TIME = '2023-01-04T00:00:00Z';
+    it('should return empty array when all items are older than 2 hours', async () => {
+      // Create items with dates older than 2 hours
+      const now = new Date();
+      const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+      const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+      
+      const mockFeedDataWithOldDates = {
+        title: 'Test Feed',
+        items: [
+          {
+            title: 'Old Item 1',
+            link: 'https://example.com/old1',
+            guid: 'old-item-1',
+            pubDate: threeHoursAgo.toISOString(),
+          },
+          {
+            title: 'Old Item 2',
+            link: 'https://example.com/old2',
+            guid: 'old-item-2',
+            pubDate: fourHoursAgo.toISOString(),
+          },
+        ],
+      };
+      
+      mockParseString.mockResolvedValue(mockFeedDataWithOldDates);
       
       const result = await rssService.getNewItems('https://example.com/feed.xml');
 
-      // Should return empty array when all items are older than startup
+      // Should return empty array when all items are older than 2 hours
       expect(result.items).toHaveLength(0);
     });
 
