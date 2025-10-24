@@ -291,7 +291,9 @@ export class RSSService {
       return { items: [], totalItemsCount: 0 };
     }
 
-    const items = result.feed.items;
+    // Sort items by publication date (newest first) to ensure correct order
+    // This is critical for detecting new items correctly
+    const items = this.sortItemsByDate(result.feed.items);
     const totalItemsCount = items.length;
 
     // If no last item ID, this is the first time processing this feed
@@ -313,6 +315,7 @@ export class RSSService {
     // 🔍 DEBUG: Log first few items to understand the issue
     logger.info(`🔍 DEBUG: Feed ${url} - Looking for lastItemId: ${lastItemId}`);
     logger.info(`🔍 DEBUG: First 3 items in feed: ${items.slice(0, 3).map(item => item.id).join(', ')}`);
+    logger.info(`🔍 DEBUG: First 3 items dates: ${items.slice(0, 3).map(item => item.pubDate?.toISOString() || 'no date').join(', ')}`);
 
     if (lastItemIndex === -1) {
       // Last item not found, might be too old or feed changed
@@ -364,21 +367,15 @@ export class RSSService {
     logger.info(`🔍 DEBUG: New items IDs: ${newItems.map(item => item.id).join(', ')}`);
 
     // If lastItemIndex is 0, it means the lastItemId is the most recent item
-    // For Reddit feeds, don't use timestamp comparison fallback because IDs are not chronological
-    // Just return empty array as we're already at the most recent item
+    // Still check timestamps to detect updated items or new posts that might not be at the top
     if (lastItemIndex === 0 && items.length > 0) {
       const lastKnownItem = items[0];
       if (!lastKnownItem) return { items: newItems, totalItemsCount };
       
-      // For Reddit feeds, IDs are not in chronological order, so skip timestamp comparison
-      if (url.includes('reddit.com')) {
-        logger.info(`🔍 DEBUG: lastItemIndex is 0 for Reddit feed, returning no new items (already at most recent)`);
-        return { items: [], totalItemsCount };
-      }
-      
       const lastKnownTime = lastKnownItem.pubDate;
       
-      // Check if there are items with more recent timestamps (only for non-Reddit feeds)
+      // Check if there are items with more recent timestamps
+      // This helps catch updated posts or edge cases where order changes
       const potentiallyNewItems = items.filter(item => {
         if (!item.pubDate || !lastKnownTime) return false;
         return item.pubDate > lastKnownTime;
@@ -389,6 +386,10 @@ export class RSSService {
         return { items: potentiallyNewItems, totalItemsCount };
       } else {
         logger.info(`🔍 DEBUG: No items with newer timestamps found`);
+        // For Reddit feeds, if first item hasn't changed, safely return empty
+        if (url.includes('reddit.com')) {
+          logger.info(`🔍 DEBUG: Reddit feed unchanged, no new items`);
+        }
       }
     }
 
@@ -680,7 +681,8 @@ export class RSSService {
       for (const pattern of patterns) {
         const match = item.link.match(pattern);
         if (match) {
-          return `reddit_${match[1]}`;
+          // Normalize Reddit IDs to lowercase for consistency
+          return `reddit_${match[1].toLowerCase()}`;
         }
       }
       
@@ -689,9 +691,9 @@ export class RSSService {
         // Reddit GUIDs often contain the post ID
         const guidMatch = item.guid.match(/([a-zA-Z0-9]+)$/);
         if (guidMatch) {
-          return `reddit_guid_${guidMatch[1]}`;
+          return `reddit_guid_${guidMatch[1].toLowerCase()}`;
         }
-        return `reddit_guid_${item.guid}`;
+        return `reddit_guid_${item.guid.toLowerCase()}`;
       }
       
       // Fallback: use link hash for Reddit
@@ -872,6 +874,21 @@ export class RSSService {
     }
     
     return alternatives;
+  }
+
+  /**
+   * Sort items by publication date (newest first)
+   */
+  private sortItemsByDate(items: RSSItem[]): RSSItem[] {
+    return [...items].sort((a, b) => {
+      // Items without dates go to the end
+      if (!a.pubDate && !b.pubDate) return 0;
+      if (!a.pubDate) return 1;
+      if (!b.pubDate) return -1;
+
+      // Newest first
+      return b.pubDate.getTime() - a.pubDate.getTime();
+    });
   }
 
   /**
