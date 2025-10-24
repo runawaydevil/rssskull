@@ -110,6 +110,38 @@ export class FeedRepository extends AbstractRepository<
     });
   }
 
+  async updateLastNotified(
+    id: string, 
+    lastNotifiedAt?: Date, 
+    lastSeenAt?: Date, 
+    lastItemId?: string
+  ): Promise<FeedWithFilters> {
+    const updateData: any = {
+      lastCheck: new Date(),
+      failures: 0,
+    };
+    
+    if (lastNotifiedAt !== undefined) {
+      updateData.lastNotifiedAt = lastNotifiedAt;
+    }
+    
+    if (lastSeenAt !== undefined) {
+      updateData.lastSeenAt = lastSeenAt;
+    }
+    
+    if (lastItemId !== undefined) {
+      updateData.lastItemId = lastItemId;
+    }
+    
+    return this.prisma.feed.update({
+      where: { id },
+      data: updateData,
+      include: {
+        filters: true,
+      },
+    });
+  }
+
   async incrementFailures(id: string): Promise<FeedWithFilters> {
     return this.prisma.feed.update({
       where: { id },

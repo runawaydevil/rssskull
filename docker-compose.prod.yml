@@ -43,6 +43,9 @@ services:
       - MAX_FEEDS_PER_CHAT=${MAX_FEEDS_PER_CHAT:-50}
       - RSS_CHECK_INTERVAL=${RSS_CHECK_INTERVAL:-300}
       - OPENSSL_CONF=/dev/null
+      # Reddit optimization: cache disabled, JSON API enabled
+      # Check intervals: Reddit 6min (with jitter), others 10min
+      # Max age filter: Reddit 90min, others 24h
     volumes:
       - app_prod_data:/app/data
       - ./logs:/app/logs  # Mount logs directory

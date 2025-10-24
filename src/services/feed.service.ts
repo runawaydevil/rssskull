@@ -6,7 +6,6 @@ import {
 } from '../database/repositories/feed.repository.js';
 import { feedQueueService } from '../jobs/index.js';
 import { ConverterService } from '../utils/converters/converter.service.js';
-import { feedIntervalService } from '../utils/feed-interval.service.js';
 import { logger } from '../utils/logger/logger.service.js';
 import { isValidUrl } from '../utils/validation.js';
 import { FeedDiscovery } from '../utils/feed-discovery.js';
@@ -137,6 +136,11 @@ export class FeedService {
         }
       }
 
+      // Determine defaults based on feed type
+      const isReddit = rssUrl.includes('reddit.com');
+      const checkIntervalMinutes = isReddit ? 6 : 10; // Reddit checks every 6 min, others every 10 min
+      const maxAgeMinutes = isReddit ? 90 : 1440; // Reddit: 90 min, others: 24h
+      
       // Create feed
       const feedData: CreateFeedInput = {
         chat: {
@@ -146,6 +150,8 @@ export class FeedService {
         url: input.url,
         rssUrl: rssUrl,
         enabled: input.enabled ?? true,
+        checkIntervalMinutes,
+        maxAgeMinutes,
         lastCheck: new Date(),
         failures: 0,
       };
@@ -153,9 +159,9 @@ export class FeedService {
       const feed = await this.feedRepository.create(feedData);
       logger.info(`Feed added successfully: ${feed.name} (${feed.id})`);
 
-      // Schedule recurring feed checks with domain-specific intervals
+      // Schedule recurring feed checks using feed's checkIntervalMinutes
       try {
-        const intervalMinutes = feedIntervalService.getIntervalForUrl(feed.rssUrl);
+        const intervalMinutes = feed.checkIntervalMinutes;
         
         await feedQueueService.scheduleRecurringFeedCheck({
           feedId: feed.id,

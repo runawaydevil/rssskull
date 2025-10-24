@@ -32,7 +32,7 @@ export class CacheService {
   // TTL base por tipo de domínio (em milliseconds)
   private domainTTL: Record<string, number> = {
     // Alta frequência - cache curto
-    'reddit.com': 20 * 60 * 1000, // 20 minutos (aumentado de 10)
+    'reddit.com': 0, // Cache desabilitado para Reddit (usa JSON API)
     'hackernews': 5 * 60 * 1000,  // 5 minutos
     'techcrunch.com': 5 * 60 * 1000, // 5 minutos
     
@@ -55,6 +55,11 @@ export class CacheService {
   private calculateTTL(url: string): number {
     const domain = this.extractDomain(url);
     const baseTTL = this.domainTTL[domain] || this.domainTTL.default || 20 * 60 * 1000;
+    
+    // Se TTL é 0 (cache desabilitado), retornar 0 diretamente
+    if (baseTTL === 0) {
+      return 0;
+    }
     
     // Adicionar variação aleatória (±25% de variação)
     const variation = Math.random() * 0.5 * baseTTL - 0.25 * baseTTL;

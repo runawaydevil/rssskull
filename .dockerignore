@@ -182,19 +182,18 @@ __tests__/
 test.db
 dev.db
 
-# Coverage reports
+# Coverage reports (no longer relevant)
 coverage/
 .nyc_output/
 *.lcov
 
-# Test results
+# Test results (no longer relevant)
 test-results/
 junit.xml
 test-output/
 
 # Development logs
 *.dev.log
-*.test.log
 debug.log
 
 # Local development files

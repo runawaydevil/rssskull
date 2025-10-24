@@ -21,20 +21,24 @@ model Chat {
 }
 
 model Feed {
-  id          String   @id @default(cuid())
-  chatId      String
-  name        String
-  url         String   // Original URL
-  rssUrl      String   // Converted RSS URL
-  lastItemId  String?
-  enabled     Boolean  @default(true)
-  filters     FeedFilter[]
-  failures    Int      @default(0)
-  lastCheck   DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  chatId               String
+  name                 String
+  url                  String   // Original URL
+  rssUrl               String   // Converted RSS URL
+  lastItemId           String?
+  lastNotifiedAt       DateTime? // Timestamp do último item notificado
+  lastSeenAt           DateTime? // Timestamp do último item visto (mesmo sem notificar)
+  checkIntervalMinutes Int      @default(10) // Intervalo de verificação em minutos
+  maxAgeMinutes        Int      @default(1440) // Idade máxima de items para notificar (24h padrão)
+  enabled              Boolean  @default(true)
+  filters              FeedFilter[]
+  failures             Int      @default(0)
+  lastCheck            DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
   
-  chat        Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chat                 Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
   
   @@unique([chatId, name])
 }
@@ -80,4 +84,16 @@ model Statistic {
   date      DateTime @default(now())
   
   chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+}
+
+model ItemDedupe {
+  id         String   @id @default(cuid())
+  itemId     String   // GUID do item (único por feed)
+  feedId     String?  // Feed de origem (opcional para busca)
+  seenAt     DateTime @default(now())
+  expiresAt  DateTime // seenAt + 7 dias (TTL automático)
+  
+  @@index([itemId])
+  @@index([expiresAt])
+  @@index([feedId])
 }

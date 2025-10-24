@@ -5,6 +5,8 @@ import { parserService } from '../../services/parser.service.js';
 import { logger } from '../../utils/logger/logger.service.js';
 import { jobService } from '../job.service.js';
 import type { JobData, JobResult } from '../job.service.js';
+import { createDedupeService } from '../../services/dedupe.service.js';
+import type { RSSItem } from '../../services/rss.service.js';
 
 export interface FeedCheckJobData extends JobData {
   feedId: string;
@@ -128,9 +130,49 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
       };
     }
 
-    // Process and deduplicate new items
-    const processedItems = parserService.processItems(checkResult.newItems);
+    // Get feed's timestamp filter (use lastNotifiedAt or createdAt as fallback)
+    const lastNotifiedAt = feed.lastNotifiedAt || feed.createdAt;
+    
+    // Initialize dedupe service
+    const dedupeService = createDedupeService(database.client);
+    
+    // Filter items by timestamp and dedupe
+    const freshItems: RSSItem[] = [];
+    const allSeenItems: RSSItem[] = [];
+    
+    for (const item of checkResult.newItems) {
+      // Track all items seen (even if we don't notify)
+      allSeenItems.push(item);
+      
+      // Check if item is newer than last notification
+      const isNew = !item.pubDate || !lastNotifiedAt || item.pubDate > lastNotifiedAt;
+      
+      if (isNew) {
+        // Check dedupe before adding
+        const alreadySeen = await dedupeService.has(item.id);
+        if (!alreadySeen) {
+          freshItems.push(item);
+        }
+      }
+    }
+    
+    // Mark items as seen in dedupe
+    if (allSeenItems.length > 0) {
+      await dedupeService.addBatch(allSeenItems.map(item => ({ itemId: item.id, feedId })));
+    }
+    
+    // Process final items (deduplicate and sort)
+    const processedItems = parserService.processItems(freshItems);
     const newItemsCount = processedItems.length;
+    
+    // Calculate timestamps for database update
+    const mostRecentPubDate = allSeenItems.length > 0 && allSeenItems[0]?.pubDate 
+      ? allSeenItems[0].pubDate 
+      : undefined;
+    
+    const lastNotifiedTimestamp = newItemsCount > 0 && processedItems[0]?.pubDate
+      ? processedItems[0].pubDate
+      : undefined;
 
     // If there are new items, queue them for message sending
     if (newItemsCount > 0) {
@@ -169,12 +211,17 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
       failureCount: 0, // Reset failure count on success
     };
 
-    // Update the feed's last check time and last item ID in the database
+    // Update the feed's last check time, last item ID, and timestamps in the database
     try {
-      await database.feeds.updateLastCheck(feedId, checkResult.lastItemId);
-      logger.debug(`Updated feed ${feedId} last check time and last item ID: ${checkResult.lastItemId}`);
+      await database.feeds.updateLastNotified(
+        feedId,
+        lastNotifiedTimestamp,
+        mostRecentPubDate,
+        checkResult.lastItemId
+      );
+      logger.debug(`Updated feed ${feedId} last check time, last item ID, and timestamps`);
     } catch (error) {
-      logger.error(`Failed to update feed ${feedId} last check time:`, error);
+      logger.error(`Failed to update feed ${feedId} timestamps:`, error);
       // Don't fail the entire job if database update fails
     }
 

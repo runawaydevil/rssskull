@@ -40,19 +40,30 @@ export async function processMessageSend(
   // 🔥 LOG ESPECÍFICO PARA RASTREAR DUPLICAÇÃO
   logger.info(`🔥 PROCESSING MESSAGE JOB - Job ID: ${job.id} | Feed: ${feedName} (${feedId}) | Chat: ${chatId} | Items: ${items.length}`);
   
+  // Get feed configuration for max age filter
+  const { database } = await import('../../database/database.service.js');
+  const feed = await database.client.feed.findUnique({
+    where: { id: feedId },
+    select: { maxAgeMinutes: true },
+  });
+  
+  const maxAgeMinutes = feed?.maxAgeMinutes ?? 1440; // Default 24 hours
+  
   // Log item dates for debugging
   const firstItem = items[0];
   if (firstItem?.pubDate) {
     const firstItemDate = new Date(firstItem.pubDate);
-    const hoursAgo = Math.round((Date.now() - firstItemDate.getTime()) / (1000 * 60 * 60));
-    logger.info(`📅 First item date: ${firstItemDate.toISOString()} (${hoursAgo} hours ago)`);
+    const minutesAgo = Math.round((Date.now() - firstItemDate.getTime()) / (1000 * 60));
+    const hoursAgo = Math.round(minutesAgo / 60);
     
-    // Safety check: Don't send items older than 24 hours
-    if (hoursAgo > 24) {
-      logger.warn(`⚠️ Refusing to send items older than 24 hours (${hoursAgo}h old) for feed ${feedName} (${feedId})`);
+    logger.info(`📅 First item date: ${firstItemDate.toISOString()} (${minutesAgo} min / ${hoursAgo}h ago)`);
+    
+    // Configurable age filter based on feed settings
+    if (minutesAgo > maxAgeMinutes) {
+      logger.warn(`⚠️ Refusing to send items older than ${maxAgeMinutes} minutes (${minutesAgo} min old) for feed ${feedName} (${feedId})`);
       return {
         success: false,
-        message: `Items too old (${hoursAgo} hours)`,
+        message: `Items too old (${minutesAgo} minutes, max: ${maxAgeMinutes})`,
         messagesSent: 0,
         messagesTotal: items.length,
       };

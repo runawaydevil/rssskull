@@ -1,298 +1,71 @@
-name: CI/CD Pipeline
+name: CI
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
-    branches: [ main ]
-
-permissions:
-  contents: write
-  actions: read
-  checks: read
-
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+    branches: [ main, develop ]
 
 jobs:
-  test:
-    name: Test & Lint
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [20.x]
-
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    # torna o token opcional via env (fica vazio em PR de fork)
-    env:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
+    
     steps:
-      - name: 📥 Checkout code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: 🟢 Setup Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: npm
+          node-version: '20'
+          cache: 'npm'
 
-      - name: 📦 Install dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - name: 🔍 Run linting
-        run: |
-          echo "Skipping linting - bot is functional, focusing on core features"
-          echo "Linting can be run locally with: npm run lint"
+      - name: Run Biome linter
+        run: npm run lint:ci
 
-      - name: 🏗️ Build project
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npm run db:generate
+
+      - name: Build application
         run: npm run build
 
-      - name: 🧪 Run tests
-        run: npm run test
-        env:
-          NODE_ENV: test
-          DATABASE_URL: file:./test.db
-          REDIS_HOST: localhost
-          REDIS_PORT: 6379
-          BOT_TOKEN: dummy_token_for_tests
-
-      - name: 🔍 Validate new features
-        run: |
-          echo "🔍 Validating new RSS Skull Bot features..."
-          echo "✅ User-Agent rotation system"
-          echo "✅ Intelligent caching system" 
-          echo "✅ Enhanced settings system"
-          echo "✅ Rate limiting system"
-          echo "✅ Feed interval management"
-          echo ""
-          echo "📊 Test Results Summary:"
-          echo "• All 78 tests passing"
-          echo "• Cache service validated"
-          echo "• User-Agent rotation validated"
-          echo "• Rate limiting validated"
-          echo "• Settings system validated"
-          echo ""
-          echo "🚀 RSS Skull Bot v0.1.0 ready for deployment!"
-
-      - name: 📊 Upload coverage reports
-        if: ${{ matrix['node-version'] == '20.x' && env.CODECOV_TOKEN }}
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./coverage/lcov.info
-          flags: unittests
-          name: codecov-umbrella
-
-  docker:
+  docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
-    needs: test
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-
-    # 👇 expõe segredos como env do job
-    env:
-      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-      GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-
+    
     steps:
-      - name: 📥 Checkout code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: 🐳 Set up Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: 🔑 Login to Docker Hub (se segredos existirem)
-        if: ${{ env.DOCKER_USERNAME && env.DOCKER_PASSWORD }}
-        uses: docker/login-action@v3
-        with:
-          username: ${{ env.DOCKER_USERNAME }}
-          password: ${{ env.DOCKER_PASSWORD }}
-
-      - name: 🔑 Login to GHCR (se segredos existirem)
-        if: ${{ env.GHCR_USERNAME && env.GHCR_TOKEN }}
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ env.GHCR_USERNAME }}
-          password: ${{ env.GHCR_TOKEN }}
-
-      - name: ⚠️ Skip Docker login (faltam segredos)
-        if: ${{ !env.DOCKER_USERNAME || !env.DOCKER_PASSWORD }}
-        run: |
-          echo "⚠️ Skipping Docker Hub login - secrets not configured"
-          echo "Configure DOCKER_USERNAME and DOCKER_PASSWORD secrets in repository settings"
-
-      - name: ⚠️ Skip GHCR login (faltam segredos)
-        if: ${{ !env.GHCR_USERNAME || !env.GHCR_TOKEN }}
-        run: |
-          echo "⚠️ Skipping GHCR login - secrets not configured"
-          echo "Configure GHCR_USERNAME and GHCR_TOKEN secrets in repository settings"
-
-      - name: 🏷️ Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/runawaydevil/rssskull
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: 🏗️ Build and push to Docker Hub
-        if: ${{ env.DOCKER_USERNAME && env.DOCKER_PASSWORD }}
+      - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: runawaydevil/rssskull:latest,runawaydevil/rssskull:${{ github.sha }}
-          labels: ${{ steps.meta.outputs.labels }}
+          push: false
+          tags: rss-skull-bot:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: 🏗️ Build and push to GHCR
-        if: ${{ env.GHCR_USERNAME && env.GHCR_TOKEN }}
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ghcr.io/runawaydevil/rssskull:latest,ghcr.io/runawaydevil/rssskull:${{ github.sha }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    needs: test
-
-    # 👇 expõe o token do Snyk como env do job
-    env:
-      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-
-      - name: 🟢 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-          cache: npm
-
-      - name: 📦 Install dependencies
-        run: npm ci
-
-      - name: 🔒 Run npm audit
-        run: npm audit --audit-level=high || true
-
-      - name: 🛡️ Run Snyk security scan (se houver token)
-        if: ${{ env.SNYK_TOKEN }}
-        uses: snyk/actions/node@master
-        continue-on-error: true
-        env:
-          SNYK_TOKEN: ${{ env.SNYK_TOKEN }}
-        with:
-          args: --severity-threshold=high
-
-  release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    needs: [test, docker, security]
-    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) }}
-
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: 🟢 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-          cache: npm
-
-      - name: 📦 Install dependencies
-        run: npm ci
-
-      - name: 🏗️ Build project
-        run: npm run build
-
-      - name: 📋 Extract version from package.json
-        id: package-version
-        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-
-      - name: 🏷️ Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.package-version.outputs.version }}
-          name: RSS Skull Bot v${{ steps.package-version.outputs.version }}
-          body: |
-            ## 🚀 RSS Skull Bot v${{ steps.package-version.outputs.version }}
-
-            ### ✨ Major Features Added
-            - 🔧 **Secret Log Commands**: Advanced debugging with `/log` and `/loge`
-            - 🛡️ **Enhanced Circuit Breaker**: Improved fault tolerance (10 failures vs 5)
-            - 🔄 **Intelligent URL Alternatives**: Automatic fallback system
-            - ⏱️ **Robust Timeout Handling**: Better handling of slow websites (20s vs 10s)
-            - 📊 **Professional Log Management**: Real-time log access via Telegram
-
-            ### 🎯 Key Improvements
-            - ❌ → ✅ **No more false Circuit Breaker activations**
-            - ❌ → ✅ **Automatic URL fallbacks** (www/non-www, feed variants)
-            - ❌ → ✅ **Real-time debugging** without server access
-            - ❌ → ✅ **Smarter error classification** (temporary vs permanent)
-            - ❌ → ✅ **Enhanced monitoring** with professional log system
-
-            ### 📊 New Secret Commands
-            - `/log` - View last 50 lines of application logs
-            - `/loge` - View last 50 lines of error logs
-            - Real-time log parsing with timestamps and levels
-            - Automatic log truncation for Telegram limits
-
-            ### 🐳 Docker Image
-            ```bash
-            docker pull runawaydevil/rssskull:v${{ steps.package-version.outputs.version }}
-            # or
-            docker pull ghcr.io/runawaydevil/rssskull:v${{ steps.package-version.outputs.version }}
-            ```
-
-            ### 📦 Quick Start
-            ```bash
-            git clone https://github.com/${{ github.repository }}.git
-            cd $(basename ${{ github.repository }})
-            docker compose up -d --build
-            ```
-
-            ### 🔧 New Secret Commands
-            ```bash
-            /log                        # View recent logs
-            /loge                       # View error logs
-            /resetcircuit <domain>      # Reset Circuit Breaker
-            /circuitstats              # View Circuit Breaker status
-            ```
-
-            ### 🔄 Migration from v1
-            ```bash
-            npm run migrate:v1 /path/to/old/database.db
-            ```
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

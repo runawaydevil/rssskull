@@ -95,7 +95,7 @@ export class FeedQueueService {
   }
 
   /**
-   * Schedule recurring feed checks for a feed
+   * Schedule recurring feed checks for a feed with jitter
    */
   async scheduleRecurringFeedCheck(data: FeedCheckJobData, intervalMinutes = 5, force = false): Promise<void> {
     const jobId = `recurring-feed-${data.feedId}`;
@@ -120,8 +120,14 @@ export class FeedQueueService {
       }
     }
 
-    // Convert minutes to cron pattern (every X minutes)
-    const cronPattern = `*/${intervalMinutes} * * * *`;
+    // Add jitter to avoid thundering herd: ±1-2 minutes random
+    const jitterMs = Math.floor(Math.random() * 120000) - 60000; // ±1 minute in milliseconds
+    const intervalMs = intervalMinutes * 60 * 1000;
+    const jitteredIntervalMs = Math.max(60000, intervalMs + jitterMs); // Minimum 1 minute
+
+    // Convert back to cron pattern for BullMQ compatibility
+    const jitteredMinutes = Math.ceil(jitteredIntervalMs / 60000);
+    const cronPattern = `*/${jitteredMinutes} * * * *`;
 
     await jobService.addRecurringJob(
       FEED_QUEUE_NAMES.FEED_CHECK,
@@ -137,7 +143,7 @@ export class FeedQueueService {
     this.scheduledFeeds.add(data.feedId);
 
     logger.info(
-      `Scheduled recurring feed check for feed ${data.feedId} every ${intervalMinutes} minutes`
+      `Scheduled recurring feed check for feed ${data.feedId} every ${intervalMinutes} minutes (with ±1 min jitter)`
     );
   }
 

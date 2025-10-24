@@ -10,6 +10,7 @@ import { circuitBreakerService } from '../utils/circuit-breaker.service.js';
 import { parseDate } from '../utils/date-parser.js';
 import { FeedTypeDetector, FeedType } from '../utils/feed-type-detector.js';
 import { JsonFeedParser } from '../utils/json-feed-parser.js';
+import { redditService } from './reddit.service.js';
 
 export interface RSSItem {
   id: string;
@@ -50,6 +51,19 @@ export class RSSService {
    * Fetch and parse an RSS feed with retry logic, rate limiting, and caching
    */
   async fetchFeed(url: string): Promise<ParseResult> {
+    // Check if this is a Reddit URL and use JSON API for better latency
+    if (redditService.isRedditUrl(url)) {
+      logger.info(`🔄 Using Reddit JSON API for ${url}`);
+      const redditResult = await redditService.fetchFeed(url);
+      
+      if (redditResult.success && redditResult.feed) {
+        return redditResult;
+      }
+      
+      // Fallback to RSS if JSON fails
+      logger.warn(`Reddit JSON API failed for ${url}, falling back to RSS`);
+    }
+    
     // Try alternative URLs first if the original might have issues
     const alternativeUrls = this.getAlternativeUrls(url);
     const urlsToTry = [url, ...alternativeUrls];
