@@ -40,7 +40,7 @@ export class AddFeedCommand extends BaseCommandHandler {
     try {
       normalizedUrl = UrlNormalizer.normalizeUrl(url);
     } catch (error) {
-      await ctx.reply('❌ **Invalid URL:** Please provide a valid URL.\n\n**Examples:**\n• `pablo.space`\n• `www.pablo.space`\n• `https://pablo.space`\n\n💡 **Tip:** Use `/discover <site>` to automatically find feeds!', { parse_mode: 'Markdown' });
+      await ctx.reply('❌ **Invalid URL:** Please provide a valid URL.\n\n**Examples:**\n• `pablo.space`\n• `www.pablo.space`\n• `https://pablo.space`\n\n💡 **Tip:** Use `/discover <site>` to automatically find feeds!', { parse_mode: 'Markdown', link_preview_options: { is_disabled: false } });
       return;
     }
 
@@ -74,11 +74,11 @@ export class AddFeedCommand extends BaseCommandHandler {
       
       message += `\n\n🎯 The feed will be checked automatically every 10 minutes.`;
       
-      await ctx.reply(message, { parse_mode: 'Markdown' });
+      await ctx.reply(message, { parse_mode: 'Markdown', link_preview_options: { is_disabled: false } });
     } else {
       if (result.errors) {
         const errorMessages = result.errors.map(error => `• ${error.message}`).join('\n');
-        await ctx.reply(`❌ **Failed to add feed:**\n${errorMessages}`, { parse_mode: 'Markdown' });
+        await ctx.reply(`❌ **Failed to add feed:**\n${errorMessages}`, { parse_mode: 'Markdown', link_preview_options: { is_disabled: false } });
       } else {
         await ctx.reply(ctx.t('error.internal'));
       }
@@ -322,7 +322,7 @@ export class DiscoverFeedsCommand extends BaseCommandHandler {
     try {
       normalizedUrl = UrlNormalizer.normalizeUrl(websiteUrl);
     } catch (error) {
-      await ctx.reply('❌ **Invalid URL:** Please provide a valid URL.\n\n**Examples:**\n• `pablo.space`\n• `www.pablo.space`\n• `https://pablo.space`', { parse_mode: 'Markdown' });
+      await ctx.reply('❌ **Invalid URL:** Please provide a valid URL.\n\n**Examples:**\n• `pablo.space`\n• `www.pablo.space`\n• `https://pablo.space`', { parse_mode: 'Markdown', link_preview_options: { is_disabled: false } });
       return;
     }
 
@@ -352,7 +352,7 @@ export class DiscoverFeedsCommand extends BaseCommandHandler {
 
       const message = `🎉 **Found ${result.feeds.length} feeds on ${normalizedUrl}:**\n\n${feedList}\n\n💡 **To add a feed, use:**\n\`/add feedname ${result.feeds[0]?.url || ''}\``;
 
-      await ctx.reply(message, { parse_mode: 'Markdown' });
+      await ctx.reply(message, { parse_mode: 'Markdown', link_preview_options: { is_disabled: false } });
 
     } catch (error) {
       await ctx.reply('❌ An error occurred while discovering feeds. Please try again.');
@@ -466,7 +466,7 @@ export class FeedStatusCommand extends BaseCommandHandler {
         message += `💡 Use /reload to force scheduling.`;
       }
 
-      await ctx.reply(message, { parse_mode: 'Markdown' });
+      await ctx.reply(message, { parse_mode: 'Markdown', link_preview_options: { is_disabled: false } });
 
       logger.info(`Feed status checked for chat ${ctx.chatIdString}: ${feeds.length} feeds, ${jobsForThisChat.length} jobs scheduled`);
     } catch (error) {

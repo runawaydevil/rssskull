@@ -121,7 +121,7 @@ ${ctx.t('help.reddit_cache')}
 
 ${ctx.t('help.developer')}`;
 
-    await ctx.reply(helpMessage, { parse_mode: 'Markdown' });
+    await ctx.reply(helpMessage, { parse_mode: 'Markdown', link_preview_options: { is_disabled: false } });
   }
 }
 
@@ -467,7 +467,7 @@ export class LogCommand extends BaseCommandHandler {
       const logs = await dockerLogsService.getRecentLogs(50);
       const formattedLogs = dockerLogsService.formatLogsForTelegram(logs, 'Recent Logs (Last 50 lines)');
 
-      await ctx.reply(formattedLogs, { parse_mode: 'Markdown' });
+      await ctx.reply(formattedLogs, { parse_mode: 'Markdown', link_preview_options: { is_disabled: false } });
 
       logger.info('Log command executed', {
         chatId: ctx.chatIdString,
@@ -506,7 +506,7 @@ export class LogErrorCommand extends BaseCommandHandler {
       const errorLogs = await dockerLogsService.getErrorLogs(50);
       const formattedLogs = dockerLogsService.formatLogsForTelegram(errorLogs, 'Error Logs (Last 50 lines)');
 
-      await ctx.reply(formattedLogs, { parse_mode: 'Markdown' });
+      await ctx.reply(formattedLogs, { parse_mode: 'Markdown', link_preview_options: { is_disabled: false } });
 
       logger.info('Log error command executed', {
         chatId: ctx.chatIdString,
