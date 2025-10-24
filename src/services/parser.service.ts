@@ -21,19 +21,19 @@ export class ParserService {
   async checkFeed(
     feedUrl: string,
     lastItemId?: string,
-    failureCount = 0,
-    forceProcessAll = false
+    failureCount = 0
   ): Promise<FeedCheckResult> {
     try {
       logger.debug(`Checking feed for new items: ${feedUrl}`);
 
       // Get new items from the RSS feed (this now returns total count too)
-      const result = await rssService.getNewItems(feedUrl, lastItemId, forceProcessAll);
+      const result = await rssService.getNewItems(feedUrl, lastItemId);
       const newItems = result.items;
       const totalItemsCount = result.totalItemsCount;
 
       // Determine the new last item ID
-      const newLastItemId = newItems.length > 0 ? newItems[0]?.id : lastItemId;
+      // Use lastItemIdToSave if provided (first time processing), otherwise use first new item or keep existing
+      const newLastItemId = result.lastItemIdToSave || (newItems.length > 0 ? newItems[0]?.id : lastItemId);
 
       // Calculate next check delay (reset to default on success)
       const nextCheckDelay = this.defaultCheckInterval;

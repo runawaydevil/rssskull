@@ -221,7 +221,7 @@ describe('RSSService', () => {
       mockParseString.mockResolvedValue(mockFeedData);
     });
 
-    it('should return only items from the last 2 hours when no lastItemId is provided', async () => {
+    it('should return empty items but set lastItemIdToSave when no lastItemId is provided', async () => {
       // Create items with dates: one within last 2 hours, one older than 2 hours
       const now = new Date();
       const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
@@ -249,12 +249,13 @@ describe('RSSService', () => {
       
       const result = await rssService.getNewItems('https://example.com/feed.xml');
 
-      // Should only return items from the last 2 hours
-      expect(result.items).toHaveLength(1);
-      expect(result.items[0].id).toBe('recent-item');
+      // Should return empty items array (don't process old items)
+      expect(result.items).toHaveLength(0);
+      // But should set the first item as reference for future checks
+      expect(result.lastItemIdToSave).toBe('recent-item');
     });
 
-    it('should return empty array when all items are older than 2 hours', async () => {
+    it('should return empty array and set lastItemIdToSave even with old items when no lastItemId', async () => {
       // Create items with dates older than 2 hours
       const now = new Date();
       const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000);
@@ -282,8 +283,10 @@ describe('RSSService', () => {
       
       const result = await rssService.getNewItems('https://example.com/feed.xml');
 
-      // Should return empty array when all items are older than 2 hours
+      // Should return empty array (don't process old items even if older than 2 hours)
       expect(result.items).toHaveLength(0);
+      // But should still set first item as reference
+      expect(result.lastItemIdToSave).toBe('old-item-1');
     });
 
     it('should return only new items when lastItemId is provided', async () => {

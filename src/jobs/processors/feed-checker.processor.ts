@@ -12,7 +12,6 @@ export interface FeedCheckJobData extends JobData {
   feedUrl: string;
   lastItemId?: string;
   failureCount?: number;
-  forceProcessAll?: boolean;
 }
 
 export interface FeedCheckJobResult extends JobResult {
@@ -45,7 +44,7 @@ export interface MessageJobData extends JobData {
  * 3. Queuing notification jobs for new items
  */
 export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<FeedCheckJobResult> {
-  const { feedId, chatId, feedUrl, lastItemId, failureCount = 0, forceProcessAll = false } = job.data;
+  const { feedId, chatId, feedUrl, lastItemId, failureCount = 0 } = job.data;
 
   // Add lock to prevent duplicate processing
   const lockKey = `feed-check-lock:${feedId}`;
@@ -104,7 +103,7 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
     logger.info(`Feed ${feedId} lastItemId - Database: ${feed.lastItemId || 'none'}, Job: ${lastItemId || 'none'}, Using: ${currentLastItemId || 'none'}`);
 
     // Check the feed for new items
-    const checkResult = await parserService.checkFeed(feedUrl, currentLastItemId, failureCount, forceProcessAll);
+    const checkResult = await parserService.checkFeed(feedUrl, currentLastItemId, failureCount);
     
     // Log total items found before filtering (for visibility)
     if (checkResult.success && checkResult.totalItemsCount !== undefined) {

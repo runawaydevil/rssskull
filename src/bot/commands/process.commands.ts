@@ -177,7 +177,6 @@ export class ProcessFeedsCommand extends BaseCommandHandler {
             feedUrl: feed.rssUrl,
             lastItemId: feed.lastItemId ?? undefined,
             failureCount: 0,
-            forceProcessAll: true, // Always force process to catch missed items
           }, 0); // 0 delay = immediate processing
 
           // Wait a bit for processing to complete
@@ -384,7 +383,6 @@ export class ProcessFeedCommand extends BaseCommandHandler {
         feedUrl: feed.rssUrl,
         lastItemId: feed.lastItemId ?? undefined,
         failureCount: 0,
-        forceProcessAll: !feed.lastItemId, // Force process all items if no lastItemId
       }, 0); // 0 delay = immediate processing
 
       // Wait for processing to complete

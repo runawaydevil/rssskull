@@ -284,7 +284,7 @@ export class RSSService {
   /**
    * Get new items from a feed based on the last known item ID
    */
-  async getNewItems(url: string, lastItemId?: string, forceProcessAll = false): Promise<{items: RSSItem[], totalItemsCount: number}> {
+  async getNewItems(url: string, lastItemId?: string): Promise<{items: RSSItem[], totalItemsCount: number, lastItemIdToSave?: string}> {
     const result = await this.fetchFeed(url);
 
     if (!result.success || !result.feed) {
@@ -295,49 +295,16 @@ export class RSSService {
     const totalItemsCount = items.length;
 
     // If no last item ID, this is the first time processing this feed
-    // Return only items from bot startup time onwards to avoid processing old posts
+    // DON'T process anything - just return empty to mark that we've started monitoring
     if (!lastItemId) {
-      logger.info(`No lastItemId for ${url}, forceProcessAll: ${forceProcessAll}, BOT_STARTUP_TIME: ${process.env.BOT_STARTUP_TIME}`);
+      logger.info(`No lastItemId for ${url} - First time processing, returning empty (will not process old items)`);
       
-      if (forceProcessAll) {
-        // When force processing, only process items from the last 2 hours
-        // This ensures we only catch recent items that the bot missed
-        const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
-        const now = new Date();
-        
-        const missedItems = items.filter(item => {
-          if (!item.pubDate) return false;
-          // Only items published in the last 2 hours
-          return item.pubDate >= twoHoursAgo && item.pubDate <= now;
-        });
-        
-        logger.info(`Force processing missed items for ${url}, returning ${missedItems.length} items from ${twoHoursAgo.toISOString()} to ${now.toISOString()} out of ${items.length} total`);
-        return { items: missedItems, totalItemsCount };
-      }
+      // Return empty array - don't process any old items
+      // But save the first item as lastItemId reference for future checks
+      const firstItemId = items.length > 0 ? items[0]?.id : undefined;
+      logger.info(`Setting first item as reference: ${firstItemId}`);
       
-      // First time processing this feed - return only items from the last 2 hours
-      // This prevents processing old posts when adding a new feed
-      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
-      
-      logger.info(`First time processing ${url}, filtering items from last 2 hours (${twoHoursAgo.toISOString()})`);
-      
-      const newItems = items.filter(item => {
-        if (!item.pubDate) return false;
-        // Only return items from the last 2 hours
-        return item.pubDate >= twoHoursAgo;
-      });
-      
-      logger.info(`First time processing ${url}, returning ${newItems.length} items from last 2 hours out of ${items.length} total`);
-      
-      // Log first few items for debugging
-      if (newItems.length > 0) {
-        logger.info(`🔍 DEBUG: First 3 new items: ${newItems.slice(0, 3).map(item => item.id).join(', ')}`);
-        logger.info(`🔍 DEBUG: Latest new item: ${newItems[0]?.id} - ${newItems[0]?.title}`);
-      } else {
-        logger.info(`🔍 DEBUG: No new items found in last 2 hours`);
-      }
-      
-      return { items: newItems, totalItemsCount };
+      return { items: [], totalItemsCount, lastItemIdToSave: firstItemId };
     }
 
     // Find the index of the last known item
