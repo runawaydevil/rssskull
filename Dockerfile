@@ -90,4 +90,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8916/health || exit 1
 
 # Start the application
-CMD ["sh", "-c", "mkdir -p /app/data && cd /app && DATABASE_URL=file:/app/data/production.db npx prisma migrate deploy --schema=./prisma/schema.prisma && DATABASE_URL=file:/app/data/production.db npx prisma generate --schema=./prisma/schema.prisma && node dist/main.js"]
+CMD ["/app/scripts/docker-entrypoint.sh"]
