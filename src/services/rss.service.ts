@@ -284,17 +284,18 @@ export class RSSService {
   /**
    * Get new items from a feed based on the last known item ID
    */
-  async getNewItems(url: string, lastItemId?: string): Promise<{items: RSSItem[], totalItemsCount: number, lastItemIdToSave?: string}> {
+  async getNewItems(url: string, lastItemId?: string): Promise<{items: RSSItem[], totalItemsCount: number, lastItemIdToSave?: string, firstItemId?: string}> {
     const result = await this.fetchFeed(url);
 
     if (!result.success || !result.feed) {
       return { items: [], totalItemsCount: 0 };
     }
 
-    // Sort items by publication date (newest first) to ensure correct order
-    // This is critical for detecting new items correctly
-    const items = this.sortItemsByDate(result.feed.items);
+    // Use items in their natural order from the feed (not forced date sorting)
+    // Feeds already come ordered from the server (most recent first)
+    const items = result.feed.items;
     const totalItemsCount = items.length;
+    const firstItemId = items.length > 0 ? items[0]?.id : undefined;
 
     // If no last item ID, this is the first time processing this feed
     // DON'T process anything - just return empty to mark that we've started monitoring
@@ -303,10 +304,9 @@ export class RSSService {
       
       // Return empty array - don't process any old items
       // But save the first item as lastItemId reference for future checks
-      const firstItemId = items.length > 0 ? items[0]?.id : undefined;
       logger.info(`Setting first item as reference: ${firstItemId}`);
       
-      return { items: [], totalItemsCount, lastItemIdToSave: firstItemId };
+      return { items: [], totalItemsCount, lastItemIdToSave: firstItemId, firstItemId };
     }
 
     // Find the index of the last known item
@@ -336,13 +336,13 @@ export class RSSService {
         
         if (recentItems.length > 0) {
           logger.info(`🔍 REDDIT DEBUG: Found ${recentItems.length} items from last hour, returning those`);
-          return { items: recentItems, totalItemsCount };
+          return { items: recentItems, totalItemsCount, firstItemId };
         }
         
         // If no recent items, return only the 3 most recent to avoid spam
         const safeItems = items.slice(0, Math.min(3, items.length));
         logger.info(`🔍 REDDIT DEBUG: No recent items, returning ${safeItems.length} most recent items`);
-        return { items: safeItems, totalItemsCount };
+        return { items: safeItems, totalItemsCount, firstItemId };
       }
       
       // For non-Reddit feeds, use original logic
@@ -358,7 +358,7 @@ export class RSSService {
       logger.info(`🔍 DEBUG: Feed ${url} - lastItemId not found, returning ${safeItems.length} most recent items`);
       logger.info(`🔍 DEBUG: Returning items: ${safeItems.map(item => item.id).join(', ')}`);
       
-      return { items: safeItems, totalItemsCount };
+      return { items: safeItems, totalItemsCount, firstItemId };
     }
 
     // Return only new items (items before the last known item in the array)
@@ -366,34 +366,14 @@ export class RSSService {
     logger.info(`🔍 DEBUG: Found ${newItems.length} new items in feed ${url} (lastItemIndex: ${lastItemIndex})`);
     logger.info(`🔍 DEBUG: New items IDs: ${newItems.map(item => item.id).join(', ')}`);
 
-    // If lastItemIndex is 0, it means the lastItemId is the most recent item
-    // Still check timestamps to detect updated items or new posts that might not be at the top
-    if (lastItemIndex === 0 && items.length > 0) {
-      const lastKnownItem = items[0];
-      if (!lastKnownItem) return { items: newItems, totalItemsCount };
-      
-      const lastKnownTime = lastKnownItem.pubDate;
-      
-      // Check if there are items with more recent timestamps
-      // This helps catch updated posts or edge cases where order changes
-      const potentiallyNewItems = items.filter(item => {
-        if (!item.pubDate || !lastKnownTime) return false;
-        return item.pubDate > lastKnownTime;
-      });
-      
-      if (potentiallyNewItems.length > 0) {
-        logger.info(`🔍 DEBUG: Found ${potentiallyNewItems.length} items with newer timestamps`);
-        return { items: potentiallyNewItems, totalItemsCount };
-      } else {
-        logger.info(`🔍 DEBUG: No items with newer timestamps found`);
-        // For Reddit feeds, if first item hasn't changed, safely return empty
-        if (url.includes('reddit.com')) {
-          logger.info(`🔍 DEBUG: Reddit feed unchanged, no new items`);
-        }
-      }
+    // If lastItemIndex is 0, it means the lastItemId is still the most recent item
+    // No new items to return, but always update to current first item
+    if (lastItemIndex === 0) {
+      logger.info(`🔍 DEBUG: Feed ${url} - No new items, lastItemId still at top`);
+      return { items: [], totalItemsCount, firstItemId };
     }
 
-    return { items: newItems, totalItemsCount };
+    return { items: newItems, totalItemsCount, firstItemId };
   }
 
   /**
@@ -874,21 +854,6 @@ export class RSSService {
     }
     
     return alternatives;
-  }
-
-  /**
-   * Sort items by publication date (newest first)
-   */
-  private sortItemsByDate(items: RSSItem[]): RSSItem[] {
-    return [...items].sort((a, b) => {
-      // Items without dates go to the end
-      if (!a.pubDate && !b.pubDate) return 0;
-      if (!a.pubDate) return 1;
-      if (!b.pubDate) return -1;
-
-      // Newest first
-      return b.pubDate.getTime() - a.pubDate.getTime();
-    });
   }
 
   /**

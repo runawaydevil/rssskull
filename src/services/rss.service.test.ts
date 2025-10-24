@@ -253,6 +253,7 @@ describe('RSSService', () => {
       expect(result.items).toHaveLength(0);
       // But should set the first item as reference for future checks
       expect(result.lastItemIdToSave).toBe('recent-item');
+      expect(result.firstItemId).toBe('recent-item');
     });
 
     it('should return empty array and set lastItemIdToSave even with old items when no lastItemId', async () => {
@@ -287,6 +288,7 @@ describe('RSSService', () => {
       expect(result.items).toHaveLength(0);
       // But should still set first item as reference
       expect(result.lastItemIdToSave).toBe('old-item-1');
+      expect(result.firstItemId).toBe('old-item-1');
     });
 
     it('should return only new items when lastItemId is provided', async () => {
@@ -294,6 +296,7 @@ describe('RSSService', () => {
 
       expect(result.items).toHaveLength(1);
       expect(result.items[0].id).toBe('new-item');
+      expect(result.firstItemId).toBe('new-item');
     });
 
     it('should return up to 5 most recent items when lastItemId is not found', async () => {
@@ -303,6 +306,7 @@ describe('RSSService', () => {
       expect(result.items).toHaveLength(2); // Only 2 items available in mock data
       expect(result.items[0].id).toBe('new-item');
       expect(result.items[1].id).toBe('old-item');
+      expect(result.firstItemId).toBe('new-item');
     });
 
     it('should return empty array when feed fetch fails', async () => {

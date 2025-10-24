@@ -32,8 +32,12 @@ export class ParserService {
       const totalItemsCount = result.totalItemsCount;
 
       // Determine the new last item ID
-      // Use lastItemIdToSave if provided (first time processing), otherwise use first new item or keep existing
-      const newLastItemId = result.lastItemIdToSave || (newItems.length > 0 ? newItems[0]?.id : lastItemId);
+      // Always update to the first item of the current feed to track feed state correctly
+      // Priority: lastItemIdToSave (first time) > first new item > firstItemId (current top item) > existing lastItemId
+      const newLastItemId = result.lastItemIdToSave || 
+                           (newItems.length > 0 ? newItems[0]?.id : undefined) ||
+                           result.firstItemId ||
+                           lastItemId;
 
       // Calculate next check delay (reset to default on success)
       const nextCheckDelay = this.defaultCheckInterval;
