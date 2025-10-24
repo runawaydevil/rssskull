@@ -38,10 +38,29 @@ export async function processMessageSend(
   const { chatId, feedId, feedName, items, template } = job.data;
 
   // 🔥 LOG ESPECÍFICO PARA RASTREAR DUPLICAÇÃO
-  logger.info(`🔥 PROCESSING MESSAGE JOB - Job ID: ${job.id} | Feed: ${feedId} | Chat: ${chatId} | Items: ${items.length}`);
+  logger.info(`🔥 PROCESSING MESSAGE JOB - Job ID: ${job.id} | Feed: ${feedName} (${feedId}) | Chat: ${chatId} | Items: ${items.length}`);
+  
+  // Log item dates for debugging
+  const firstItem = items[0];
+  if (firstItem?.pubDate) {
+    const firstItemDate = new Date(firstItem.pubDate);
+    const hoursAgo = Math.round((Date.now() - firstItemDate.getTime()) / (1000 * 60 * 60));
+    logger.info(`📅 First item date: ${firstItemDate.toISOString()} (${hoursAgo} hours ago)`);
+    
+    // Safety check: Don't send items older than 24 hours
+    if (hoursAgo > 24) {
+      logger.warn(`⚠️ Refusing to send items older than 24 hours (${hoursAgo}h old) for feed ${feedName} (${feedId})`);
+      return {
+        success: false,
+        message: `Items too old (${hoursAgo} hours)`,
+        messagesSent: 0,
+        messagesTotal: items.length,
+      };
+    }
+  }
   
   logger.info(
-    `Processing message send for feed ${feedId} to chat ${chatId} (${items.length} items)`
+    `Processing message send for feed ${feedName} (${feedId}) to chat ${chatId} (${items.length} items)`
   );
 
   try {
