@@ -219,8 +219,6 @@ export class FeedQueueService {
    */
   private async autoResetProblematicFeeds(): Promise<void> {
     try {
-      logger.info('🔄 Starting auto-reset of problematic feeds...');
-      
       const { database } = await import('../database/database.service.js');
       
       // Find feeds that haven't been updated in the last 6 hours (more aggressive)
@@ -245,10 +243,7 @@ export class FeedQueueService {
         },
       });
 
-      logger.info(`Found ${problematicFeeds.length} potentially problematic feeds`);
-
       if (problematicFeeds.length === 0) {
-        logger.info('✅ No problematic feeds to reset');
         return;
       }
 
@@ -262,8 +257,6 @@ export class FeedQueueService {
             where: { id: feed.id },
             data: { lastItemId: null },
           });
-
-          logger.info(`🔄 Reset lastItemId for feed: ${feed.name} (${feed.id}) - Last check: ${feed.lastCheck?.toISOString()}`);
           resetCount++;
         } catch (error) {
           errorCount++;
@@ -271,10 +264,8 @@ export class FeedQueueService {
         }
       }
 
-      logger.info(`🔄 Auto-reset completed: ${resetCount} feeds reset, ${errorCount} errors`);
-      
       if (resetCount > 0) {
-        logger.info('✅ Problematic feeds reset - they will process all items on next check');
+        logger.info(`🔄 Reset ${resetCount} problematic feeds${errorCount > 0 ? ` (${errorCount} errors)` : ''}`);
       }
     } catch (error) {
       logger.error('❌ Failed to auto-reset problematic feeds:', error);
@@ -285,26 +276,44 @@ export class FeedQueueService {
    * Schedule automatic cleanup and maintenance tasks
    */
   private scheduleMaintenanceTasks(): void {
+    let isMaintenanceRunning = false;
+    
     // Run cleanup every 30 minutes
     setInterval(async () => {
+      if (isMaintenanceRunning) {
+        logger.debug('⏭️ Maintenance already running, skipping...');
+        return;
+      }
+      
       try {
+        isMaintenanceRunning = true;
         logger.info('🧹 Running scheduled maintenance tasks...');
         await this.cleanupOrphanedJobs();
         await this.autoResetProblematicFeeds();
         logger.info('✅ Scheduled maintenance completed');
       } catch (error) {
         logger.error('❌ Scheduled maintenance failed:', error);
+      } finally {
+        isMaintenanceRunning = false;
       }
     }, 30 * 60 * 1000); // 30 minutes
 
     // Run cleanup every 2 hours for more thorough cleanup
     setInterval(async () => {
+      if (isMaintenanceRunning) {
+        logger.debug('⏭️ Maintenance already running, skipping thorough cleanup...');
+        return;
+      }
+      
       try {
+        isMaintenanceRunning = true;
         logger.info('🧹 Running thorough maintenance tasks...');
         await this.thoroughCleanup();
         logger.info('✅ Thorough maintenance completed');
       } catch (error) {
         logger.error('❌ Thorough maintenance failed:', error);
+      } finally {
+        isMaintenanceRunning = false;
       }
     }, 2 * 60 * 60 * 1000); // 2 hours
   }
@@ -314,16 +323,13 @@ export class FeedQueueService {
    */
   private async thoroughCleanup(): Promise<void> {
     try {
-      logger.info('🧹 Starting thorough cleanup...');
-      
       const { database } = await import('../database/database.service.js');
       
       // Get ALL recurring jobs from Redis
       const recurringJobs = await this.feedCheckQueue.getRepeatableJobs();
-      logger.info(`Found ${recurringJobs.length} recurring jobs in Redis`);
 
       if (recurringJobs.length === 0) {
-        logger.info('✅ No recurring jobs to clean up');
+        logger.debug('No recurring jobs found for thorough cleanup');
         return;
       }
 
@@ -343,7 +349,6 @@ export class FeedQueueService {
           if (!jobId) {
             // Remove jobs with null/undefined IDs
             await this.feedCheckQueue.removeRepeatableByKey(job.key);
-            logger.info(`🗑️ Removed job with null/undefined ID (key: ${job.key})`);
             cleanedCount++;
             continue;
           }
@@ -352,7 +357,6 @@ export class FeedQueueService {
           if (!feedIdMatch) {
             // Remove jobs with unexpected ID format
             await this.feedCheckQueue.removeRepeatableByKey(job.key);
-            logger.info(`🗑️ Removed job with unexpected ID format: ${jobId}`);
             cleanedCount++;
             continue;
           }
@@ -361,7 +365,6 @@ export class FeedQueueService {
           
           if (feedId && !existingFeedIds.has(feedId)) {
             await this.feedCheckQueue.removeRepeatableByKey(job.key);
-            logger.info(`🗑️ Removed orphaned job for non-existent feed: ${feedId} (${jobId})`);
             cleanedCount++;
           }
         } catch (error) {
@@ -397,17 +400,14 @@ export class FeedQueueService {
             where: { id: feed.id },
             data: { lastItemId: null },
           });
-          logger.info(`🔄 Reset stale feed: ${feed.name} (${feed.id}) - Last check: ${feed.lastCheck?.toISOString()}`);
           resetCount++;
         } catch (error) {
           logger.error(`❌ Failed to reset stale feed ${feed.name} (${feed.id}):`, error);
         }
       }
 
-      logger.info(`🧹 Thorough cleanup completed: ${cleanedCount} orphaned jobs removed, ${resetCount} stale feeds reset, ${errorCount} errors`);
-      
       if (cleanedCount > 0 || resetCount > 0) {
-        logger.info('✅ Thorough cleanup successful - system is now clean');
+        logger.info(`🧹 Thorough cleanup: ${cleanedCount} orphaned jobs removed, ${resetCount} stale feeds reset`);
       }
     } catch (error) {
       logger.error('❌ Failed to perform thorough cleanup:', error);
@@ -419,14 +419,11 @@ export class FeedQueueService {
    */
   private async cleanupOrphanedJobs(): Promise<void> {
     try {
-      logger.info('🧹 Starting cleanup of orphaned recurring jobs...');
-
       // Get all recurring jobs from Redis
       const recurringJobs = await this.feedCheckQueue.getRepeatableJobs();
-      logger.info(`Found ${recurringJobs.length} recurring jobs in Redis`);
 
       if (recurringJobs.length === 0) {
-        logger.info('✅ No recurring jobs to clean up');
+        logger.debug('No recurring jobs to clean up');
         return;
       }
 
@@ -444,7 +441,6 @@ export class FeedQueueService {
           if (!jobId) {
             // Remove jobs with null/undefined IDs
             await this.feedCheckQueue.removeRepeatableByKey(job.key);
-            logger.info(`🗑️ Removed job with null/undefined ID (key: ${job.key})`);
             cleanedCount++;
             continue;
           }
@@ -454,7 +450,6 @@ export class FeedQueueService {
           if (!feedIdMatch) {
             // Remove jobs with unexpected ID format
             await this.feedCheckQueue.removeRepeatableByKey(job.key);
-            logger.info(`🗑️ Removed job with unexpected ID format: ${jobId}`);
             cleanedCount++;
             continue;
           }
