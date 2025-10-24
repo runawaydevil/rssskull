@@ -150,7 +150,7 @@ export class PingCommand extends BaseCommandHandler {
       });
     } catch (error) {
       logger.error('Error in ping command:', error);
-      await ctx.reply('❌ Erro interno ao executar comando.');
+      await ctx.reply('❌ Internal error while executing command.');
     }
   }
 }
@@ -173,7 +173,7 @@ export class ResetCommand extends BaseCommandHandler {
 
   protected async execute(ctx: CommandContext): Promise<void> {
     try {
-      await ctx.reply('⚠️ ATENÇÃO: Resetando TODOS os dados do banco de dados...\n\n🔄 Isso inclui:\n• Todos os feeds de todos os chats\n• Todos os filtros\n• Todas as configurações\n• Todas as estatísticas\n\n⏳ Processando...');
+      await ctx.reply('⚠️ **WARNING: Resetting ALL database data...**\n\n🔄 This includes:\n• All feeds from all chats\n• All filters\n• All settings\n• All statistics\n\n⏳ Processing...');
 
       // Import database service
       const { DatabaseService } = await import('../../database/database.service.js');
@@ -232,10 +232,10 @@ export class ResetCommand extends BaseCommandHandler {
         deletedStats: deletedStats.count,
       });
 
-      await ctx.reply(`✅ FULL RESET COMPLETED!\n\n📊 Data removed from ENTIRE database:\n• ${deletedFeeds.count} feeds\n• ${deletedFilters.count} filters\n• ${deletedSettings.count} settings\n• ${deletedStats.count} statistics\n\n🗑️ Database completely cleaned!\n🔄 Job queues cleared to prevent orphaned jobs`);
+      await ctx.reply(`✅ **Full Reset Completed!**\n\n📊 **Data removed from entire database:**\n• ${deletedFeeds.count} feeds\n• ${deletedFilters.count} filters\n• ${deletedSettings.count} settings\n• ${deletedStats.count} statistics\n\n🗑️ Database completely cleaned!\n🔄 Job queues cleared to prevent orphaned jobs`);
     } catch (error) {
       logger.error('Error in FULL DATABASE RESET command:', error);
-      await ctx.reply('❌ Internal error executing full reset.');
+      await ctx.reply('❌ Internal error while executing full reset.');
     }
   }
 }
@@ -321,7 +321,7 @@ export class FixFeedsCommand extends BaseCommandHandler {
       await ctx.reply(`✅ Problematic feeds removed!\n\n📊 Data removed:\n• ${deletedFeeds.count} feeds\n• ${deletedFilters.count} filters\n\n🔗 Removed feeds:\n${problematicFeeds.map(f => `• ${f.name} (${f.rssUrl})`).join('\n')}`);
     } catch (error) {
       logger.error('Error in fixfeeds command:', error);
-      await ctx.reply('❌ Internal error executing command.');
+      await ctx.reply('❌ Internal error while executing command.');
     }
   }
 }
@@ -375,11 +375,11 @@ export class ResetCircuitBreakerCommand extends BaseCommandHandler {
         previousState: currentState.state,
       });
 
-      await ctx.reply(`✅ **Circuit Breaker Resetado!**\n\n🌐 **Domínio:** ${domain}\n🔄 **Estado anterior:** ${currentState.state}\n🔓 **Novo estado:** CLOSED\n\n⚡ O sistema agora tentará acessar o site novamente.\n\n⚠️ **Atenção:** Se o site ainda estiver com problemas, o circuit breaker será ativado novamente automaticamente.`);
+      await ctx.reply(`✅ **Circuit Breaker Reset!**\n\n🌐 **Domain:** ${domain}\n🔄 **Previous state:** ${currentState.state}\n🔓 **New state:** CLOSED\n\n⚡ The system will now attempt to access the site again.\n\n⚠️ **Note:** If the site still has issues, the circuit breaker will be activated again automatically.`);
       
     } catch (error) {
       logger.error('Error in reset circuit breaker command:', error);
-      await ctx.reply('❌ Erro interno ao resetar circuit breaker.');
+      await ctx.reply('❌ Internal error while resetting circuit breaker.');
     }
   }
 }
@@ -438,7 +438,7 @@ export class CircuitBreakerStatsCommand extends BaseCommandHandler {
       
     } catch (error) {
       logger.error('Error in circuit breaker stats command:', error);
-      await ctx.reply('❌ Erro interno ao obter estatísticas.');
+      await ctx.reply('❌ Internal error while retrieving statistics.');
     }
   }
 }
@@ -461,11 +461,11 @@ export class LogCommand extends BaseCommandHandler {
   protected async execute(ctx: CommandContext): Promise<void> {
     try {
       // Show typing indicator
-      await ctx.reply('📋 Buscando logs recentes...');
+      await ctx.reply('📋 Retrieving recent logs...');
 
       // Get recent logs
       const logs = await dockerLogsService.getRecentLogs(50);
-      const formattedLogs = dockerLogsService.formatLogsForTelegram(logs, 'Logs Recentes (Últimas 50 linhas)');
+      const formattedLogs = dockerLogsService.formatLogsForTelegram(logs, 'Recent Logs (Last 50 lines)');
 
       await ctx.reply(formattedLogs, { parse_mode: 'Markdown' });
 
@@ -477,7 +477,7 @@ export class LogCommand extends BaseCommandHandler {
 
     } catch (error) {
       logger.error('Error in log command:', error);
-      await ctx.reply('❌ **Erro ao buscar logs**\n\nNão foi possível acessar os logs do container Docker.');
+      await ctx.reply('❌ **Error retrieving logs**\n\nUnable to access Docker container logs.');
     }
   }
 }
@@ -500,11 +500,11 @@ export class LogErrorCommand extends BaseCommandHandler {
   protected async execute(ctx: CommandContext): Promise<void> {
     try {
       // Show typing indicator
-      await ctx.reply('🔍 Buscando logs de erro...');
+      await ctx.reply('🔍 Retrieving error logs...');
 
       // Get recent error logs
       const errorLogs = await dockerLogsService.getErrorLogs(50);
-      const formattedLogs = dockerLogsService.formatLogsForTelegram(errorLogs, 'Logs de Erro (Últimas 50 linhas)');
+      const formattedLogs = dockerLogsService.formatLogsForTelegram(errorLogs, 'Error Logs (Last 50 lines)');
 
       await ctx.reply(formattedLogs, { parse_mode: 'Markdown' });
 
@@ -516,7 +516,7 @@ export class LogErrorCommand extends BaseCommandHandler {
 
     } catch (error) {
       logger.error('Error in log error command:', error);
-      await ctx.reply('❌ **Erro ao buscar logs de erro**\n\nNão foi possível acessar os logs do container Docker.');
+      await ctx.reply('❌ **Error retrieving error logs**\n\nUnable to access Docker container logs.');
     }
   }
 }
