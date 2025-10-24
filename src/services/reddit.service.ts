@@ -38,9 +38,10 @@ export class RedditService {
       const urlObj = new URL(url);
       const hostname = urlObj.hostname.toLowerCase();
       
+      // Detect Reddit URLs (with or without .rss/.json extension)
       return (
         (hostname === 'reddit.com' || hostname === 'www.reddit.com') &&
-        urlObj.pathname.startsWith('/r/')
+        (urlObj.pathname.startsWith('/r/') || urlObj.pathname.includes('/r/'))
       );
     } catch {
       return false;
@@ -53,7 +54,8 @@ export class RedditService {
   extractSubreddit(url: string): string | null {
     try {
       const urlObj = new URL(url);
-      const match = urlObj.pathname.match(/^\/r\/([a-zA-Z0-9_]+)/);
+      // Match /r/subreddit with optional /rss or /json
+      const match = urlObj.pathname.match(/\/r\/([a-zA-Z0-9_]+)/);
       return match ? match[1] ?? null : null;
     } catch {
       return null;
