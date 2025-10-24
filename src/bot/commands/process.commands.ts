@@ -30,23 +30,23 @@ export class ResetDatabaseCommand extends BaseCommandHandler {
       const isAdmin = ctx.from?.id === 123456789; // Replace with your Telegram user ID
       
       if (!isAdmin) {
-        await ctx.reply('❌ **Acesso Negado**\n\nApenas administradores podem usar este comando.');
+        await ctx.reply('❌ **Access Denied**\n\nOnly administrators can use this command.');
         return;
       }
 
-      await ctx.reply('⚠️ **ATENÇÃO: Reset do Banco de Dados**\n\n' +
-        'Esta ação irá:\n' +
-        '• Apagar TODOS os feeds\n' +
-        '• Apagar TODAS as configurações\n' +
-        '• Apagar TODAS as estatísticas\n\n' +
-        'Digite `/confirmreset` para confirmar ou `/cancelreset` para cancelar.');
+      await ctx.reply('⚠️ **WARNING: Database Reset**\n\n' +
+        'This action will:\n' +
+        '• Delete ALL feeds\n' +
+        '• Delete ALL settings\n' +
+        '• Delete ALL statistics\n\n' +
+        'Type `/confirmreset` to confirm or `/cancelreset` to cancel.');
 
       // Store confirmation state (you might want to use Redis for this)
       logger.warn(`Database reset requested by admin user ${ctx.from?.id} in chat ${ctx.chatIdString}`);
 
     } catch (error) {
       logger.error('Failed to initiate database reset', { error, chatId: ctx.chatIdString });
-      await ctx.reply('❌ Erro ao iniciar reset do banco de dados.');
+      await ctx.reply('❌ Error initiating database reset.');
     }
   }
 }
@@ -72,11 +72,11 @@ export class ConfirmResetCommand extends BaseCommandHandler {
       const isAdmin = ctx.from?.id === 123456789; // Replace with your Telegram user ID
       
       if (!isAdmin) {
-        await ctx.reply('❌ **Acesso Negado**\n\nApenas administradores podem usar este comando.');
+        await ctx.reply('❌ **Access Denied**\n\nOnly administrators can use this command.');
         return;
       }
 
-      await ctx.reply('🔄 **Resetando banco de dados...**\n\n⏳ Aguarde, isso pode levar alguns segundos...');
+      await ctx.reply('🔄 **Resetting database...**\n\n⏳ Please wait, this may take a few seconds...');
 
       // Reset database
       await database.client.feed.deleteMany({});
@@ -87,16 +87,16 @@ export class ConfirmResetCommand extends BaseCommandHandler {
 
       logger.info(`Database reset completed by admin user ${ctx.from?.id}`);
 
-      await ctx.reply('✅ **Banco de dados resetado com sucesso!**\n\n' +
-        'Todos os dados foram apagados:\n' +
-        '• Feeds removidos\n' +
-        '• Configurações resetadas\n' +
-        '• Estatísticas apagadas\n\n' +
-        'O bot está pronto para uso novamente.');
+      await ctx.reply('✅ **Database reset successfully!**\n\n' +
+        'All data has been deleted:\n' +
+        '• Feeds removed\n' +
+        '• Settings reset\n' +
+        '• Statistics cleared\n\n' +
+        'The bot is ready to use again.');
 
     } catch (error) {
       logger.error('Failed to reset database', { error, chatId: ctx.chatIdString });
-      await ctx.reply('❌ Erro ao resetar banco de dados.');
+      await ctx.reply('❌ Error resetting database.');
     }
   }
 }
@@ -117,7 +117,7 @@ export class CancelResetCommand extends BaseCommandHandler {
   }
 
   protected async execute(ctx: CommandContext): Promise<void> {
-    await ctx.reply('✅ **Reset cancelado**\n\nNenhuma alteração foi feita no banco de dados.');
+      await ctx.reply('✅ **Reset cancelled**\n\nNo changes were made to the database.');
   }
 }
 
@@ -211,49 +211,49 @@ export class ProcessFeedsCommand extends BaseCommandHandler {
       }
 
       // Update the processing message with results
-      let resultMessage = `✅ **Processamento Concluído!**\n\n`;
-      resultMessage += `📊 **Resumo:**\n`;
-      resultMessage += `• Feeds processados: ${processedCount}/${feeds.length}\n`;
-      resultMessage += `• Novos itens encontrados: ${totalNewItems}\n`;
-      resultMessage += `• Erros: ${errorCount}\n\n`;
+      let resultMessage = `✅ **Processing Complete!**\n\n`;
+      resultMessage += `📊 **Summary:**\n`;
+      resultMessage += `• Feeds processed: ${processedCount}/${feeds.length}\n`;
+      resultMessage += `• New items found: ${totalNewItems}\n`;
+      resultMessage += `• Errors: ${errorCount}\n\n`;
 
       if (totalNewItems > 0) {
-        resultMessage += `🎉 **${totalNewItems} novo(s) item(ns) encontrado(s)!**\n\n`;
-        resultMessage += `📋 **Detalhes por feed:**\n`;
+        resultMessage += `🎉 **${totalNewItems} new item(s) found!**\n\n`;
+        resultMessage += `📋 **Details by feed:**\n`;
         
         feedResults.forEach(result => {
           if (result.newItems > 0) {
-            resultMessage += `• ✅ **${result.name}**: ${result.newItems} novo(s)\n`;
+            resultMessage += `• ✅ **${result.name}**: ${result.newItems} new item(s)\n`;
           } else if (result.error) {
-            resultMessage += `• ❌ **${result.name}**: Erro\n`;
+            resultMessage += `• ❌ **${result.name}**: Error\n`;
           } else {
-            resultMessage += `• 📭 **${result.name}**: Nenhum novo\n`;
+            resultMessage += `• 📭 **${result.name}**: No new items\n`;
           }
         });
         
-        resultMessage += `\n💡 **Nota:** Apenas itens publicados desde que o bot ficou online foram processados.`;
+        resultMessage += `\n💡 **Note:** Only items published since the bot came online were processed.`;
       } else if (errorCount > 0) {
-        resultMessage += `⚠️ **Alguns feeds tiveram erros**\n\n`;
-        resultMessage += `📋 **Detalhes:**\n`;
+        resultMessage += `⚠️ **Some feeds had errors**\n\n`;
+        resultMessage += `📋 **Details:**\n`;
         
         feedResults.forEach(result => {
           if (result.error) {
             resultMessage += `• ❌ **${result.name}**: ${result.error}\n`;
           } else {
-            resultMessage += `• 📭 **${result.name}**: Nenhum novo\n`;
+            resultMessage += `• 📭 **${result.name}**: No new items\n`;
           }
         });
         
-        resultMessage += `\n💡 Verifique os logs para mais detalhes.`;
+        resultMessage += `\n💡 Check the logs for more details.`;
       } else {
-        resultMessage += `📭 **Nenhum novo item encontrado**\n\n`;
-        resultMessage += `📋 **Status dos feeds:**\n`;
+        resultMessage += `📭 **No new items found**\n\n`;
+        resultMessage += `📋 **Feed status:**\n`;
         
         feedResults.forEach(result => {
-          resultMessage += `• 📭 **${result.name}**: Atualizado\n`;
+          resultMessage += `• 📭 **${result.name}**: Up to date\n`;
         });
         
-        resultMessage += `\n💡 Todos os feeds estão atualizados. Tente novamente mais tarde.`;
+        resultMessage += `\n💡 All feeds are up to date. Try again later.`;
       }
 
       // Edit the original message with results
@@ -272,7 +272,7 @@ export class ProcessFeedsCommand extends BaseCommandHandler {
       logger.info(`Manual feed processing completed for chat ${ctx.chatIdString}: ${processedCount}/${feeds.length} feeds processed, ${totalNewItems} new items found`);
     } catch (error) {
       logger.error('Failed to process feeds manually:', error);
-      await ctx.reply('❌ **Erro no processamento**\n\nFalha ao processar os feeds. Tente novamente mais tarde.');
+      await ctx.reply('❌ **Processing Error**\n\nFailed to process feeds. Please try again later.');
     }
   }
 }
@@ -323,12 +323,12 @@ export class ResetFeedCommand extends BaseCommandHandler {
         data: { lastItemId: null },
       });
 
-      await ctx.reply(`✅ **lastItemId Resetado!**\n\n📰 **Feed:** ${feed.name}\n🔗 **URL:** ${feed.rssUrl}\n\n🔄 O próximo processamento irá detectar todos os itens como novos.`);
+      await ctx.reply(`✅ **lastItemId Reset!**\n\n📰 **Feed:** ${feed.name}\n🔗 **URL:** ${feed.rssUrl}\n\n🔄 The next processing will detect all items as new.`);
       
       logger.info(`Successfully reset lastItemId for feed: ${feed.name} (${feed.id})`);
     } catch (error) {
       logger.error(`Failed to reset lastItemId for feed "${feedName}":`, error);
-      await ctx.reply(`❌ **Erro ao resetar lastItemId**\n\nErro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      await ctx.reply(`❌ **Error resetting lastItemId**\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 }
@@ -397,16 +397,16 @@ export class ProcessFeedCommand extends BaseCommandHandler {
       const hasNewItems = updatedFeed?.lastItemId !== originalLastItemId;
 
       // Update the processing message with results
-      let resultMessage = `✅ **Processamento Concluído!**\n\n`;
+      let resultMessage = `✅ **Processing Complete!**\n\n`;
       resultMessage += `📰 **Feed:** ${feed.name}\n`;
       resultMessage += `🔗 **URL:** ${feed.rssUrl}\n\n`;
 
       if (hasNewItems) {
-        resultMessage += `🎉 **Novo item encontrado!**\n\n`;
-        resultMessage += `🚀 O novo item será enviado em breve!`;
+        resultMessage += `🎉 **New item found!**\n\n`;
+        resultMessage += `🚀 The new item will be sent shortly!`;
       } else {
-        resultMessage += `📭 **Nenhum novo item encontrado**\n\n`;
-        resultMessage += `💡 O feed está atualizado. Tente novamente mais tarde.`;
+        resultMessage += `📭 **No new items found**\n\n`;
+        resultMessage += `💡 The feed is up to date. Try again later.`;
       }
 
       // Edit the original message with results
@@ -425,7 +425,7 @@ export class ProcessFeedCommand extends BaseCommandHandler {
       logger.info(`Manual feed processing completed for feed ${feed.name} in chat ${ctx.chatIdString}: ${hasNewItems ? 'new items found' : 'no new items'}`);
     } catch (error) {
       logger.error(`Failed to process feed ${feedName}:`, error);
-      await ctx.reply('❌ **Erro no processamento**\n\nFalha ao processar o feed. Tente novamente mais tarde.');
+      await ctx.reply('❌ **Processing Error**\n\nFailed to process feed. Please try again later.');
     }
   }
 }
@@ -505,13 +505,13 @@ export class ReloadFeedsCommand extends BaseCommandHandler {
       }
 
       // Build result message
-      let message = `✅ **Recarregamento Concluído!**\n\n`;
-      message += `📊 **Resumo:**\n`;
-      message += `• Feeds agendados: ${scheduledCount}/${feeds.length}\n`;
-      message += `• Erros: ${errorCount}\n\n`;
+      let message = `✅ **Reload Complete!**\n\n`;
+      message += `📊 **Summary:**\n`;
+      message += `• Feeds scheduled: ${scheduledCount}/${feeds.length}\n`;
+      message += `• Errors: ${errorCount}\n\n`;
 
       if (scheduledCount > 0) {
-        message += `🔄 **Feeds agendados com sucesso:**\n`;
+        message += `🔄 **Feeds scheduled successfully:**\n`;
         feeds.forEach(feed => {
           if (!errors.find(e => e.name === feed.name)) {
             message += `• ✅ ${feed.name}\n`;
@@ -525,10 +525,10 @@ export class ReloadFeedsCommand extends BaseCommandHandler {
           });
         }
         
-        message += `\n💡 Os feeds serão verificados periodicamente agora.`;
+        message += `\n💡 Feeds will now be checked periodically.`;
       } else {
-        message += `❌ **Nenhum feed foi agendado!**\n\n`;
-        message += `**Erros:**\n`;
+        message += `❌ **No feeds were scheduled!**\n\n`;
+        message += `**Errors:**\n`;
         errors.forEach(({ name, error }) => {
           message += `• ${name}: ${error}\n`;
         });
@@ -540,7 +540,7 @@ export class ReloadFeedsCommand extends BaseCommandHandler {
       logger.info(`Feed reload completed for chat ${ctx.chatIdString}: ${scheduledCount}/${feeds.length} feeds scheduled`);
     } catch (error) {
       logger.error('Failed to reload feeds:', error);
-      await ctx.reply('❌ **Erro ao recarregar feeds**\n\nErro: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+      await ctx.reply('❌ **Error reloading feeds**\n\nError: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   }
 }

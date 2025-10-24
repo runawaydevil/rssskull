@@ -40,7 +40,7 @@ export class AddFeedCommand extends BaseCommandHandler {
     try {
       normalizedUrl = UrlNormalizer.normalizeUrl(url);
     } catch (error) {
-      await ctx.reply('❌ **URL inválida:** Por favor, forneça uma URL válida.\n\n**Exemplos:**\n• `pablo.space`\n• `www.pablo.space`\n• `https://pablo.space`\n\n💡 **Dica:** Use `/discover <site>` para encontrar feeds automaticamente!', { parse_mode: 'Markdown' });
+      await ctx.reply('❌ **Invalid URL:** Please provide a valid URL.\n\n**Examples:**\n• `pablo.space`\n• `www.pablo.space`\n• `https://pablo.space`\n\n💡 **Tip:** Use `/discover <site>` to automatically find feeds!', { parse_mode: 'Markdown' });
       return;
     }
 
@@ -56,29 +56,29 @@ export class AddFeedCommand extends BaseCommandHandler {
     });
 
     if (result.success) {
-      let message = `✅ **Feed adicionado com sucesso!**\n\n📝 **Nome:** ${name}`;
+      let message = `✅ **Feed added successfully!**\n\n📝 **Name:** ${name}`;
       
       // Add discovery/conversion info if available
       if (result.conversionInfo) {
         const { originalUrl, rssUrl, platform } = result.conversionInfo;
         
         if (platform?.startsWith('discovered-')) {
-          message += `\n🔍 **Descoberta automática:** Encontrei feeds em ${originalUrl}`;
-          message += `\n🔗 **Feed usado:** ${rssUrl}`;
-          message += `\n📊 **Fonte:** ${platform.replace('discovered-', '')}`;
+          message += `\n🔍 **Auto-discovery:** Found feeds on ${originalUrl}`;
+          message += `\n🔗 **Feed used:** ${rssUrl}`;
+          message += `\n📊 **Source:** ${platform.replace('discovered-', '')}`;
         } else if (platform) {
-          message += `\n🔄 **Conversão:** ${originalUrl} → ${rssUrl}`;
-          message += `\n🏷️ **Plataforma:** ${platform}`;
+          message += `\n🔄 **Conversion:** ${originalUrl} → ${rssUrl}`;
+          message += `\n🏷️ **Platform:** ${platform}`;
         }
       }
       
-      message += `\n\n🎯 O feed será verificado automaticamente a cada 10 minutos.`;
+      message += `\n\n🎯 The feed will be checked automatically every 10 minutes.`;
       
       await ctx.reply(message, { parse_mode: 'Markdown' });
     } else {
       if (result.errors) {
         const errorMessages = result.errors.map(error => `• ${error.message}`).join('\n');
-        await ctx.reply(`❌ **Falha ao adicionar feed:**\n${errorMessages}`, { parse_mode: 'Markdown' });
+        await ctx.reply(`❌ **Failed to add feed:**\n${errorMessages}`, { parse_mode: 'Markdown' });
       } else {
         await ctx.reply(ctx.t('error.internal'));
       }
@@ -121,11 +121,11 @@ export class ListFeedsCommand extends BaseCommandHandler {
 
     if (feeds.length === 0) {
       await ctx.reply(
-        '📭 **Nenhum feed cadastrado**\n\n' +
-        '💡 Para adicionar feeds:\n' +
-        '• `/add nome https://exemplo.com/rss`\n' +
-        '• `/discover https://site.com` - Descobrir feeds automaticamente\n\n' +
-        '📚 Use `/help` para ver todos os comandos disponíveis.',
+        '📭 **No feeds registered**\n\n' +
+        '💡 To add feeds:\n' +
+        '• `/add name https://example.com/rss`\n' +
+        '• `/discover https://site.com` - Auto-discover feeds\n\n' +
+        '📚 Use `/help` to see all available commands.',
         { parse_mode: 'Markdown' }
       );
       return;
@@ -322,7 +322,7 @@ export class DiscoverFeedsCommand extends BaseCommandHandler {
     try {
       normalizedUrl = UrlNormalizer.normalizeUrl(websiteUrl);
     } catch (error) {
-      await ctx.reply('❌ **URL inválida:** Por favor, forneça uma URL válida.\n\n**Exemplos:**\n• `pablo.space`\n• `www.pablo.space`\n• `https://pablo.space`', { parse_mode: 'Markdown' });
+      await ctx.reply('❌ **Invalid URL:** Please provide a valid URL.\n\n**Examples:**\n• `pablo.space`\n• `www.pablo.space`\n• `https://pablo.space`', { parse_mode: 'Markdown' });
       return;
     }
 
@@ -377,7 +377,7 @@ export class FeedStatusCommand extends BaseCommandHandler {
 
   protected async execute(ctx: CommandContext): Promise<void> {
     try {
-      await ctx.reply('📊 **Verificando status dos feeds...**\n\n⏳ Aguarde...');
+      await ctx.reply('📊 **Checking feed status...**\n\n⏳ Please wait...');
 
       // Get all feeds for this chat
       const feeds = await database.client.feed.findMany({
@@ -408,23 +408,23 @@ export class FeedStatusCommand extends BaseCommandHandler {
       }).filter(Boolean));
 
       // Build status message
-      let message = `📊 **Status dos Feeds**\n\n`;
+      let message = `📊 **Feed Status**\n\n`;
       
       // Summary
-      message += `📈 **Resumo:**\n`;
-      message += `• Total de feeds: ${feeds.length}\n`;
-      message += `• Habilitados: ${enabledFeeds.length} ✅\n`;
-      message += `• Desabilitados: ${disabledFeeds.length} ❌\n`;
-      message += `• Jobs agendados: ${jobsForThisChat.length} 🔄\n\n`;
+      message += `📈 **Summary:**\n`;
+      message += `• Total feeds: ${feeds.length}\n`;
+      message += `• Enabled: ${enabledFeeds.length} ✅\n`;
+      message += `• Disabled: ${disabledFeeds.length} ❌\n`;
+      message += `• Scheduled jobs: ${jobsForThisChat.length} 🔄\n\n`;
 
       // Redis status
-      message += `🔄 **Jobs no Redis:**\n`;
-      message += `• Total de jobs no sistema: ${recurringJobs.length}\n`;
-      message += `• Jobs deste chat: ${jobsForThisChat.length}\n\n`;
+      message += `🔄 **Jobs in Redis:**\n`;
+      message += `• Total jobs in system: ${recurringJobs.length}\n`;
+      message += `• Jobs for this chat: ${jobsForThisChat.length}\n\n`;
 
       // Detailed feed list
       if (feeds.length > 0) {
-        message += `📋 **Detalhes dos Feeds:**\n\n`;
+        message += `📋 **Feed Details:**\n\n`;
         
         for (const feed of feeds) {
           const hasJob = feedsWithJobs.has(feed.id);
@@ -437,33 +437,33 @@ export class FeedStatusCommand extends BaseCommandHandler {
           if (feed.lastCheck) {
             const lastCheckDate = new Date(feed.lastCheck);
             const minutesAgo = Math.floor((Date.now() - lastCheckDate.getTime()) / 60000);
-            message += `   Última verificação: ${minutesAgo} min atrás\n`;
+            message += `   Last check: ${minutesAgo} min ago\n`;
           } else {
-            message += `   Última verificação: Nunca\n`;
+            message += `   Last check: Never\n`;
           }
           
           if (feed.failures > 0) {
-            message += `   Erros: ${feed.failures}\n`;
+            message += `   Errors: ${feed.failures}\n`;
           }
           
           if (!hasJob && feed.enabled) {
-            message += `   ⚠️ **SEM JOB AGENDADO**\n`;
+            message += `   ⚠️ **NO JOB SCHEDULED**\n`;
           }
           
           message += `\n`;
         }
       } else {
-        message += `📭 **Nenhum feed cadastrado**\n\n`;
-        message += `💡 Use /add para adicionar feeds.`;
+        message += `📭 **No feeds registered**\n\n`;
+        message += `💡 Use /add to add feeds.`;
       }
 
       // Warnings
       if (enabledFeeds.length > 0 && jobsForThisChat.length === 0) {
-        message += `\n⚠️ **ATENÇÃO:** Nenhum feed está agendado!\n`;
-        message += `💡 Use /reload para forçar o agendamento.`;
+        message += `\n⚠️ **WARNING:** No feeds are scheduled!\n`;
+        message += `💡 Use /reload to force scheduling.`;
       } else if (enabledFeeds.length > jobsForThisChat.length) {
-        message += `\n⚠️ **ATENÇÃO:** Alguns feeds não estão agendados!\n`;
-        message += `💡 Use /reload para forçar o agendamento.`;
+        message += `\n⚠️ **WARNING:** Some feeds are not scheduled!\n`;
+        message += `💡 Use /reload to force scheduling.`;
       }
 
       await ctx.reply(message, { parse_mode: 'Markdown' });
@@ -471,7 +471,7 @@ export class FeedStatusCommand extends BaseCommandHandler {
       logger.info(`Feed status checked for chat ${ctx.chatIdString}: ${feeds.length} feeds, ${jobsForThisChat.length} jobs scheduled`);
     } catch (error) {
       logger.error('Failed to get feed status:', error);
-      await ctx.reply('❌ **Erro ao verificar status**\n\nErro: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+      await ctx.reply('❌ **Error checking status**\n\nError: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   }
 }
