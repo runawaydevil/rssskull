@@ -32,12 +32,28 @@ export class ParserService {
       const totalItemsCount = result.totalItemsCount;
 
       // Determine the new last item ID
-      // Always update to the first item of the current feed to track feed state correctly
+      // ALWAYS update lastItemId to track the current state of the feed
       // Priority: lastItemIdToSave (first time) > first new item > firstItemId (current top item) > existing lastItemId
-      const newLastItemId = result.lastItemIdToSave || 
-                           (newItems.length > 0 ? newItems[0]?.id : undefined) ||
-                           result.firstItemId ||
-                           lastItemId;
+      // IMPORTANT: Always pass a valid lastItemId - if feed has items, use firstItemId even with no new items
+      let newLastItemId: string | undefined;
+      
+      if (result.lastItemIdToSave) {
+        // First time processing - use the reference item
+        newLastItemId = result.lastItemIdToSave;
+        logger.debug(`🔍 Setting lastItemId from first time: ${newLastItemId}`);
+      } else if (newItems.length > 0) {
+        // Has new items - use the first new item
+        newLastItemId = newItems[0]?.id;
+        logger.debug(`🔍 Setting lastItemId from new items: ${newLastItemId}`);
+      } else if (result.firstItemId) {
+        // No new items but feed has items - update to current first item to track feed state
+        newLastItemId = result.firstItemId;
+        logger.debug(`🔍 Updating lastItemId to current feed state: ${newLastItemId} (no new items)`);
+      } else {
+        // Feed is empty or firstItemId is undefined - keep existing lastItemId
+        newLastItemId = lastItemId;
+        logger.debug(`🔍 Keeping existing lastItemId: ${newLastItemId}`);
+      }
 
       // Calculate next check delay (reset to default on success)
       const nextCheckDelay = this.defaultCheckInterval;

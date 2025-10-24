@@ -89,13 +89,21 @@ export class FeedRepository extends AbstractRepository<
   }
 
   async updateLastCheck(id: string, lastItemId?: string): Promise<FeedWithFilters> {
+    // Build update data - only include lastItemId if it's defined
+    // Prisma ignores undefined values, which is the behavior we want
+    const updateData: any = {
+      lastCheck: new Date(),
+      failures: 0, // Reset failures on successful check
+    };
+    
+    // Only update lastItemId if a value is provided
+    if (lastItemId !== undefined) {
+      updateData.lastItemId = lastItemId;
+    }
+    
     return this.prisma.feed.update({
       where: { id },
-      data: {
-        lastCheck: new Date(),
-        lastItemId,
-        failures: 0, // Reset failures on successful check
-      },
+      data: updateData,
       include: {
         filters: true,
       },
