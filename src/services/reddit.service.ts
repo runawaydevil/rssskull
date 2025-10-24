@@ -93,14 +93,26 @@ export class RedditService {
         url.searchParams.set('after', after);
       }
 
-      // Apply rate limiting
+      // Apply rate limiting with extra delay for Reddit
       await rateLimiterService.waitIfNeeded(url.toString());
+      
+      // Additional delay to avoid rate limiting (Reddit has strict limits)
+      await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
 
-      // Get realistic browser headers
+      // Get realistic browser headers (User-Agent rotation handled automatically)
       const headers = userAgentService.getHeaders(url.toString());
       
-      // Add Reddit-specific User-Agent
-      headers['User-Agent'] = 'RSSSkullBot/0.2 (+https://github.com/runawaydevil/rssskull)';
+      // Use Accept header that looks like a browser JSON request
+      headers['Accept'] = 'application/json, text/javascript, */*; q=0.01';
+      headers['Accept-Language'] = 'en-US,en;q=0.9';
+      headers['Accept-Encoding'] = 'gzip, deflate, br';
+      headers['Referer'] = `https://www.reddit.com/r/${subreddit}/`;
+      headers['Origin'] = 'https://www.reddit.com';
+      headers['DNT'] = '1';
+      headers['Connection'] = 'keep-alive';
+      headers['Sec-Fetch-Dest'] = 'empty';
+      headers['Sec-Fetch-Mode'] = 'cors';
+      headers['Sec-Fetch-Site'] = 'same-origin';
 
       logger.info(`Fetching Reddit JSON: ${url.toString()}`);
 
@@ -109,9 +121,26 @@ export class RedditService {
         signal: AbortSignal.timeout(30000), // 30 second timeout
       });
 
+      // Check for rate limiting headers
+      const rateLimitRemaining = response.headers.get('x-ratelimit-remaining');
+      const rateLimitReset = response.headers.get('x-ratelimit-reset');
+      
+      if (rateLimitRemaining) {
+        logger.debug(`Reddit rate limit remaining: ${rateLimitRemaining}`);
+      }
+
       if (!response.ok) {
         const errorText = await response.text().catch(() => 'Unknown error');
-        logger.error(`Reddit API error: ${response.status} - ${errorText}`);
+        
+        // Handle 429 Too Many Requests
+        if (response.status === 429) {
+          const retryAfter = response.headers.get('retry-after');
+          const waitTime = retryAfter ? parseInt(retryAfter, 10) * 1000 : 60000; // Default 60s
+          logger.warn(`Reddit rate limit hit. Waiting ${waitTime}ms before retry`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+        
+        logger.error(`Reddit API error: ${response.status} - ${errorText.substring(0, 200)}`);
         return {
           success: false,
           error: `Reddit API returned ${response.status}: ${errorText.substring(0, 100)}`,
@@ -136,7 +165,7 @@ export class RedditService {
         items,
       };
 
-      logger.info(`Fetched ${items.length} Reddit posts from r/${subreddit}`);
+      logger.info(`✅ Fetched ${items.length} Reddit posts from r/${subreddit} via JSON API`);
 
       return {
         success: true,
