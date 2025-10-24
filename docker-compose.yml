@@ -33,6 +33,7 @@ services:
       - LOG_LEVEL=info
     volumes:
       - app_data:/app/data
+      - ./prisma:/app/prisma-copy
     depends_on:
       redis:
         condition: service_healthy
