@@ -86,4 +86,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8916/health || exit 1
 
 # Start the application
-CMD ["sh", "-c", "mkdir -p /app/data && export DATABASE_URL='file:/app/data/production.db' && echo '🔄 Running database migrations...' && npx prisma migrate deploy --schema=./prisma/schema.prisma --force-reset && echo '✅ Database migrations completed!' && echo '🔄 Generating Prisma client...' && npx prisma generate --schema=./prisma/schema.prisma && echo '✅ Prisma client generated!' && echo '🚀 Starting RSS Skull Bot...' && node dist/main.js"]
+CMD ["sh", "-c", "mkdir -p /app/data && export DATABASE_URL='file:/app/data/production.db' && echo '🔄 Running database migrations...' && npx prisma migrate reset --force --schema=./prisma/schema.prisma && echo '✅ Database migrations completed!' && echo '🔄 Generating Prisma client...' && npx prisma generate --schema=./prisma/schema.prisma && echo '✅ Prisma client generated!' && echo '🚀 Starting RSS Skull Bot...' && node dist/main.js"]
