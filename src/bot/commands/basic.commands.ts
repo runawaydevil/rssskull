@@ -111,12 +111,9 @@ ${ctx.t('cmd.discover')}
 ${ctx.t('help.settings')}
 ${ctx.t('cmd.settings')}
 ${ctx.t('cmd.filters')}
-${ctx.t('cmd.process')}
 
 ${ctx.t('help.other')}
 ${ctx.t('cmd.help')}
-
-${ctx.t('help.reddit_cache')}
 
 ${ctx.t('help.developer')}`;
 
