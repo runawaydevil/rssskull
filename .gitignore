@@ -119,6 +119,7 @@ Thumbs.db
 
 # Backup files
 backup/
+backups/
 *.backup
 *.bak
 

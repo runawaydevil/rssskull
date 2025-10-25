@@ -52,6 +52,7 @@ services:
       # - RSS_BRIDGE_HOST=http://rss-bridge:80  # Disabled
     volumes:
       - app_data:/app/data
+      - ./backups:/app/backups
     depends_on:
       redis:
         condition: service_healthy
@@ -71,8 +72,15 @@ volumes:
   app_data:
     driver: local
 
-# IMPORTANT: For clean deployment (removes all data):
+# IMPORTANT: Database persistence is now properly configured!
+#
+# For clean deployment (removes all data):
 # docker-compose down -v && docker-compose up -d --build
 #
-# For updates preserving data:
+# For updates preserving data (RECOMMENDED):
 # docker-compose up -d --build
+#
+# The database will persist between container restarts thanks to:
+# - Volume mount: app_data:/app/data
+# - Backup mount: ./backups:/app/backups
+# - Fixed Dockerfile CMD (no more data deletion)
