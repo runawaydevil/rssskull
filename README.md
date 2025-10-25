@@ -2,253 +2,225 @@
 
 ![RSS Skull Bot](rssskull.png)
 
-Um bot moderno e de alta performance para Telegram que monitora feeds RSS e envia notificações em tempo real. Desenvolvido com TypeScript, Node.js e Docker.
+> **Modern RSS to Telegram Bot with Reddit OAuth API Integration**
 
-## 🚀 Características
+A powerful, feature-rich Telegram bot that fetches RSS feeds and delivers content directly to your Telegram channels. Built with TypeScript, featuring Reddit OAuth API integration, HTTP caching, performance metrics, and intelligent rate limiting.
 
-- **Alta Performance**: Processamento paralelo com 5 workers simultâneos
-- **Rate Limiting Inteligente**: Adaptive throttling que se ajusta automaticamente
-- **Circuit Breaker Avançado**: Proteção contra falhas em cascata
-- **Cache Inteligente**: Sistema de cache otimizado com TTL adaptativo
-- **Suporte a Canais**: Funciona em grupos e canais do Telegram
-- **Comandos Bilíngues**: Português e inglês
-- **Docker Ready**: Containerização completa com Docker Compose
+## ✨ Features
 
-## 📋 Pré-requisitos
+### 🔗 **RSS Feed Processing**
+- **Multi-format Support**: RSS 2.0, Atom, JSON Feed 1.1
+- **Smart Parsing**: Automatic content extraction and normalization
+- **Deduplication**: Prevents duplicate posts using intelligent ID matching
+- **Content Filtering**: Advanced filtering based on keywords, domains, and patterns
 
-- Node.js 20+
-- Docker e Docker Compose
-- Bot Token do Telegram (obtenha com [@BotFather](https://t.me/botfather))
+### 🔴 **Reddit Integration**
+- **OAuth API**: Official Reddit API with proper authentication
+- **Rate Limiting**: Intelligent request management (60 requests/minute)
+- **Token Management**: Automatic token refresh and error handling
+- **Fallback Support**: JSON Feed fallback for better reliability
 
-## 🛠️ Instalação
+### ⚡ **Performance & Reliability**
+- **HTTP Caching**: ETag and Last-Modified header support
+- **Circuit Breaker**: Fault tolerance for external services
+- **Metrics Tracking**: Latency monitoring and SLO violation detection
+- **User-Agent Rotation**: Mimics real browser behavior
 
-### Método 1: Docker (Recomendado)
+### 🤖 **Telegram Bot Features**
+- **Interactive Commands**: `/add`, `/remove`, `/list`, `/help`
+- **Real-time Notifications**: Instant feed updates
+- **Channel Management**: Support for multiple channels
+- **Error Handling**: Graceful error recovery and user feedback
 
-1. **Clone o repositório**
-   ```bash
-   git clone https://github.com/runawaydevil/rssskull.git
-   cd rssskull
-   ```
+## 🚀 Quick Start
 
-2. **Configure as variáveis de ambiente**
-   ```bash
-   cp .env.example .env
-   # Edite o arquivo .env com seu BOT_TOKEN
-   ```
+### Prerequisites
+- Node.js 18+ 
+- Redis (optional, can be disabled for development)
+- SQLite database
+- Telegram Bot Token
 
-3. **Execute com Docker Compose**
-   ```bash
-   docker-compose up -d
-   ```
+### Installation
 
-### Método 2: Desenvolvimento Local
-
-1. **Instale as dependências**
-   ```bash
-   npm install
-   ```
-
-2. **Configure o ambiente**
-   ```bash
-   cp .env.example .env
-   # Edite o arquivo .env com seu BOT_TOKEN
-   ```
-
-3. **Gere o cliente Prisma**
-   ```bash
-   npm run db:generate
-   ```
-
-4. **Compile o projeto**
-   ```bash
-   npm run build
-   ```
-
-5. **Execute o bot**
-   ```bash
-   npm start
-   ```
-
-## 🎮 Comandos Disponíveis
-
-### Comandos Básicos
-- `/start` ou `/iniciar` - Iniciar o bot
-- `/help` ou `/ajuda` - Mostrar ajuda
-- `/ping` - Testar resposta do bot
-
-### Gerenciamento de Feeds
-- `/add <nome> <url>` ou `/adicionar <nome> <url>` - Adicionar feed RSS
-- `/list` ou `/listar` - Listar todos os feeds
-- `/remove <nome>` ou `/remover <nome>` - Remover feed
-- `/enable <nome>` ou `/habilitar <nome>` - Habilitar feed
-- `/disable <nome>` ou `/desabilitar <nome>` - Desabilitar feed
-- `/discover <url>` ou `/descobrir <url>` - Descobrir feeds de um site
-
-### Configurações
-- `/settings` ou `/configuracoes` - Ver configurações do chat
-- `/filters <nome>` ou `/filtros <nome>` - Gerenciar filtros do feed
-- `/process` ou `/processar` - Processar manualmente todos os feeds
-
-## ⚙️ Configuração Avançada
-
-### Variáveis de Ambiente
-
-```env
-# Bot Configuration
-BOT_TOKEN=your_telegram_bot_token_here
-
-# Server Configuration
-PORT=8916
-HOST=0.0.0.0
-
-# Database Configuration
-DATABASE_URL=file:/app/data/production.db
-
-# Redis Configuration
-REDIS_HOST=redis
-REDIS_PORT=6379
-REDIS_PASSWORD=
-REDIS_DB=0
-
-# Application Configuration
-NODE_ENV=production
-LOG_LEVEL=info
-
-# Optional: Advanced Settings
-MAX_FEEDS_PER_CHAT=50
-RSS_CHECK_INTERVAL=300
-```
-
-### Cache do Reddit
-
-⚠️ **Importante**: Feeds do Reddit usam configurações de cache fixas (20min TTL) para melhor performance e não podem ser modificadas pelo usuário.
-
-### Reset do Banco de Dados
-
-Se você precisar resetar completamente o banco de dados (por exemplo, após recriar o bot):
-
+1. **Clone the repository**
 ```bash
-# Linux/Mac
-./scripts/reset-database.sh
-
-# Windows PowerShell
-.\scripts\reset-database.ps1
+git clone https://github.com/runawaydevil/rssskull.git
+cd rssskull
 ```
 
-**⚠️ Atenção:** Isso apagará TODOS os dados (feeds, configurações, estatísticas).
-
-### Comandos de Administração
-
-- `/resetdb` - Resetar banco de dados (apenas administradores)
-- `/processar` - Processar feeds perdidos desde que o bot ficou online
-- `/processarfeed <nome>` - Processar um feed específico
-
-## 🐳 Docker
-
-### Build Local
+2. **Install dependencies**
 ```bash
-# Usar script automatizado (Linux/Mac)
-./build-local.sh
-
-# Ou manualmente
-docker build -t rssskull:local .
-docker-compose up -d
+npm install
 ```
 
-### Scripts Disponíveis
-- `build-local.sh` - Script de build para Linux/Mac
-- `build-local.ps1` - Script de build para Windows PowerShell
-
-### Comandos Docker Úteis
+3. **Setup environment**
 ```bash
-# Ver logs
-docker-compose logs -f rss-skull-bot
-
-# Parar serviços
-docker-compose down
-
-# Rebuild e restart
-docker-compose up -d --build
-
-# Verificar status
-docker-compose ps
+cp .env.example .env
+# Edit .env with your configuration
 ```
 
-## 🔧 Desenvolvimento
-
-### Estrutura do Projeto
-```
-src/
-├── bot/                 # Bot do Telegram
-├── config/              # Configurações
-├── database/            # Banco de dados (Prisma)
-├── jobs/                # Sistema de filas (BullMQ)
-├── services/            # Serviços principais
-└── utils/               # Utilitários
-```
-
-### Scripts NPM
+4. **Initialize database**
 ```bash
-npm run build          # Compilar TypeScript
-npm run dev            # Modo desenvolvimento
-npm run start          # Iniciar produção
-npm run db:generate    # Gerar cliente Prisma
-npm run db:migrate     # Executar migrações
-npm run db:studio      # Interface Prisma Studio
+npx prisma generate
+npx prisma migrate dev --name init
 ```
 
-## 🚀 Deploy
-
-### GitHub Actions
-O projeto inclui workflow automatizado para deploy:
-- Build automático em releases
-- Deploy com Docker Compose
-- Health checks integrados
-- Rollback automático em caso de falha
-
-### Deploy Manual
-1. Configure as variáveis de ambiente no servidor
-2. Execute `docker-compose -f docker-compose.prod.yml up -d`
-3. Monitore os logs com `docker-compose logs -f`
-
-## 📊 Monitoramento
-
-### Health Checks
-- `http://localhost:8916/health` - Status geral
-- `http://localhost:8916/cache-stats` - Estatísticas de cache
-- `http://localhost:8916/user-agent-stats` - Estatísticas de User-Agent
-
-### Logs
+5. **Run the bot**
 ```bash
-# Docker
-docker-compose logs -f rss-skull-bot
-
-# Local
 npm run dev
 ```
 
-## 🤝 Contribuição
+## 🐳 Docker Deployment
 
-1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
+### Using Docker Compose (Recommended)
 
-## 📝 Licença
+```bash
+# Clone and navigate to project
+git clone https://github.com/runawaydevil/rssskull.git
+cd rssskull
 
-Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
+# Start services
+docker-compose up -d
+```
 
-## 👨‍💻 Desenvolvedor
+### Using Docker Image
 
-**Pablo Murad** - [@runawaydevil](https://github.com/runawaydevil)
+```bash
+# Pull latest image
+docker pull ghcr.io/runawaydevil/rss-skull-bot:latest
 
-## 🆘 Suporte
+# Run container
+docker run -d \
+  --name rss-skull-bot \
+  --env-file .env \
+  ghcr.io/runawaydevil/rss-skull-bot:latest
+```
 
-- 📧 Email: runawaydevil@pm.me
-- 🐛 Issues: [GitHub Issues](https://github.com/runawaydevil/rssskull/issues)
-- 💬 Discussões: [GitHub Discussions](https://github.com/runawaydevil/rssskull/discussions)
+## ⚙️ Configuration
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token | Required |
+| `TELEGRAM_CHANNEL_ID` | Target channel ID | Required |
+| `REDDIT_CLIENT_ID` | Reddit app client ID | Required |
+| `REDDIT_CLIENT_SECRET` | Reddit app secret | Required |
+| `REDDIT_USERNAME` | Reddit username | Required |
+| `REDDIT_PASSWORD` | Reddit password | Required |
+| `DATABASE_URL` | SQLite database path | `file:./data/production.db` |
+| `REDIS_HOST` | Redis host | `redis` |
+| `REDIS_PORT` | Redis port | `6380` |
+| `NODE_ENV` | Environment | `production` |
+
+### Reddit App Setup
+
+1. Go to [Reddit App Preferences](https://www.reddit.com/prefs/apps)
+2. Create new app with type "Script"
+3. Copy Client ID and Secret to `.env`
+4. Use your Reddit username and password
+
+## 📱 Bot Commands
+
+| Command | Description |
+|---------|-------------|
+| `/start` | Start the bot and show welcome message |
+| `/help` | Show available commands |
+| `/add <url>` | Add RSS feed to monitoring |
+| `/remove <url>` | Remove RSS feed from monitoring |
+| `/list` | List all monitored feeds |
+| `/status` | Show bot status and statistics |
+
+## 🏗️ Architecture
+
+```
+src/
+├── bot/                 # Telegram bot implementation
+│   ├── commands/       # Bot command handlers
+│   ├── handlers/       # Message handlers
+│   └── middleware/     # Bot middleware
+├── services/           # Core business logic
+│   ├── feed.service.ts # RSS feed processing
+│   ├── reddit.service.ts # Reddit integration
+│   └── notification.service.ts # Telegram notifications
+├── providers/          # External API providers
+├── database/          # Database services
+├── jobs/              # Background job processing
+└── utils/             # Utility functions
+```
+
+## 🔧 Development
+
+### Available Scripts
+
+```bash
+npm run dev          # Start development server
+npm run build        # Build TypeScript
+npm run start        # Start production server
+npm run lint         # Run Biome linter
+npm run format       # Format code with Biome
+```
+
+### Database Management
+
+```bash
+# Generate Prisma client
+npx prisma generate
+
+# Run migrations
+npx prisma migrate dev --name <migration-name>
+
+# Reset database
+npx prisma migrate reset
+```
+
+## 📊 Monitoring
+
+The bot includes comprehensive monitoring:
+
+- **Performance Metrics**: Request latency tracking
+- **Error Monitoring**: Automatic error logging and recovery
+- **Health Checks**: Service availability monitoring
+- **Rate Limiting**: Intelligent request throttling
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+### Commit Convention
+
+We use conventional commits:
+- `feat:` New features
+- `fix:` Bug fixes
+- `docs:` Documentation changes
+- `style:` Code style changes
+- `refactor:` Code refactoring
+- `test:` Test additions/changes
+- `chore:` Maintenance tasks
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆕 Changelog
+
+### v0.5.0 - "Halfway to definitive"
+- ✨ Reddit OAuth API integration
+- ⚡ HTTP caching with ETag support
+- 📊 Performance metrics tracking
+- 🔄 Circuit breaker for fault tolerance
+- 🚀 Rate limiting improvements
+- 🧹 Code cleanup and optimization
+
+## 📞 Support
+
+- **Issues**: [GitHub Issues](https://github.com/runawaydevil/rssskull/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/runawaydevil/rssskull/discussions)
 
 ---
 
-⭐ **Se este projeto te ajudou, considere dar uma estrela!**
+**Made with ❤️ by [Pablo Murad](https://github.com/runawaydevil)**
