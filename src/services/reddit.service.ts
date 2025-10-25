@@ -2,6 +2,8 @@ import { logger } from '../utils/logger/logger.service.js';
 import { userAgentService } from '../utils/user-agent.service.js';
 import { rateLimiterService } from '../utils/rate-limiter.service.js';
 import type { RSSItem, RSSFeed } from './rss.service.js';
+import { RedditTokenManager } from './reddit-token-manager.js';
+import { RedditAPIProvider } from './reddit-api-provider.js';
 
 export interface RedditPost {
   id: string; // t3_xxxxx format
@@ -29,6 +31,36 @@ export interface RedditJSONResponse {
 export class RedditService {
   private readonly apiBaseUrl = 'https://www.reddit.com';
   private readonly defaultLimit = 25;
+  
+  // OAuth API provider and circuit breaker
+  private apiProvider?: RedditAPIProvider;
+  private cbOpenUntil = 0; // Circuit breaker: timestamp when it closes
+  
+  /**
+   * Initialize OAuth API provider if credentials are available
+   */
+  private initializeAPIProvider(): void {
+    const clientId = process.env.REDDIT_CLIENT_ID;
+    const clientSecret = process.env.REDDIT_CLIENT_SECRET;
+    const username = process.env.REDDIT_USERNAME;
+    const password = process.env.REDDIT_PASSWORD;
+    
+    if (clientId && clientSecret && username && password) {
+      try {
+        const tokenManager = new RedditTokenManager(clientId, clientSecret, username, password);
+        this.apiProvider = new RedditAPIProvider(tokenManager);
+        logger.info('Reddit OAuth API provider initialized');
+      } catch (error) {
+        logger.error('Failed to initialize Reddit OAuth API provider:', error);
+      }
+    } else {
+      logger.info('Reddit OAuth credentials not configured, using public JSON API only');
+    }
+  }
+  
+  constructor() {
+    this.initializeAPIProvider();
+  }
 
   /**
    * Check if URL is a Reddit subreddit
@@ -76,6 +108,103 @@ export class RedditService {
   }
 
   /**
+   * Fetch new posts from Reddit using public JSON API (fallback)
+   */
+  private async fetchPublicJSON(subreddit: string, after?: string): Promise<RSSItem[]> {
+    const url = new URL(`${this.apiBaseUrl}/r/${subreddit}/new.json`);
+    url.searchParams.set('limit', '100');
+    
+    if (after) {
+      url.searchParams.set('after', after);
+    }
+
+    // Apply rate limiting with extra delay for Reddit
+    await rateLimiterService.waitIfNeeded(url.toString());
+    
+    // Additional delay to avoid rate limiting
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    const headers = userAgentService.getHeaders(url.toString());
+    headers['Accept'] = 'application/json, text/javascript, */*; q=0.01';
+    headers['Accept-Language'] = 'en-US,en;q=0.9';
+    headers['Referer'] = `https://www.reddit.com/r/${subreddit}/`;
+
+    logger.debug(`Fetching Reddit public JSON: r/${subreddit}${after ? ` (after: ${after})` : ''}`);
+
+    const response = await fetch(url.toString(), {
+      headers,
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (response.status === 429) {
+      const retry = Number(response.headers.get('retry-after') ?? 10);
+      logger.warn(`Reddit public JSON rate limited, retry after ${retry}s`);
+      throw new Error(`rate_limited:${retry}`);
+    }
+
+    if (!response.ok) {
+      logger.error(`Reddit public JSON API failed: ${response.status}`);
+      throw new Error(`reddit_public_fail:${response.status}`);
+    }
+
+    const json: RedditJSONResponse = await response.json();
+    
+    return json.data.children.map((c: any) => ({
+      id: c.data.name,
+      title: c.data.title,
+      link: `https://www.reddit.com${c.data.permalink}`,
+      pubDate: new Date(c.data.created_utc * 1000),
+      description: c.data.selftext || undefined,
+      author: c.data.author,
+      guid: c.data.name,
+      categories: [c.data.subreddit],
+    }));
+  }
+
+  /**
+   * Fetch new posts from Reddit (OAuth API with fallback to public JSON)
+   */
+  async fetchNew(subreddit: string, after?: string): Promise<RSSItem[]> {
+    const now = Date.now();
+    const useAPI = process.env.USE_REDDIT_API === 'true' && now >= this.cbOpenUntil;
+
+    try {
+      // Try OAuth API if enabled and circuit breaker is closed
+      if (useAPI && this.apiProvider) {
+        const items = await this.apiProvider.fetchNew(subreddit, after);
+        // Success - close circuit breaker
+        this.cbOpenUntil = 0;
+        logger.info(`Reddit OAuth API success for r/${subreddit}`);
+        return items;
+      }
+      
+      // Fallback to public JSON (or if API is disabled)
+      logger.debug(`Using Reddit public JSON for r/${subreddit}`);
+      return await this.fetchPublicJSON(subreddit, after);
+    } catch (err: any) {
+      const msg = String(err?.message ?? err);
+      
+      // Auth failures - open circuit breaker
+      if (msg.startsWith('auth_failed') || msg.startsWith('reddit_oauth_failed')) {
+        this.cbOpenUntil = now + 10 * 60_000; // Open for 10 minutes
+        logger.warn(`Reddit OAuth auth failed, opening circuit breaker for 10 minutes`);
+        
+        if (process.env.USE_REDDIT_JSON_FALLBACK === 'true') {
+          logger.info(`Falling back to public JSON for r/${subreddit}`);
+          return await this.fetchPublicJSON(subreddit, after);
+        }
+      }
+      
+      // Rate limiting - propagate for scheduler to handle
+      if (msg.startsWith('rate_limited')) {
+        throw err;
+      }
+      
+      throw err;
+    }
+  }
+
+  /**
    * Fetch new posts from Reddit JSON API
    */
   async fetchSubreddit(subreddit: string, after?: string): Promise<{
@@ -97,7 +226,7 @@ export class RedditService {
       await rateLimiterService.waitIfNeeded(url.toString());
       
       // Additional delay to avoid rate limiting (Reddit has strict limits)
-      await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+      await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay for better safety
 
       // Get realistic browser headers (User-Agent rotation handled automatically)
       const headers = userAgentService.getHeaders(url.toString());
@@ -126,7 +255,17 @@ export class RedditService {
       const rateLimitReset = response.headers.get('x-ratelimit-reset');
       
       if (rateLimitRemaining) {
-        logger.debug(`Reddit rate limit remaining: ${rateLimitRemaining}`);
+        const remaining = parseInt(rateLimitRemaining, 10);
+        logger.debug(`Reddit rate limit remaining: ${remaining} for r/${subreddit}`);
+        
+        // Log warning if rate limit is getting low
+        if (remaining < 3) {
+          logger.warn(`⚠️ Reddit rate limit getting low: ${remaining} requests remaining for r/${subreddit}`);
+        }
+      }
+      
+      if (rateLimitReset) {
+        logger.debug(`Reddit rate limit resets at: ${rateLimitReset}`);
       }
 
       if (!response.ok) {

@@ -4,18 +4,18 @@ import {
   type ConversionResult,
   type URLConverter,
 } from './converter.interface.js';
-import { RedditConverter } from './reddit.converter.js';
 import { YouTubeConverter } from './youtube.converter.js';
 
 /**
  * Service that manages URL conversion using registered converters
+ * Note: RedditConverter removed - Reddit now uses JSON API directly
  */
 export class ConverterService {
   private readonly converters: Map<string, URLConverter> = new Map();
 
   constructor() {
     // Register default converters
-    this.registerConverter(new RedditConverter());
+    // RedditConverter removed - Reddit uses JSON API directly in reddit.service.ts
     this.registerConverter(new YouTubeConverter());
   }
 

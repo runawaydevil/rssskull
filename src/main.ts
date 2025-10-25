@@ -5,6 +5,10 @@ import { config } from './config/config.service.js';
 import { DatabaseService } from './database/database.service.js';
 import { feedQueueService, jobService } from './jobs/index.js';
 import { logger } from './utils/logger/logger.service.js';
+import { cacheService } from './utils/cache.service.js';
+import { cacheHTTPService } from './utils/cache-http.service.js';
+import { userAgentService } from './utils/user-agent.service.js';
+import { circuitBreakerService } from './utils/circuit-breaker.service.js';
 
 async function bootstrap() {
   try {
@@ -62,6 +66,48 @@ async function bootstrap() {
           timestamp: new Date().toISOString(),
         };
       }
+    });
+
+    // Cache stats endpoint
+    fastify.get('/cache-stats', async () => {
+      const cacheStats = cacheService.getStats();
+      const httpStats = cacheHTTPService.getStats();
+      
+      return {
+        cache: cacheStats,
+        httpCache: httpStats,
+        timestamp: new Date().toISOString(),
+      };
+    });
+
+    // User agent stats endpoint
+    fastify.get('/user-agent-stats', async () => {
+      return {
+        stats: userAgentService.getStats(),
+        timestamp: new Date().toISOString(),
+      };
+    });
+
+    // Circuit breaker stats endpoint
+    fastify.get('/cbstats', async () => {
+      return {
+        stats: circuitBreakerService.getStats(),
+        timestamp: new Date().toISOString(),
+      };
+    });
+
+    // Stats endpoint (general)
+    fastify.get('/stats', async () => {
+      const feedQueueStats = await feedQueueService.getStats();
+      
+      return {
+        feedQueue: feedQueueStats,
+        cache: cacheService.getStats(),
+        cacheHTTP: cacheHTTPService.getStats(),
+        userAgent: userAgentService.getStats(),
+        circuitBreaker: circuitBreakerService.getStats(),
+        timestamp: new Date().toISOString(),
+      };
     });
 
     // Initialize job service

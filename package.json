@@ -14,6 +14,9 @@
     "dev": "tsx watch src/main.ts",
     "build": "tsc",
     "start": "node dist/main.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
@@ -34,7 +37,7 @@
     "backup:restore": "bash scripts/backup.sh restore",
     "backup:list": "bash scripts/backup.sh list",
     "deploy:prod": "docker-compose -f docker-compose.prod.yml up -d --build",
-    "deploy:staging": "docker-compose -f docker-compose.staging.yml up -d --build",
+    "deploy:staging": "docker-compose -f docker-compose.staging.yml down",
     "deploy:stop": "docker-compose -f docker-compose.prod.yml down",
     "deploy:stop:staging": "docker-compose -f docker-compose.staging.yml down",
     "setup": "npm install && npm run db:generate && npm run docker:dev"
@@ -54,9 +57,13 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.2",
+    "@jest/globals": "^30.2.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.16.10",
     "@types/sqlite3": "^3.1.11",
+    "jest": "^30.2.0",
     "prisma": "^6.17.0",
+    "ts-jest": "^29.4.5",
     "tsx": "^4.19.1",
     "typescript": "^5.6.2"
   },

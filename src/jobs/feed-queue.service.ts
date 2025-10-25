@@ -76,11 +76,42 @@ export class FeedQueueService {
   }
 
   /**
-   * Schedule a feed check job with sharding
+   * Get priority for a feed based on domain
+   */
+  private getFeedPriority(feedUrl: string): number {
+    // High priority for fast-moving feeds
+    if (feedUrl.includes('reddit.com') || feedUrl.includes('instagram.com')) {
+      return 1; // Highest priority
+    }
+    
+    // Medium priority for moderate feeds
+    if (feedUrl.includes('hnrss.org') || feedUrl.includes('techcrunch.com')) {
+      return 2;
+    }
+    
+    // Low priority for slow feeds
+    if (feedUrl.includes('github.com') || feedUrl.includes('blog')) {
+      return 3;
+    }
+    
+    // Default priority
+    return 2;
+  }
+
+  /**
+   * Schedule a feed check job with sharding and priority
    */
   async scheduleFeedCheck(data: FeedCheckJobData, delayMs?: number): Promise<void> {
     const workerIndex = this.getWorkerIndex(data.feedId);
-    const options = delayMs ? { delay: delayMs } : {};
+    const priority = this.getFeedPriority(data.feedUrl);
+    
+    const options: any = {
+      priority,
+    };
+    
+    if (delayMs) {
+      options.delay = delayMs;
+    }
 
     // Add sharding information to job data
     const shardedData = {
@@ -91,7 +122,7 @@ export class FeedQueueService {
 
     await jobService.addJob(FEED_QUEUE_NAMES.FEED_CHECK, FEED_JOB_NAMES.CHECK_FEED, shardedData, options);
 
-    logger.debug(`Scheduled feed check for feed ${data.feedId} in chat ${data.chatId} (shard: ${workerIndex})`);
+    logger.debug(`Scheduled feed check for feed ${data.feedId} in chat ${data.chatId} (shard: ${workerIndex}, priority: ${priority})`);
   }
 
   /**

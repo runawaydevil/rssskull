@@ -14,6 +14,19 @@ services:
       timeout: 3s
       retries: 3
 
+  # RSS-Bridge disabled for now - requires cookies/session management
+  # rss-bridge:
+  #   image: rssbridge/rss-bridge:latest
+  #   container_name: rss-bridge
+  #   ports:
+  #     - "3000:80"
+  #   volumes:
+  #     - ./rss-bridge/config:/config
+  #   environment:
+  #     - INSTAGRAM_SESSION_ID=${INSTAGRAM_SESSION_ID}
+  #     - INSTAGRAM_DS_USER_ID=${INSTAGRAM_DS_USER_ID}
+  #   restart: unless-stopped
+
   rss-skull-bot:
     build:
       context: .
@@ -31,12 +44,15 @@ services:
       - PORT=8916
       - HOST=0.0.0.0
       - LOG_LEVEL=info
+      # - RSS_BRIDGE_HOST=http://rss-bridge:80  # Disabled
     volumes:
       - app_data:/app/data
       - ./prisma:/app/prisma-copy
     depends_on:
       redis:
         condition: service_healthy
+      # rss-bridge:  # Disabled
+      #   condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8916/health"]

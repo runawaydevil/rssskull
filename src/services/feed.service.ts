@@ -9,6 +9,7 @@ import { ConverterService } from '../utils/converters/converter.service.js';
 import { logger } from '../utils/logger/logger.service.js';
 import { isValidUrl } from '../utils/validation.js';
 import { FeedDiscovery } from '../utils/feed-discovery.js';
+import { providerRegistry } from '../providers/index.js';
 
 export interface AddFeedInput {
   chatId: string;
@@ -77,60 +78,73 @@ export class FeedService {
           rssUrl = input.url;
           logger.info(`URL is already in RSS format: ${input.url}`);
         } else {
-          // First try URL conversion (for social media, etc.)
-          const conversionResult = await this.converterService.convertUrl(input.url);
-
-          if (conversionResult.success && conversionResult.rssUrl) {
-            rssUrl = conversionResult.rssUrl;
+          // First try social media provider (Instagram, etc.)
+          const bridgeUrl = providerRegistry.buildFeedUrl(input.url);
+          if (bridgeUrl) {
+            rssUrl = bridgeUrl;
+            const provider = providerRegistry.findProvider(input.url);
             conversionInfo = {
               originalUrl: input.url,
-              rssUrl: conversionResult.rssUrl,
-              platform: conversionResult.platform,
+              rssUrl: bridgeUrl,
+              platform: provider?.name || 'bridge',
             };
-            logger.info(
-              `URL converted successfully: ${input.url} -> ${rssUrl} (${conversionResult.platform})`
-            );
+            logger.info(`URL converted via bridge provider: ${input.url} -> ${bridgeUrl}`);
           } else {
-            // Conversion failed, try feed discovery
-            logger.info(`URL conversion failed, trying feed discovery for: ${input.url}`);
-            const discoveryResult = await this.discoverFeeds(input.url);
+            // Try traditional URL conversion (for YouTube, etc.)
+            const conversionResult = await this.converterService.convertUrl(input.url);
 
-            if (discoveryResult.success && discoveryResult.feeds.length > 0) {
-              // Use the best feed found
-              const bestFeed = discoveryResult.feeds[0];
-              if (bestFeed) {
-                // Check if the discovered feed URL is already in use
-                const currentFeeds = await this.listFeeds(input.chatId);
-                const duplicateDiscoveredUrl = currentFeeds.find(feed => 
-                  feed.url === bestFeed.url || feed.rssUrl === bestFeed.url
-                );
-                
-                if (duplicateDiscoveredUrl) {
-                  return {
-                    success: false,
-                    errors: [{ 
-                      field: 'url', 
-                      message: `O feed descoberto "${bestFeed.url}" já está sendo usado pelo feed "${duplicateDiscoveredUrl.name}".` 
-                    }],
-                  };
-                }
-                
-                rssUrl = bestFeed.url;
-                conversionInfo = {
-                  originalUrl: input.url,
-                  rssUrl: bestFeed.url,
-                  platform: `discovered-${bestFeed.source}`,
-                };
-                logger.info(
-                  `Feed discovered: ${input.url} -> ${rssUrl} (${bestFeed.type}, confidence: ${bestFeed.confidence})`
-                );
-              }
-            } else {
-              // Both conversion and discovery failed, use original URL as fallback
-              logger.warn(
-                `Both URL conversion and feed discovery failed for ${input.url}. Using original URL as RSS.`
+            if (conversionResult.success && conversionResult.rssUrl) {
+              rssUrl = conversionResult.rssUrl;
+              conversionInfo = {
+                originalUrl: input.url,
+                rssUrl: conversionResult.rssUrl,
+                platform: conversionResult.platform,
+              };
+              logger.info(
+                `URL converted successfully: ${input.url} -> ${rssUrl} (${conversionResult.platform})`
               );
-              rssUrl = input.url;
+            } else {
+              // Conversion failed, try feed discovery
+              logger.info(`URL conversion failed, trying feed discovery for: ${input.url}`);
+              const discoveryResult = await this.discoverFeeds(input.url);
+
+              if (discoveryResult.success && discoveryResult.feeds.length > 0) {
+                // Use the best feed found
+                const bestFeed = discoveryResult.feeds[0];
+                if (bestFeed) {
+                  // Check if the discovered feed URL is already in use
+                  const currentFeeds = await this.listFeeds(input.chatId);
+                  const duplicateDiscoveredUrl = currentFeeds.find(feed => 
+                    feed.url === bestFeed.url || feed.rssUrl === bestFeed.url
+                  );
+                  
+                  if (duplicateDiscoveredUrl) {
+                    return {
+                      success: false,
+                      errors: [{ 
+                        field: 'url', 
+                        message: `O feed descoberto "${bestFeed.url}" já está sendo usado pelo feed "${duplicateDiscoveredUrl.name}".` 
+                      }],
+                    };
+                  }
+                  
+                  rssUrl = bestFeed.url;
+                  conversionInfo = {
+                    originalUrl: input.url,
+                    rssUrl: bestFeed.url,
+                    platform: `discovered-${bestFeed.source}`,
+                  };
+                  logger.info(
+                    `Feed discovered: ${input.url} -> ${rssUrl} (${bestFeed.type}, confidence: ${bestFeed.confidence})`
+                  );
+                }
+              } else {
+                // Both conversion and discovery failed, use original URL as fallback
+                logger.warn(
+                  `Both URL conversion and feed discovery failed for ${input.url}. Using original URL as RSS.`
+                );
+                rssUrl = input.url;
+              }
             }
           }
         }
@@ -138,8 +152,14 @@ export class FeedService {
 
       // Determine defaults based on feed type
       const isReddit = rssUrl.includes('reddit.com');
-      const checkIntervalMinutes = isReddit ? 6 : 10; // Reddit checks every 6 min, others every 10 min
-      const maxAgeMinutes = isReddit ? 90 : 1440; // Reddit: 90 min, others: 24h
+      const isInstagram = input.url.includes('instagram.com');
+      
+      // Get polling interval from provider if available
+      const providerInterval = providerRegistry.getPollInterval(input.url);
+      const checkIntervalMinutes = providerInterval || (isReddit ? 6 : 10);
+      
+      // Determine max age based on feed type
+      const maxAgeMinutes = isReddit ? 90 : isInstagram ? 90 : 1440; // Reddit/IG: 90 min, others: 24h
       
       // Create feed
       const feedData: CreateFeedInput = {
