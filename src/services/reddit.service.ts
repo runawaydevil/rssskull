@@ -80,11 +80,11 @@ export class RedditService {
     const now = Date.now();
     this.consecutive403Errors++;
     
-    // Calculate backoff time: exponential backoff starting at 60 minutes (per 2024-2025 API docs)
-    const backoffMinutes = Math.min(60 * Math.pow(2, this.consecutive403Errors - 1), 1440); // Max 24 hours
+    // Calculate backoff time: exponential backoff starting at 10 minutes
+    const backoffMinutes = Math.min(10 * Math.pow(2, this.consecutive403Errors - 1), 240); // Max 4 hours
     this.cbOpenUntil = now + (backoffMinutes * 60 * 1000);
     
-    logger.warn(`Reddit 403 error #${this.consecutive403Errors}. Circuit breaker open for ${backoffMinutes} minutes (per 2024-2025 API docs)`);
+    logger.warn(`Reddit 403 error #${this.consecutive403Errors}. Circuit breaker open for ${backoffMinutes} minutes`);
   }
 
   /**
@@ -189,11 +189,8 @@ export class RedditService {
         url.searchParams.set('after', after);
       }
 
-      // Apply rate limiting with extra delay for Reddit
+      // Apply rate limiting with jitter (no extra delay needed)
       await rateLimiterService.waitIfNeeded(url.toString());
-      
-      // Additional delay to avoid rate limiting (Reddit has strict limits per 2024-2025 docs)
-      await new Promise(resolve => setTimeout(resolve, 30000)); // 30 second delay for maximum safety
 
       // Get realistic browser headers (User-Agent rotation handled automatically)
       const headers = userAgentService.getHeaders(url.toString());
