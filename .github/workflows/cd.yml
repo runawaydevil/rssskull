@@ -34,7 +34,8 @@ jobs:
         id: version
         run: |
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            VERSION=${GITHUB_REF#refs/tags/v}
+            VERSION="${{ github.ref }}" 
+            VERSION=${VERSION#refs/tags/v}
           else
             VERSION=$(node -p "require('./package.json').version")
           fi
