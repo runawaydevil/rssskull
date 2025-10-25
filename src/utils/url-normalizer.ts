@@ -1,3 +1,5 @@
+import { sanitizeUrl } from './url-sanitizer.js';
+
 /**
  * URL normalization utilities
  */
@@ -6,20 +8,20 @@ export class UrlNormalizer {
   /**
    * Normalize URL to a standard format
    * Handles various input formats and converts them to https://domain.com
+   * First sanitizes URL to fix typos, then normalizes
    */
   static normalizeUrl(url: string): string {
     if (!url || typeof url !== 'string') {
       throw new Error('Invalid URL provided');
     }
 
-    let normalized = url.trim();
+    // First, sanitize the URL to fix typos and malformations
+    const sanitized = sanitizeUrl(url);
+    if (!sanitized) {
+      throw new Error('Invalid URL provided');
+    }
 
-    // Remove common prefixes that might cause issues
-    // This regex removes: http://, https://, www. (in any combination)
-    normalized = normalized.replace(/^(https?:\/\/)?(www\.)?/, '');
-    
-    // Add https protocol
-    normalized = 'https://' + normalized;
+    let normalized = sanitized;
 
     // Remove trailing slash
     normalized = normalized.replace(/\/$/, '');

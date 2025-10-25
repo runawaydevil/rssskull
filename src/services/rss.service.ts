@@ -51,13 +51,9 @@ export class RSSService {
    * Fetch and parse an RSS feed with retry logic, rate limiting, and caching
    */
   async fetchFeed(url: string): Promise<ParseResult> {
-    // Check if this is a Reddit URL
+    // Check if this is a Reddit URL - if so, always use Reddit service (never RSS)
     if (redditService.isRedditUrl(url)) {
-      // Normalize Reddit URL to .rss format
-      url = this.normalizeRedditUrl(url);
-      logger.info(`🔧 Normalized Reddit URL: ${url}`);
-      
-      // Try Reddit service first (OAuth or delegated to RSS)
+      logger.info(`🔄 Detected Reddit URL: ${url}, using Reddit service`);
       const redditResult = await redditService.fetchFeed(url);
       
       // If Reddit service returns a feed, use it
@@ -66,14 +62,12 @@ export class RSSService {
         return redditResult;
       }
       
-      // If Reddit service says to delegate to RSS
-      if (redditResult.error === 'delegate-to-rss') {
-        logger.info(`📡 Reddit service delegated to RSS for ${url}`);
-        // Continue to RSS fetching below
-      } else {
-        // Reddit service failed, try RSS
-        logger.warn(`Reddit service failed for ${url}, falling back to RSS`);
-      }
+      // Reddit service failed - return error (don't fall back to RSS for Reddit)
+      logger.error(`Reddit service failed for ${url}`);
+      return {
+        success: false,
+        error: redditResult.error || 'Failed to fetch Reddit feed',
+      };
     }
     
     // Try alternative URLs first if the original might have issues
@@ -887,37 +881,6 @@ export class RSSService {
    */
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  /**
-   * Normalize Reddit URL to .rss format
-   * Converts URLs like:
-   * - https://reddit.com/r/trackers -> https://www.reddit.com/r/trackers/.rss
-   * - https://reddit.com/r/trackers.rss -> https://www.reddit.com/r/trackers/.rss
-   * - https://reddit.com/r/trackers/.rss -> https://www.reddit.com/r/trackers/.rss
-   */
-  private normalizeRedditUrl(url: string): string {
-    try {
-      const urlObj = new URL(url);
-      
-      // Fix hostname (reddit.com -> www.reddit.com)
-      if (urlObj.hostname === 'reddit.com') {
-        urlObj.hostname = 'www.reddit.com';
-      }
-      
-      // Ensure .rss extension
-      if (!urlObj.pathname.endsWith('.rss') && !urlObj.pathname.endsWith('.json')) {
-        // Add .rss to the path
-        urlObj.pathname = urlObj.pathname.replace(/\/$/, '') + '/.rss';
-      } else if (urlObj.pathname.endsWith('.json')) {
-        // Replace .json with .rss
-        urlObj.pathname = urlObj.pathname.replace(/\.json$/, '.rss');
-      }
-      
-      return urlObj.toString();
-    } catch {
-      return url; // Return original if parsing fails
-    }
   }
 }
 

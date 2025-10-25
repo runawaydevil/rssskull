@@ -49,6 +49,10 @@ services:
       - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET}
       - REDDIT_USERNAME=${REDDIT_USERNAME}
       - REDDIT_PASSWORD=${REDDIT_PASSWORD}
+      # Feature flags for Reddit
+      - USE_REDDIT_API=${USE_REDDIT_API:-true}
+      - USE_REDDIT_JSON_FALLBACK=${USE_REDDIT_JSON_FALLBACK:-true}
+      - FEATURE_INSTAGRAM=${FEATURE_INSTAGRAM:-false}
       # - RSS_BRIDGE_HOST=http://rss-bridge:80  # Disabled
     volumes:
       - app_data:/app/data

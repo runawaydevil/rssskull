@@ -8,6 +8,7 @@ import { feedQueueService } from '../jobs/index.js';
 import { ConverterService } from '../utils/converters/converter.service.js';
 import { logger } from '../utils/logger/logger.service.js';
 import { isValidUrl } from '../utils/validation.js';
+import { classifySource } from '../utils/source-classifier.js';
 import { FeedDiscovery } from '../utils/feed-discovery.js';
 import { providerRegistry } from '../providers/index.js';
 
@@ -67,14 +68,26 @@ export class FeedService {
         return { success: false, errors: validationErrors };
       }
 
+      // Classify source type (Reddit, RSS, etc.)
+      const sourceType = classifySource(input.url);
+      
       // Determine RSS URL through conversion or direct use
       let rssUrl = input.rssUrl || input.url;
       let conversionInfo: { originalUrl: string; rssUrl: string; platform?: string } | undefined;
 
       // If no explicit RSS URL provided, try URL conversion and feed discovery
       if (!input.rssUrl) {
-        // Check if URL is already in RSS format
-        if (this.converterService.isRssUrl(input.url)) {
+        // For Reddit URLs, always use the URL as-is (our parser will handle it)
+        if (sourceType === 'reddit') {
+          rssUrl = input.url;
+          logger.info(`Reddit URL detected: ${input.url}`);
+          conversionInfo = {
+            originalUrl: input.url,
+            rssUrl: input.url,
+            platform: 'reddit',
+          };
+        } else if (this.converterService.isRssUrl(input.url)) {
+          // Check if URL is already in RSS format
           rssUrl = input.url;
           logger.info(`URL is already in RSS format: ${input.url}`);
         } else {
