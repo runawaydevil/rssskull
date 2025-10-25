@@ -70,3 +70,9 @@ volumes:
     driver: local
   app_data:
     driver: local
+
+# IMPORTANT: For clean deployment (removes all data):
+# docker-compose down -v && docker-compose up -d --build
+#
+# For updates preserving data:
+# docker-compose up -d --build
