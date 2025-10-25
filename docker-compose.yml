@@ -28,6 +28,8 @@ services:
   #   restart: unless-stopped
 
   rss-skull-bot:
+    # Usa imagem do GHCR se disponível, senão builda local
+    image: ${DOCKER_IMAGE:-ghcr.io/runawaydevil/rss-skull-bot:latest}
     build:
       context: .
       dockerfile: Dockerfile
