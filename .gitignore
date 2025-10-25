@@ -127,7 +127,6 @@ test-results/
 coverage/
 
 # Prisma
-prisma/migrations/
 
 # Redis dump
 dump.rdb
