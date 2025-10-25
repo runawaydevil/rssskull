@@ -123,8 +123,8 @@ export class ListFeedsCommand extends BaseCommandHandler {
       await ctx.reply(
         '📭 **No feeds registered**\n\n' +
         '💡 To add feeds:\n' +
-        '• `/add name https://example.com/rss`\n' +
-        '• `/discover https://site.com` - Auto-discover feeds\n\n' +
+        '• `/add name https://pablo.space/rss`\n' +
+        '• `/discover https://pablo.space` - Auto-discover feeds\n\n' +
         '📚 Use `/help` to see all available commands.',
         { parse_mode: 'Markdown' }
       );
