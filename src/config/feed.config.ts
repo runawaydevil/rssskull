@@ -28,19 +28,19 @@ export interface FeedDomainConfig {
 }
 
 export const FEED_DOMAIN_CONFIGS: Record<string, FeedDomainConfig> = {
-  // Reddit - Improved rate limiting with adaptive throttling
+  // Reddit - Ultra conservative rate limiting based on 2024-2025 API docs
   'reddit.com': {
     rateLimit: {
-      maxRequests: 5, // 5 requests per 10 minutes
-      windowMs: 600000, // 10 minutes (600 seconds)
-      minDelayMs: 300000, // 5 minutes minimum between requests
+      maxRequests: 1, // 1 request per 20 minutes (ultra conservative)
+      windowMs: 1200000, // 20 minutes (1200 seconds)
+      minDelayMs: 900000, // 15 minutes minimum between requests
       adaptiveEnabled: true, // Enable adaptive throttling
-      successThreshold: 0.8, // 80% success rate threshold
-      failurePenalty: 1.5,   // 50% penalty for failures
-      successReward: 0.8,    // 20% reward for successes
+      successThreshold: 0.95, // 95% success rate threshold (very strict)
+      failurePenalty: 3.0,   // 200% penalty for failures (triple delay)
+      successReward: 0.3,    // 30% reward for successes (very slow recovery)
     },
-    checkIntervalMinutes: 10, // Check every 10 minutes
-    description: 'Reddit feeds (improved rate limiting with adaptive throttling)',
+    checkIntervalMinutes: 20, // Check every 20 minutes
+    description: 'Reddit feeds (ultra conservative rate limiting based on 2024-2025 API docs)',
     flags: {
       requiresUserAgent: true,
       isHighVolume: true,

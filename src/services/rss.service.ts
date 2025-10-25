@@ -779,12 +779,12 @@ export class RSSService {
   private getRateLimitDelay(url: string, attempt: number): number {
     const domain = this.extractDomain(url);
     
-    // Special handling for Reddit
+    // Special handling for Reddit - much more conservative delays
     if (domain.includes('reddit.com')) {
-      // Progressive delays for Reddit: 5s, 15s, 30s
-      const redditDelays = [5000, 15000, 30000];
+      // Progressive delays for Reddit: 30s, 60s, 120s (much more conservative)
+      const redditDelays = [30000, 60000, 120000];
       const delayIndex = Math.min(attempt - 1, redditDelays.length - 1);
-      return redditDelays[delayIndex] || 30000; // Fallback to 30s
+      return redditDelays[delayIndex] || 120000; // Fallback to 2 minutes
     }
     
     // Default rate limit delay with exponential backoff
