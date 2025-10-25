@@ -51,17 +51,29 @@ export class RSSService {
    * Fetch and parse an RSS feed with retry logic, rate limiting, and caching
    */
   async fetchFeed(url: string): Promise<ParseResult> {
-    // Check if this is a Reddit URL and use JSON API for better latency
+    // Check if this is a Reddit URL
     if (redditService.isRedditUrl(url)) {
-      logger.info(`🔄 Using Reddit JSON API for ${url}`);
+      // Normalize Reddit URL to .rss format
+      url = this.normalizeRedditUrl(url);
+      logger.info(`🔧 Normalized Reddit URL: ${url}`);
+      
+      // Try Reddit service first (OAuth or delegated to RSS)
       const redditResult = await redditService.fetchFeed(url);
       
+      // If Reddit service returns a feed, use it
       if (redditResult.success && redditResult.feed) {
+        logger.info(`✅ Reddit service provided feed for ${url}`);
         return redditResult;
       }
       
-      // Fallback to RSS if JSON fails
-      logger.warn(`Reddit JSON API failed for ${url}, falling back to RSS`);
+      // If Reddit service says to delegate to RSS
+      if (redditResult.error === 'delegate-to-rss') {
+        logger.info(`📡 Reddit service delegated to RSS for ${url}`);
+        // Continue to RSS fetching below
+      } else {
+        // Reddit service failed, try RSS
+        logger.warn(`Reddit service failed for ${url}, falling back to RSS`);
+      }
     }
     
     // Try alternative URLs first if the original might have issues
@@ -875,6 +887,37 @@ export class RSSService {
    */
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Normalize Reddit URL to .rss format
+   * Converts URLs like:
+   * - https://reddit.com/r/trackers -> https://www.reddit.com/r/trackers/.rss
+   * - https://reddit.com/r/trackers.rss -> https://www.reddit.com/r/trackers/.rss
+   * - https://reddit.com/r/trackers/.rss -> https://www.reddit.com/r/trackers/.rss
+   */
+  private normalizeRedditUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      
+      // Fix hostname (reddit.com -> www.reddit.com)
+      if (urlObj.hostname === 'reddit.com') {
+        urlObj.hostname = 'www.reddit.com';
+      }
+      
+      // Ensure .rss extension
+      if (!urlObj.pathname.endsWith('.rss') && !urlObj.pathname.endsWith('.json')) {
+        // Add .rss to the path
+        urlObj.pathname = urlObj.pathname.replace(/\/$/, '') + '/.rss';
+      } else if (urlObj.pathname.endsWith('.json')) {
+        // Replace .json with .rss
+        urlObj.pathname = urlObj.pathname.replace(/\.json$/, '.rss');
+      }
+      
+      return urlObj.toString();
+    } catch {
+      return url; // Return original if parsing fails
+    }
   }
 }
 

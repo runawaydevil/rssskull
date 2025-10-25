@@ -353,6 +353,7 @@ export class RedditService {
 
   /**
    * Fetch feed from Reddit URL with intelligent fallback
+   * QUICK FIX: Usa apenas RSS endpoint (.rss) para evitar erros 403
    */
   async fetchFeed(url: string): Promise<{
     success: boolean;
@@ -374,15 +375,8 @@ export class RedditService {
       };
     }
 
-    // Check circuit breaker first
-    if (this.isCircuitBreakerOpen()) {
-      const remainingMinutes = Math.ceil((this.cbOpenUntil - Date.now()) / (60 * 1000));
-      logger.warn(`Reddit circuit breaker is open. Skipping r/${subreddit} for ${remainingMinutes} more minutes`);
-      return {
-        success: false,
-        error: `Circuit breaker open due to 403 errors. Try again in ${remainingMinutes} minutes`,
-      };
-    }
+    // QUICK FIX: Reset circuit breaker since we're using RSS now
+    this.resetCircuitBreaker();
 
     // Try OAuth API first if available and enabled
     const useRedditAPI = process.env.USE_REDDIT_API === 'true';
@@ -411,46 +405,24 @@ export class RedditService {
             feed,
           };
         } else {
-          logger.warn(`No valid OAuth token available for r/${subreddit}, falling back to JSON API`);
+          logger.warn(`No valid OAuth token available for r/${subreddit}, falling back to RSS`);
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        
-        // Handle OAuth-specific errors
-        if (errorMessage.includes('auth_failed:403') || errorMessage.includes('auth_failed:401')) {
-          this.handle403Error();
-          logger.error(`Reddit OAuth authentication failed: ${errorMessage}`);
-          
-          // Fall back to JSON API immediately
-          logger.info(`🔄 Falling back to JSON API for r/${subreddit} due to OAuth failure`);
-        } else {
-          logger.warn(`Reddit OAuth API failed for r/${subreddit}, falling back to JSON API: ${errorMessage}`);
-        }
+        logger.warn(`Reddit OAuth API failed for r/${subreddit}, falling back to RSS: ${errorMessage}`);
       }
     }
 
-    // Fallback to JSON API (always available)
-    const useJsonFallback = process.env.USE_REDDIT_JSON_FALLBACK !== 'false';
-    if (useJsonFallback) {
-      logger.info(`🔄 Using Reddit JSON API for r/${subreddit}`);
-      const result = await this.fetchSubreddit(subreddit);
-      
-      if (!result.success || !result.feed) {
-        return {
-          success: false,
-          error: result.error || 'Failed to fetch Reddit feed',
-        };
-      }
-
-      return {
-        success: true,
-        feed: result.feed,
-      };
-    }
-
+    // QUICK FIX: Skip JSON API entirely and delegate to RSS service
+    // The RSS service will handle fetching the .rss feed
+    logger.info(`📡 Using Reddit RSS endpoint for r/${subreddit} (JSON API disabled to avoid 403)`);
+    
+    // Return a special flag to indicate RSS-only mode
+    // This will be handled by the RSS service directly
     return {
-      success: false,
-      error: 'Both OAuth and JSON APIs are disabled',
+      success: true,
+      feed: undefined, // Let RSS service handle this
+      error: 'delegate-to-rss', // Special flag to delegate to RSS
     };
   }
 }
