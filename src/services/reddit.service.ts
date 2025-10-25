@@ -4,6 +4,8 @@ import { rateLimiterService } from '../utils/rate-limiter.service.js';
 import type { RSSItem, RSSFeed } from './rss.service.js';
 import { RedditTokenManager } from './reddit-token-manager.js';
 import { RedditAPIProvider } from './reddit-api-provider.js';
+import { TokenManagerService } from './token-manager.service.js';
+import { PrismaClient } from '@prisma/client';
 
 export interface RedditPost {
   id: string; // t3_xxxxx format
@@ -34,13 +36,14 @@ export class RedditService {
   
   // OAuth API provider and circuit breaker
   private apiProvider?: RedditAPIProvider;
+  private tokenManager?: TokenManagerService;
   private cbOpenUntil = 0; // Circuit breaker: timestamp when it closes
   private consecutive403Errors = 0; // Track consecutive 403 errors
   
   /**
    * Initialize OAuth API provider if credentials are available
    */
-  private initializeAPIProvider(): void {
+  private initializeAPIProvider(prisma?: PrismaClient): void {
     const clientId = process.env.REDDIT_CLIENT_ID;
     const clientSecret = process.env.REDDIT_CLIENT_SECRET;
     const username = process.env.REDDIT_USERNAME;
@@ -50,19 +53,25 @@ export class RedditService {
       try {
         const tokenManager = new RedditTokenManager(clientId, clientSecret, username, password);
         this.apiProvider = new RedditAPIProvider(tokenManager);
-        logger.info('Reddit OAuth API provider initialized (per 2024-2025 API docs)');
+        
+        // Initialize TokenManagerService if Prisma is available
+        if (prisma) {
+          this.tokenManager = new TokenManagerService(prisma);
+        }
+        
+        logger.info('Reddit OAuth API provider initialized with Token Manager');
         logger.info(`OAuth Client ID: ${clientId.substring(0, 8)}...`);
       } catch (error) {
         logger.error('Failed to initialize Reddit OAuth API provider:', error);
       }
     } else {
-      logger.warn('Reddit OAuth credentials not configured - this may cause 403 errors per 2024-2025 API docs');
+      logger.warn('Reddit OAuth credentials not configured - using JSON fallback only');
       logger.warn('Required: REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USERNAME, REDDIT_PASSWORD');
     }
   }
   
-  constructor() {
-    this.initializeAPIProvider();
+  constructor(prisma?: PrismaClient) {
+    this.initializeAPIProvider(prisma);
   }
 
   /**
@@ -343,7 +352,7 @@ export class RedditService {
   }
 
   /**
-   * Fetch feed from Reddit URL
+   * Fetch feed from Reddit URL with intelligent fallback
    */
   async fetchFeed(url: string): Promise<{
     success: boolean;
@@ -375,27 +384,35 @@ export class RedditService {
       };
     }
 
-    // Try OAuth API first if available
-    if (this.apiProvider) {
+    // Try OAuth API first if available and enabled
+    const useRedditAPI = process.env.USE_REDDIT_API === 'true';
+    if (useRedditAPI && this.apiProvider && this.tokenManager) {
       try {
-        logger.info(`🔄 Using Reddit OAuth API for r/${subreddit}`);
-        const items = await this.apiProvider.fetchNew(subreddit);
+        // Get valid token from Token Manager
+        const accessToken = await this.tokenManager.getValidToken('reddit');
         
-        // Reset circuit breaker on successful OAuth request
-        this.resetCircuitBreaker();
-        
-        const feed: RSSFeed = {
-          title: `r/${subreddit}`,
-          link: `${this.apiBaseUrl}/r/${subreddit}`,
-          items,
-        };
+        if (accessToken) {
+          logger.info(`🔄 Using Reddit OAuth API for r/${subreddit} with Token Manager`);
+          const items = await this.apiProvider.fetchNew(subreddit);
+          
+          // Reset circuit breaker on successful OAuth request
+          this.resetCircuitBreaker();
+          
+          const feed: RSSFeed = {
+            title: `r/${subreddit}`,
+            link: `${this.apiBaseUrl}/r/${subreddit}`,
+            items,
+          };
 
-        logger.info(`✅ Fetched ${items.length} Reddit posts from r/${subreddit} via OAuth API`);
-        
-        return {
-          success: true,
-          feed,
-        };
+          logger.info(`✅ Fetched ${items.length} Reddit posts from r/${subreddit} via OAuth API`);
+          
+          return {
+            success: true,
+            feed,
+          };
+        } else {
+          logger.warn(`No valid OAuth token available for r/${subreddit}, falling back to JSON API`);
+        }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         
@@ -403,29 +420,37 @@ export class RedditService {
         if (errorMessage.includes('auth_failed:403') || errorMessage.includes('auth_failed:401')) {
           this.handle403Error();
           logger.error(`Reddit OAuth authentication failed: ${errorMessage}`);
-          return {
-            success: false,
-            error: `Reddit OAuth authentication failed: ${errorMessage}`,
-          };
+          
+          // Fall back to JSON API immediately
+          logger.info(`🔄 Falling back to JSON API for r/${subreddit} due to OAuth failure`);
+        } else {
+          logger.warn(`Reddit OAuth API failed for r/${subreddit}, falling back to JSON API: ${errorMessage}`);
         }
-        
-        logger.warn(`Reddit OAuth API failed for r/${subreddit}, falling back to JSON API: ${errorMessage}`);
       }
     }
 
-    // Fallback to JSON API
-    const result = await this.fetchSubreddit(subreddit);
-    
-    if (!result.success || !result.feed) {
+    // Fallback to JSON API (always available)
+    const useJsonFallback = process.env.USE_REDDIT_JSON_FALLBACK !== 'false';
+    if (useJsonFallback) {
+      logger.info(`🔄 Using Reddit JSON API for r/${subreddit}`);
+      const result = await this.fetchSubreddit(subreddit);
+      
+      if (!result.success || !result.feed) {
+        return {
+          success: false,
+          error: result.error || 'Failed to fetch Reddit feed',
+        };
+      }
+
       return {
-        success: false,
-        error: result.error || 'Failed to fetch Reddit feed',
+        success: true,
+        feed: result.feed,
       };
     }
 
     return {
-      success: true,
-      feed: result.feed,
+      success: false,
+      error: 'Both OAuth and JSON APIs are disabled',
     };
   }
 }

@@ -30,9 +30,13 @@ RUN npm ci --no-audit --no-fund
 # Copy source code
 COPY src/ ./src/
 COPY prisma/ ./prisma/
+COPY scripts/ ./scripts/
 
 # Generate Prisma client with correct binary targets
 RUN npx prisma generate --schema=./prisma/schema.prisma
+
+# Make entrypoint script executable
+RUN chmod +x /app/scripts/docker-entrypoint.sh
 
 # Build the application with optimizations
 RUN npm run build
@@ -71,6 +75,7 @@ COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/package.json ./
 COPY --from=builder --chown=nodejs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nodejs:nodejs /app/scripts ./scripts
 
 # Create data directory for SQLite
 RUN mkdir -p /app/data && chown nodejs:nodejs /app/data
@@ -85,5 +90,5 @@ EXPOSE 8916
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8916/health || exit 1
 
-# Start the application
-CMD ["sh", "-c", "mkdir -p /app/data && export DATABASE_URL='file:/app/data/production.db' && npx prisma db push --schema=./prisma/schema.prisma && npx prisma generate --schema=./prisma/schema.prisma && node dist/main.js"]
+# Start the application with proper migration handling
+CMD ["/app/scripts/docker-entrypoint.sh"]

@@ -19,7 +19,21 @@ export class UserAgentService {
 
   // Pool de browsers reais com headers consistentes
   private browserProfiles: BrowserProfile[] = [
-    // Chrome (mais comum)
+    // RSSSkullBot - Identificador estável e identificável
+    {
+      name: 'RSSSkullBot Stable',
+      userAgent: 'RSSSkullBot/0.2 by rasputinixx (https://github.com/runawaydevil/rssskull)',
+      headers: {
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Accept-Language': 'en-US,en;q=0.9,pt;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Upgrade-Insecure-Requests': '1',
+      },
+      weight: 10, // Prioridade máxima para o bot
+    },
+    // Chrome (fallback)
     {
       name: 'Chrome 120 Windows',
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',

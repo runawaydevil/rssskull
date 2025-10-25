@@ -97,3 +97,17 @@ model ItemDedupe {
   @@index([expiresAt])
   @@index([feedId])
 }
+
+model AuthState {
+  id            String   @id @default(cuid())
+  provider      String   // 'reddit', 'instagram', etc.
+  accessToken   String?  // Token atual (criptografado)
+  refreshToken  String?  // Refresh token (criptografado)
+  expiresAt     DateTime? // Quando o token expira
+  tokenType     String?  // 'bearer', etc.
+  scope         String?  // Escopo do token
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([provider])
+}
