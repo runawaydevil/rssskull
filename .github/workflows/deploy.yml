@@ -28,26 +28,24 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
         
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ghcr.io/${{ github.repository }}/rss-skull-bot
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=sha,prefix=sha-
-          type=raw,value=latest,enable={{is_default_branch}}
-          type=raw,value=v0.5.0,enable={{is_default_branch}}
-          
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
         platforms: linux/amd64,linux/arm64
         push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
+        tags: |
+          ghcr.io/${{ github.repository }}/rss-skull-bot:latest
+          ghcr.io/${{ github.repository }}/rss-skull-bot:v0.5.0
+          ghcr.io/${{ github.repository }}/rss-skull-bot:${{ github.sha }}
+        labels: |
+          org.opencontainers.image.title=RSS Skull Bot
+          org.opencontainers.image.description=Modern RSS to Telegram Bot with Reddit support
+          org.opencontainers.image.version=v0.5.0
+          org.opencontainers.image.authors=Pablo Murad <runawaydevil@pm.me>
+          org.opencontainers.image.url=https://github.com/runawaydevil/rssskull
+          org.opencontainers.image.source=https://github.com/runawaydevil/rssskull
+          org.opencontainers.image.licenses=MIT
         cache-from: type=gha
         cache-to: type=gha,mode=max
         
