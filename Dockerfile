@@ -80,6 +80,9 @@ COPY --from=builder --chown=nodejs:nodejs /app/scripts ./scripts
 # Create data directory for SQLite
 RUN mkdir -p /app/data && chown nodejs:nodejs /app/data
 
+# Make entrypoint script executable (run as root before switching to nodejs user)
+RUN chmod +x /app/scripts/docker-entrypoint.sh
+
 # Switch to non-root user
 USER nodejs
 
@@ -91,4 +94,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8916/health || exit 1
 
 # Start the application with proper migration handling
-CMD ["/app/scripts/docker-entrypoint.sh"]
+CMD ["sh", "/app/scripts/docker-entrypoint.sh"]

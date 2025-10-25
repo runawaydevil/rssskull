@@ -1,5 +1,4 @@
-#!/bin/bash
-set -e
+﻿#!/bin/sh
 
 echo "🚀 Starting RSS Skull Bot..."
 
@@ -9,7 +8,7 @@ export DATABASE_URL='file:/app/data/production.db'
 
 # Apply migrations (works for both new and existing databases)
 echo "📋 Applying database migrations..."
-npx prisma migrate deploy --schema=./prisma/schema.prisma
+npx prisma migrate deploy --schema=./prisma/schema.prisma || echo "⚠️  Migrations may have failed, continuing anyway..."
 
 # Generate Prisma client
 echo "🔧 Generating Prisma client..."
