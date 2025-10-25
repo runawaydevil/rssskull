@@ -79,8 +79,12 @@ npm run dev
 git clone https://github.com/runawaydevil/rssskull.git
 cd rssskull
 
-# Start services
-docker-compose up -d
+# For clean deployment (will delete all data):
+docker-compose down -v
+docker-compose up -d --build
+
+# For updates preserving data:
+docker-compose up -d --build
 ```
 
 ### Using Docker Image
