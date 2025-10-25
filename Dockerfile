@@ -46,7 +46,7 @@ FROM node:20-slim AS production
 # Add metadata labels
 LABEL org.opencontainers.image.title="RSS Skull Bot"
 LABEL org.opencontainers.image.description="Modern, high-performance RSS to Telegram bot with Reddit JSON API, deduplication, and bilingual commands"
-LABEL org.opencontainers.image.version="0.2.2"
+LABEL org.opencontainers.image.version="0.5.0"
 LABEL org.opencontainers.image.authors="Pablo Murad <runawaydevil@pm.me>"
 LABEL org.opencontainers.image.url="https://github.com/runawaydevil/rssskull"
 LABEL org.opencontainers.image.source="https://github.com/runawaydevil/rssskull"

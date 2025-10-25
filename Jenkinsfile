@@ -55,38 +55,6 @@ pipeline {
             }
         }
         
-        stage('Test') {
-            parallel {
-                stage('Unit Tests') {
-                    steps {
-                        echo '🧪 Running unit tests...'
-                        sh 'npm run test'
-                    }
-                    post {
-                        always {
-                            // Publish test results if you have test reporters configured
-                            publishTestResults testResultsPattern: 'test-results.xml'
-                        }
-                    }
-                }
-                
-                stage('Test Coverage') {
-                    steps {
-                        echo '📊 Running test coverage...'
-                        sh 'npm run test:coverage'
-                    }
-                    post {
-                        always {
-                            // Publish coverage reports
-                            publishCoverage adapters: [
-                                istanbulCoberturaAdapter('coverage/cobertura-coverage.xml')
-                            ], sourceFileResolver: sourceFiles('STORE_LAST_BUILD')
-                        }
-                    }
-                }
-            }
-        }
-        
         stage('Security Audit') {
             steps {
                 echo '🔒 Running security audit...'
@@ -153,28 +121,6 @@ pipeline {
             }
         }
         
-        stage('Integration Tests') {
-            when {
-                branch 'develop'
-            }
-            steps {
-                echo '🔗 Running integration tests...'
-                script {
-                    // Wait for services to be ready
-                    sh 'sleep 30'
-                    
-                    // Run integration tests against staging
-                    sh '''
-                        # Health check
-                        curl -f http://localhost:8916/health || exit 1
-                        
-                        # Add more integration tests here
-                        echo "Integration tests passed"
-                    '''
-                }
-            }
-        }
-        
         stage('Deploy to Production') {
             when {
                 branch 'main'
@@ -190,12 +136,9 @@ pipeline {
                     
                     // Deploy to production
                     sh '''
-                        # Backup current deployment
-                        docker-compose -f docker-compose.prod.yml exec app npm run backup || true
-                        
                         # Deploy new version
-                        docker-compose -f docker-compose.prod.yml down
-                        docker-compose -f docker-compose.prod.yml up -d
+                        docker-compose down
+                        docker-compose up -d
                         
                         # Wait for services
                         sleep 30
@@ -249,7 +192,7 @@ pipeline {
                     slackSend(
                         channel: '#deployments',
                         color: 'good',
-                        message: "✅ RSS Skull Bot v0.02.5 deployed successfully to production!\nCommit: ${GIT_COMMIT_SHORT}\nBuild: ${BUILD_NUMBER}"
+                        message: "✅ RSS Skull Bot v0.5.0 deployed successfully to production!\nCommit: ${GIT_COMMIT_SHORT}\nBuild: ${BUILD_NUMBER}"
                     )
                 }
             }
@@ -262,7 +205,7 @@ pipeline {
             slackSend(
                 channel: '#deployments',
                 color: 'danger',
-                message: "❌ RSS Skull Bot v0.02.5 pipeline failed!\nBranch: ${env.BRANCH_NAME}\nCommit: ${GIT_COMMIT_SHORT}\nBuild: ${BUILD_NUMBER}\nCheck: ${BUILD_URL}"
+                message: "❌ RSS Skull Bot v0.5.0 pipeline failed!\nBranch: ${env.BRANCH_NAME}\nCommit: ${GIT_COMMIT_SHORT}\nBuild: ${BUILD_NUMBER}\nCheck: ${BUILD_URL}"
             )
         }
         

@@ -1,5 +1,7 @@
 # RSS Skull Bot
 
+![RSS Skull Bot](rssskull.png)
+
 Um bot moderno e de alta performance para Telegram que monitora feeds RSS e envia notificações em tempo real. Desenvolvido com TypeScript, Node.js e Docker.
 
 ## 🚀 Características

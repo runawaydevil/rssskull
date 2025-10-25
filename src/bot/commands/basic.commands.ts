@@ -5,7 +5,6 @@ import {
   CommandSchemas,
 } from '../handlers/command.handler.js';
 import { logger } from '../../utils/logger/logger.service.js';
-import { dockerLogsService } from '../../utils/docker-logs.service.js';
 
 /**
  * Start command handler
@@ -443,81 +442,4 @@ export class CircuitBreakerStatsCommand extends BaseCommandHandler {
   }
 }
 
-/**
- * Secret command to show recent logs
- */
-export class LogCommand extends BaseCommandHandler {
-  static create(): CommandHandler {
-    const instance = new LogCommand();
-    return {
-      name: 'log',
-      aliases: [],
-      description: 'Show recent logs (secret command)',
-      schema: CommandSchemas.noArgs,
-      handler: instance.validateAndExecute.bind(instance),
-    };
-  }
-
-  protected async execute(ctx: CommandContext): Promise<void> {
-    try {
-      // Show typing indicator
-      await ctx.reply('📋 Retrieving recent logs...');
-
-      // Get recent logs
-      const logs = await dockerLogsService.getRecentLogs(50);
-      const formattedLogs = dockerLogsService.formatLogsForTelegram(logs, 'Recent Logs (Last 50 lines)');
-
-      await ctx.reply(formattedLogs, { parse_mode: 'Markdown', link_preview_options: { is_disabled: false } });
-
-      logger.info('Log command executed', {
-        chatId: ctx.chatIdString,
-        userId: ctx.userId,
-        logCount: logs.length,
-      });
-
-    } catch (error) {
-      logger.error('Error in log command:', error);
-      await ctx.reply('❌ **Error retrieving logs**\n\nUnable to access Docker container logs.');
-    }
-  }
-}
-
-/**
- * Secret command to show recent error logs
- */
-export class LogErrorCommand extends BaseCommandHandler {
-  static create(): CommandHandler {
-    const instance = new LogErrorCommand();
-    return {
-      name: 'loge',
-      aliases: [],
-      description: 'Show recent error logs (secret command)',
-      schema: CommandSchemas.noArgs,
-      handler: instance.validateAndExecute.bind(instance),
-    };
-  }
-
-  protected async execute(ctx: CommandContext): Promise<void> {
-    try {
-      // Show typing indicator
-      await ctx.reply('🔍 Retrieving error logs...');
-
-      // Get recent error logs
-      const errorLogs = await dockerLogsService.getErrorLogs(50);
-      const formattedLogs = dockerLogsService.formatLogsForTelegram(errorLogs, 'Error Logs (Last 50 lines)');
-
-      await ctx.reply(formattedLogs, { parse_mode: 'Markdown', link_preview_options: { is_disabled: false } });
-
-      logger.info('Log error command executed', {
-        chatId: ctx.chatIdString,
-        userId: ctx.userId,
-        errorLogCount: errorLogs.length,
-      });
-
-    } catch (error) {
-      logger.error('Error in log error command:', error);
-      await ctx.reply('❌ **Error retrieving error logs**\n\nUnable to access Docker container logs.');
-    }
-  }
-}
 
