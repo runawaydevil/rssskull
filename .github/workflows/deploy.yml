@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -35,9 +35,9 @@ jobs:
         platforms: linux/amd64,linux/arm64
         push: true
         tags: |
-          ghcr.io/${{ github.repository }}/rss-skull-bot:latest
-          ghcr.io/${{ github.repository }}/rss-skull-bot:v0.5.0
-          ghcr.io/${{ github.repository }}/rss-skull-bot:${{ github.sha }}
+          ghcr.io/runawaydevil/rss-skull-bot:latest
+          ghcr.io/runawaydevil/rss-skull-bot:v0.5.0
+          ghcr.io/runawaydevil/rss-skull-bot:${{ github.sha }}
         labels: |
           org.opencontainers.image.title=RSS Skull Bot
           org.opencontainers.image.description=Modern RSS to Telegram Bot with Reddit support
