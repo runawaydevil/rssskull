@@ -44,10 +44,14 @@ services:
       - PORT=8916
       - HOST=0.0.0.0
       - LOG_LEVEL=info
+      # Reddit OAuth API credentials
+      - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID}
+      - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET}
+      - REDDIT_USERNAME=${REDDIT_USERNAME}
+      - REDDIT_PASSWORD=${REDDIT_PASSWORD}
       # - RSS_BRIDGE_HOST=http://rss-bridge:80  # Disabled
     volumes:
       - app_data:/app/data
-      - ./prisma:/app/prisma-copy
     depends_on:
       redis:
         condition: service_healthy
