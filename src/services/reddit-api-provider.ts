@@ -8,8 +8,7 @@ import type { RSSItem } from './rss.service.js';
  */
 export class RedditAPIProvider {
   constructor(
-    private tokenManager: RedditTokenManager,
-    private userAgent = 'RSSSkullBot/0.2'
+    private tokenManager: RedditTokenManager
   ) {
     logger.info('RedditAPIProvider initialized (OAuth)');
   }
@@ -32,27 +31,68 @@ export class RedditAPIProvider {
       const res = await fetch(url.toString(), {
         headers: {
           'Authorization': `bearer ${token}`,
-          'User-Agent': this.userAgent
+          'User-Agent': 'node:com.pablomurad.rssskull:0.5.0 (by /u/rasputinixx)'
         }
       });
+
+      // Verificar Content-Type ANTES de parsear
+      const contentType = res.headers.get('content-type') || '';
 
       // Handle rate limiting
       if (res.status === 429) {
         const retry = Number(res.headers.get('retry-after') ?? 10);
         logger.warn(`Reddit OAuth rate limited, retry after ${retry}s`);
-        throw new Error(`rate_limited:${retry}`);
+        const err = new Error(`rate_limited:${retry}`);
+        (err as any).status = 429;
+        throw err;
       }
 
-      // Handle authentication errors
+      // Handle authentication errors - USAR CLONE para ler body
       if (res.status === 401 || res.status === 403) {
-        logger.error(`Reddit OAuth auth failed: ${res.status}`);
-        throw new Error(`auth_failed:${res.status}`);
+        const copy = res.clone();
+        let snippet = '';
+        try {
+          const text = await copy.text();
+          snippet = text.substring(0, 600);
+        } catch {}
+        
+        logger.error(`Reddit OAuth auth failed: ${res.status} - Content-Type: ${contentType}`);
+        logger.error(`Response body snippet: ${snippet}`);
+        
+        const err = new Error(`auth_failed:${res.status}`);
+        (err as any).status = res.status;
+        throw err;
       }
 
       // Handle other errors
       if (!res.ok) {
-        logger.error(`Reddit OAuth API failed: ${res.status}`);
-        throw new Error(`reddit_api_fail:${res.status}`);
+        const copy = res.clone();
+        let snippet = '';
+        try {
+          const text = await copy.text();
+          snippet = text.substring(0, 400);
+        } catch {}
+        
+        logger.error(`Reddit OAuth API failed: ${res.status} - Content-Type: ${contentType}`);
+        logger.error(`Response body snippet: ${snippet}`);
+        
+        const err = new Error(`reddit_api_fail:${res.status}`);
+        (err as any).status = res.status;
+        throw err;
+      }
+
+      // Validar que é JSON antes de parsear
+      if (!/application\/json/i.test(contentType)) {
+        const copy = res.clone();
+        let snippet = '';
+        try { snippet = (await copy.text()).substring(0, 400); } catch {}
+        
+        logger.error(`Reddit OAuth returned non-JSON: ${contentType}`);
+        logger.error(`Response body snippet: ${snippet}`);
+        
+        const err = new Error(`unexpected_content_type:${contentType}`);
+        (err as any).status = 502;
+        throw err;
       }
 
       const json = await res.json();

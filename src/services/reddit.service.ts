@@ -205,19 +205,20 @@ export class RedditService {
       // Get realistic browser headers (User-Agent rotation handled automatically)
       const headers = userAgentService.getHeaders(url.toString());
       
-      // Use headers that mimic a real browser making a JSON request
-      headers['Accept'] = 'application/json, text/javascript, */*; q=0.01';
+      // User-Agent no formato recomendado pelo Reddit
+      headers['User-Agent'] = 'node:com.pablomurad.rssskull:0.5.0 (by /u/rasputinixx)';
+      headers['Accept'] = 'application/json';
       headers['Accept-Language'] = 'en-US,en;q=0.9,pt;q=0.8';
       headers['Accept-Encoding'] = 'gzip, deflate, br';
-      headers['Referer'] = `https://www.reddit.com/r/${subreddit}/`;
-      headers['Origin'] = 'https://www.reddit.com';
-      headers['DNT'] = '1';
-      headers['Connection'] = 'keep-alive';
-      headers['Upgrade-Insecure-Requests'] = '1';
-      headers['Cache-Control'] = 'no-cache';
-      headers['Pragma'] = 'no-cache';
-      
-      // Remove suspicious headers that might indicate automation
+
+      // Remover headers que podem causar bloqueio
+      delete headers['Referer'];
+      delete headers['Origin'];
+      delete headers['DNT'];
+      delete headers['Connection'];
+      delete headers['Upgrade-Insecure-Requests'];
+      delete headers['Cache-Control'];
+      delete headers['Pragma'];
       delete headers['Sec-Fetch-Dest'];
       delete headers['Sec-Fetch-Mode'];
       delete headers['Sec-Fetch-Site'];
@@ -248,7 +249,14 @@ export class RedditService {
       }
 
       if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Unknown error');
+        // USAR CLONE para não consumir o body original
+        const errorCopy = response.clone();
+        let errorText = '';
+        try {
+          errorText = await errorCopy.text();
+        } catch {
+          errorText = 'Unknown error';
+        }
         
         // Handle 403 Forbidden - trigger circuit breaker
         if (response.status === 403) {
@@ -263,7 +271,7 @@ export class RedditService {
         // Handle 429 Too Many Requests
         if (response.status === 429) {
           const retryAfter = response.headers.get('retry-after');
-          const waitTime = retryAfter ? parseInt(retryAfter, 10) * 1000 : 60000; // Default 60s
+          const waitTime = retryAfter ? parseInt(retryAfter, 10) * 1000 : 60000;
           logger.warn(`Reddit rate limit hit. Waiting ${waitTime}ms before retry`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
         }
@@ -272,6 +280,22 @@ export class RedditService {
         return {
           success: false,
           error: `Reddit API returned ${response.status}: ${errorText.substring(0, 100)}`,
+        };
+      }
+
+      // Validar Content-Type ANTES de parsear JSON
+      const contentType = response.headers.get('content-type') || '';
+      if (!/application\/json/i.test(contentType)) {
+        const copy = response.clone();
+        let snippet = '';
+        try { snippet = (await copy.text()).substring(0, 400); } catch {}
+        
+        logger.error(`Reddit returned non-JSON content: ${contentType}`);
+        logger.error(`Body snippet: ${snippet}`);
+        
+        return {
+          success: false,
+          error: `Reddit returned ${contentType} instead of JSON`,
         };
       }
 
@@ -422,15 +446,33 @@ export class RedditService {
         if (errorMessage.includes('auth_failed:403') || errorMessage.includes('auth_failed:401')) {
           this.handle403Error();
           logger.error(`Reddit OAuth authentication failed: ${errorMessage}`);
+          
+          // NÃO PROSSEGUIR para fallback - CB está aberto
+          // Retornar erro imediatamente
+          const remainingMinutes = Math.ceil((this.cbOpenUntil - Date.now()) / (60 * 1000));
+          return {
+            success: false,
+            error: `Circuit breaker open due to 403 errors. Try again in ${remainingMinutes} minutes`,
+          };
         } else {
           logger.warn(`Reddit OAuth API failed for r/${subreddit}, falling back to JSON API: ${errorMessage}`);
         }
       }
     }
 
-    // Fallback to JSON API (always available)
+    // Fallback to JSON API (always available) - MAS CHECAR CB ANTES
     const useJsonFallback = process.env.USE_REDDIT_JSON_FALLBACK !== 'false';
     if (useJsonFallback) {
+      // VERIFICAR SE CB ESTÁ ABERTO ANTES DE CHAMAR FALLBACK
+      if (this.isCircuitBreakerOpen()) {
+        const remainingMinutes = Math.ceil((this.cbOpenUntil - Date.now()) / (60 * 1000));
+        logger.warn(`Reddit circuit breaker is open. Skipping fallback for r/${subreddit}`);
+        return {
+          success: false,
+          error: `Circuit breaker open due to 403 errors. Try again in ${remainingMinutes} minutes`,
+        };
+      }
+      
       logger.info(`🔄 Using Reddit JSON API for r/${subreddit}`);
       const result = await this.fetchSubreddit(subreddit);
       
