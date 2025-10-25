@@ -72,6 +72,10 @@ COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/package.json ./
 COPY --from=builder --chown=nodejs:nodejs /app/prisma ./prisma
 
+# Copy initialization script
+COPY scripts/init-db.sh ./scripts/init-db.sh
+RUN chmod +x ./scripts/init-db.sh
+
 # Create data directory for SQLite
 RUN mkdir -p /app/data && chown nodejs:nodejs /app/data
 
@@ -86,4 +90,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8916/health || exit 1
 
 # Start the application
-CMD ["sh", "-c", "mkdir -p /app/data && export DATABASE_URL='file:/app/data/production.db' && echo '🔄 Running database migrations...' && npx prisma migrate reset --force --schema=./prisma/schema.prisma && echo '✅ Database migrations completed!' && echo '🔄 Generating Prisma client...' && npx prisma generate --schema=./prisma/schema.prisma && echo '✅ Prisma client generated!' && echo '🚀 Starting RSS Skull Bot...' && node dist/main.js"]
+CMD ["./scripts/init-db.sh"]
