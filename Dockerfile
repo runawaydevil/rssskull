@@ -86,4 +86,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8916/health || exit 1
 
 # Start the application
-CMD ["sh", "-c", "rm -rf /app/data/* && export DATABASE_URL='file:/app/data/production.db' && npx prisma migrate deploy --schema=./prisma/schema.prisma && npx prisma generate --schema=./prisma/schema.prisma && node dist/main.js"]
+CMD ["sh", "-c", "rm -rf /app/data/* && export DATABASE_URL='file:/app/data/production.db' && npx prisma migrate reset --force --schema=./prisma/schema.prisma && npx prisma generate --schema=./prisma/schema.prisma && node dist/main.js"]
