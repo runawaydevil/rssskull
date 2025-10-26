@@ -66,6 +66,18 @@ export function authMiddleware() {
         isAnonymousAdmin,
       });
 
+      // Check if user is allowed (if ALLOWED_USER_ID is set)
+      const { config } = await import('../../config/config.service.js');
+      if (config.app.allowedUserId && effectiveUserId && effectiveUserId !== config.app.allowedUserId) {
+        logger.warn('Unauthorized access attempt', {
+          chatId,
+          userId: effectiveUserId,
+          allowedUserId: config.app.allowedUserId,
+          chatType,
+        });
+        return; // Block processing
+      }
+
       // Enhanced logging for channel interactions
       if (isChannel) {
         logger.info('Channel interaction processed', {

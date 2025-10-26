@@ -25,6 +25,7 @@ const configSchema = z.object({
   app: z.object({
     logLevel: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
     environment: z.enum(['development', 'production', 'test']).default('development'),
+    allowedUserId: z.number().optional(),
   }),
 });
 
@@ -52,6 +53,7 @@ function loadConfig(): Config {
     app: {
       logLevel: (process.env.LOG_LEVEL as any) || (process.env.NODE_ENV === 'production' ? 'info' : 'warn'),
       environment: (process.env.NODE_ENV as any) || 'development',
+      allowedUserId: process.env.ALLOWED_USER_ID ? Number.parseInt(process.env.ALLOWED_USER_ID, 10) : undefined,
     },
   };
 
