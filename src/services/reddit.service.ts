@@ -355,12 +355,31 @@ export class RedditService {
         ? post.url 
         : `${this.apiBaseUrl}${post.permalink}`;
 
-      // Create description from selftext or post info
+      // Create description from selftext or detect media
       let description = '';
-      if (post.selftext) {
+      if (post.selftext && post.selftext.trim()) {
         description = post.selftext.substring(0, 500); // Limit description length
       } else {
-        description = `Score: ${post.score} | Comments: ${post.num_comments}`;
+        // Check if post contains media
+        const isImage = post.url.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+        const isVideo = post.url.match(/\.(mp4|webm|gifv)$/i) || post.url.includes('v.redd.it') || post.url.includes('youtube.com') || post.url.includes('youtu.be');
+        
+        if (isImage) {
+          description = '🖼️ Image';
+        } else if (isVideo) {
+          description = '🎥 Video';
+        } else if (post.url !== `${this.apiBaseUrl}${post.permalink}`) {
+          // External link
+          description = '🔗 Link';
+        }
+      }
+
+      // Always append the original Reddit post link
+      const redditPostLink = `${this.apiBaseUrl}${post.permalink}`;
+      if (description) {
+        description += `\n\n💬 [Reddit Discussion](${redditPostLink})`;
+      } else {
+        description = `💬 [Reddit Discussion](${redditPostLink})`;
       }
 
       return {
