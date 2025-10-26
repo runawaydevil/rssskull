@@ -11,6 +11,14 @@ import {
 } from '../handlers/command.handler.js';
 
 /**
+ * Escape special Markdown characters in text
+ */
+function escapeMarkdown(text: string): string {
+  // Escape underscores which break Telegram Markdown parsing
+  return text.replace(/_/g, '\\_');
+}
+
+/**
  * Add feed command handler
  */
 export class AddFeedCommand extends BaseCommandHandler {
@@ -53,19 +61,19 @@ export class AddFeedCommand extends BaseCommandHandler {
     });
 
     if (result.success) {
-      let message = `✅ **Feed added successfully!**\n\n📝 **Name:** ${name}`;
+      let message = `✅ **Feed added successfully!**\n\n📝 **Name:** ${escapeMarkdown(name)}`;
       
       // Add discovery/conversion info if available
       if (result.conversionInfo) {
         const { originalUrl, rssUrl, platform } = result.conversionInfo;
         
         if (platform?.startsWith('discovered-')) {
-          message += `\n🔍 **Auto-discovery:** Found feeds on ${originalUrl}`;
-          message += `\n🔗 **Feed used:** ${rssUrl}`;
-          message += `\n📊 **Source:** ${platform.replace('discovered-', '')}`;
+          message += `\n🔍 **Auto-discovery:** Found feeds on ${escapeMarkdown(originalUrl)}`;
+          message += `\n🔗 **Feed used:** ${escapeMarkdown(rssUrl)}`;
+          message += `\n📊 **Source:** ${escapeMarkdown(platform.replace('discovered-', ''))}`;
         } else if (platform) {
-          message += `\n🔄 **Conversion:** ${originalUrl} → ${rssUrl}`;
-          message += `\n🏷️ **Platform:** ${platform}`;
+          message += `\n🔄 **Conversion:** ${escapeMarkdown(originalUrl)} → ${escapeMarkdown(rssUrl)}`;
+          message += `\n🏷️ **Platform:** ${escapeMarkdown(platform)}`;
         }
       }
       
@@ -74,7 +82,7 @@ export class AddFeedCommand extends BaseCommandHandler {
       await ctx.reply(message, { parse_mode: 'Markdown', link_preview_options: { is_disabled: false } });
     } else {
       if (result.errors) {
-        const errorMessages = result.errors.map(error => `• ${error.message}`).join('\n');
+        const errorMessages = result.errors.map(error => `• ${escapeMarkdown(error.message)}`).join('\n');
         await ctx.reply(`❌ **Failed to add feed:**\n${errorMessages}`, { parse_mode: 'Markdown', link_preview_options: { is_disabled: false } });
       } else {
         await ctx.reply(ctx.t('error.internal'));
