@@ -51,14 +51,14 @@ export class FeedService {
     if (duplicateName) {
       return {
         success: false,
-        errors: [{ field: 'name', message: `Já existe um feed com o nome "${input.name}". Use um nome diferente.` }],
+        errors: [{ field: 'name', message: `A feed with the name "${input.name}" already exists. Use a different name.` }],
       };
     }
     
     if (duplicateUrl) {
       return {
         success: false,
-        errors: [{ field: 'url', message: `Já existe um feed com esta URL: "${input.url}". Verifique sua lista de feeds.` }],
+        errors: [{ field: 'url', message: `A feed with this URL already exists: "${input.url}". Check your feed list.` }],
       };
     }
 
