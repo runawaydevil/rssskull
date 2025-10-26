@@ -16,7 +16,7 @@ const messages = {
     // Help messages
     'help.title': '📚 *Available Commands:*',
     'help.feeds': '🔗 *Feed Management:*',
-    'help.settings': '⚙️ *Settings:*',
+    // 'help.settings': '⚙️ *Settings:*', // Disabled - settings don't affect system
     'help.other': 'ℹ️ *Other:*',
     'help.developer': '👨‍💻 *Developer:* Pablo Murad - https://github.com/runawaydevil',
     'help.reddit_cache': '⚠️ *Note:* Reddit feeds use fixed cache settings (20min TTL) for optimal performance.',
@@ -28,7 +28,7 @@ const messages = {
     'cmd.enable': '/enable <name> - Enable feed',
     'cmd.disable': '/disable <name> - Disable feed',
     'cmd.discover': '/discover <url> - Discover feeds from website',
-    'cmd.settings': '/settings - View chat settings',
+    // 'cmd.settings': '/settings - View chat settings', // Disabled - settings don't affect system
     'cmd.filters': '/filters <name> - Manage feed filters',
     'cmd.process': '/process - Manually process all feeds',
     'cmd.help': '/help - Show this message',
@@ -159,7 +159,7 @@ const messages = {
     // Help messages
     'help.title': '📚 *Comandos Disponíveis:*',
     'help.feeds': '🔗 *Gerenciamento de Feeds:*',
-    'help.settings': '⚙️ *Configurações:*',
+    // 'help.settings': '⚙️ *Configurações:*', // Disabled - settings don't affect system
     'help.other': 'ℹ️ *Outros:*',
     'help.developer': '👨‍💻 *Desenvolvedor:* Pablo Murad - https://github.com/runawaydevil',
     'help.reddit_cache': '⚠️ *Nota:* Feeds do Reddit usam configurações de cache fixas (20min TTL) para melhor performance.',
@@ -171,7 +171,7 @@ const messages = {
     'cmd.enable': '/habilitar <nome> - Habilitar feed',
     'cmd.disable': '/desabilitar <nome> - Desabilitar feed',
     'cmd.discover': '/descobrir <url> - Descobrir feeds de um site',
-    'cmd.settings': '/configuracoes - Ver configurações do chat',
+    // 'cmd.settings': '/configuracoes - Ver configurações do chat', // Disabled - settings don't affect system
     'cmd.filters': '/filtros <nome> - Gerenciar filtros do feed',
     'cmd.process': '/processar - Processar manualmente todos os feeds',
     'cmd.help': '/ajuda - Mostrar esta mensagem',

@@ -3,7 +3,7 @@ services:
     image: redis:7-alpine
     container_name: rss-skull-redis
     ports:
-      - "6380:6379"
+      - "63790:6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes

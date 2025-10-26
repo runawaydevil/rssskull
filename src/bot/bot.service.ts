@@ -23,7 +23,7 @@ import {
   ResetCircuitBreakerCommand,
   ResetCommand,
   ResetFeedCommand,
-  SettingsCommand,
+  // SettingsCommand, // Disabled - settings don't affect system
   StartCommand,
   StatsCommand,
 } from './commands/index.js';
@@ -330,7 +330,7 @@ export class BotService {
     this.commandRouter.register(EnableFeedCommand.create());
     this.commandRouter.register(DisableFeedCommand.create());
     this.commandRouter.register(DiscoverFeedsCommand.create());
-    this.commandRouter.register(SettingsCommand.create());
+    // this.commandRouter.register(SettingsCommand.create()); // Disabled - settings don't affect system
     this.commandRouter.register(FiltersCommand.create());
     this.commandRouter.register(PingCommand.create());
     this.commandRouter.register(ResetCommand.create());
@@ -764,7 +764,7 @@ export class BotService {
                     'welcome.help': 'Use /help to see all available commands.',
                     'help.title': '📚 *Available Commands:*',
                     'help.feeds': '🔗 *Feed Management:*',
-                    'help.settings': '⚙️ *Settings:*',
+                    // 'help.settings': '⚙️ *Settings:*', // Disabled - settings don't affect system
                     'help.stats': '📊 *Statistics:*',
                     'help.other': 'ℹ️ *Other:*',
                     'help.developer': '👨‍💻 *Developer:* Pablo Murad - https://github.com/runawaydevil',
@@ -773,7 +773,7 @@ export class BotService {
                     'cmd.remove': '/remove <name> - Remove feed',
                     'cmd.enable': '/enable <name> - Enable feed',
                     'cmd.disable': '/disable <name> - Disable feed',
-                    'cmd.settings': '/settings - View chat settings',
+                    // 'cmd.settings': '/settings - View chat settings', // Disabled - settings don't affect system
                     'cmd.filters': '/filters <name> - Manage feed filters',
                     'cmd.stats': '/stats - View usage statistics',
                     'cmd.help': '/help - Show this message',
