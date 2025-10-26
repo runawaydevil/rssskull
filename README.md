@@ -35,6 +35,8 @@ A powerful, feature-rich Telegram bot that fetches RSS feeds and delivers conten
 - **Interactive Commands**: `/add`, `/remove`, `/list`, `/help`
 - **Real-time Notifications**: Instant feed updates
 - **Channel Management**: Support for multiple channels
+- **Access Control**: Optional user ID whitelist (respond only to owner)
+- **Feed Limits**: Global limit of 100 feeds across all chats
 - **Error Handling**: Graceful error recovery and user feedback
 
 ## 🚀 Quick Start
@@ -149,7 +151,7 @@ Data is automatically persisted across container restarts and updates.
 |----------|-------------|---------|
 | `NODE_ENV` | Environment | `production` |
 | `LOG_LEVEL` | Log level | `info` |
-| `MAX_FEEDS_PER_CHAT` | Max feeds per chat | `50` |
+| `ALLOWED_USER_ID` | Restrict bot to specific user (optional) | `undefined` |
 
 ### Reddit App Setup (Optional)
 
@@ -175,7 +177,6 @@ For enhanced Reddit support with OAuth API:
 | `/list` | List all monitored feeds |
 | `/status` | Show bot status and statistics |
 | `/filters` | Manage content filters |
-| `/settings` | Configure bot settings |
 
 ## 🏗️ Architecture
 
