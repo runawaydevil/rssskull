@@ -1,6 +1,6 @@
 # RSS Skull Bot
 
-![RSS Skull Bot](rssskull.png =200x200)
+<img src="rssskull.png" alt="RSS Skull Bot" width="200" height="200" />
 
 > **Modern RSS to Telegram Bot with Reddit OAuth API Integration**
 
