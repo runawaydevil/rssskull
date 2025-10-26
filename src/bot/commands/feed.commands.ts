@@ -326,7 +326,7 @@ export class DiscoverFeedsCommand extends BaseCommandHandler {
       }
 
       if (result.feeds.length === 0) {
-        await ctx.reply(`❌ No feeds found on ${normalizedUrl}\n\nTry checking if the website has RSS/Atom feeds available.`);
+        await ctx.reply(`😤 Feed not found on ${normalizedUrl}\n\nThe website does not have any RSS/Atom feeds available.`);
         return;
       }
 

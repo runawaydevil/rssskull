@@ -61,6 +61,19 @@ export class FeedService {
         errors: [{ field: 'url', message: `Já existe um feed com esta URL: "${input.url}". Verifique sua lista de feeds.` }],
       };
     }
+
+    // Check global feed limit (100 feeds across all chats)
+    const totalFeedsCount = await this.feedRepository.countAll();
+    if (totalFeedsCount >= 100) {
+      return {
+        success: false,
+        errors: [{ 
+          field: 'limit', 
+          message: `System limit reached: ${totalFeedsCount}/100 feeds. Please remove unused feeds before adding new ones.` 
+        }],
+      };
+    }
+
     try {
       // Validate input
       const validationErrors = await this.validateFeedInput(input);
@@ -152,11 +165,17 @@ export class FeedService {
                   );
                 }
               } else {
-                // Both conversion and discovery failed, use original URL as fallback
+                // Both conversion and discovery failed
                 logger.warn(
-                  `Both URL conversion and feed discovery failed for ${input.url}. Using original URL as RSS.`
+                  `Both URL conversion and feed discovery failed for ${input.url}. Attempting to use original URL.`
                 );
-                rssUrl = input.url;
+                return {
+                  success: false,
+                  errors: [{ 
+                    field: 'url', 
+                    message: `😤 Feed not found. Unable to discover or convert feed from "${input.url}". Please verify the URL has an RSS/Atom feed.` 
+                  }],
+                };
               }
             }
           }

@@ -172,6 +172,10 @@ export class FeedRepository extends AbstractRepository<
     });
   }
 
+  async countAll(): Promise<number> {
+    return this.prisma.feed.count();
+  }
+
   async addFilter(feedId: string, filterData: Prisma.FeedFilterCreateInput): Promise<FeedFilter> {
     return this.prisma.feedFilter.create({
       data: {
