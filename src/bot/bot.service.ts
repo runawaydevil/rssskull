@@ -16,8 +16,8 @@ import {
   HelpCommand,
   ListFeedsCommand,
   PingCommand,
-  ProcessFeedCommand,
-  ProcessFeedsCommand,
+  // ProcessFeedCommand, // Disabled - command no longer used
+  // ProcessFeedsCommand, // Disabled - command no longer used
   ReloadFeedsCommand,
   RemoveFeedCommand,
   ResetCircuitBreakerCommand,
@@ -340,8 +340,8 @@ export class BotService {
     
     // Secret/debug commands (not listed in help)
     this.commandRouter.register(StatsCommand.create());
-    this.commandRouter.register(ProcessFeedsCommand.create());
-    this.commandRouter.register(ProcessFeedCommand.create());
+    // this.commandRouter.register(ProcessFeedsCommand.create()); // Disabled - command no longer used
+    // this.commandRouter.register(ProcessFeedCommand.create()); // Disabled - command no longer used
     this.commandRouter.register(ResetFeedCommand.create());
     this.commandRouter.register(FeedStatusCommand.create());
     this.commandRouter.register(ReloadFeedsCommand.create());
