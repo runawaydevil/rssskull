@@ -103,6 +103,6 @@ jobs:
               body: `Release da versão v${version} do ${name}`,
               draft: false,
               prerelease: false,
-              make_latest: true
+              make_latest: "true"
             });
 
