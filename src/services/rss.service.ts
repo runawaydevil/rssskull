@@ -391,8 +391,17 @@ export class RSSService {
     if (lastItemIndex === 0) {
       logger.info(`🔍 DEBUG: Feed ${url} - lastItemId found at position 0`);
       
-      // For Reddit, check if there are items with newer timestamps
-      // This handles cases where new posts have different IDs but same timestamp
+      // If the first item in the feed is DIFFERENT from lastItemId, it's a new item!
+      // This handles cases where Reddit returns a different post at the top
+      const firstItem = items[0];
+      if (firstItem && firstItem.id !== lastItemId) {
+        logger.info(`🔍 REDDIT DEBUG: First item changed! Old lastItemId: ${lastItemId}, New first item: ${firstItem.id}`);
+        logger.info(`🔍 REDDIT DEBUG: Returning only the new top item: ${firstItem.id}`);
+        return { items: [firstItem], totalItemsCount, firstItemId };
+      }
+      
+      // For Reddit, check if there are items with newer timestamps (fallback logic)
+      // This handles edge cases where posts have same timestamp
       if (url.includes('reddit.com')) {
         // Find the lastItemId in the feed to get its timestamp
         const lastItem = items.find(item => item.id === lastItemId);
@@ -410,12 +419,16 @@ export class RSSService {
           
           if (newerItems.length > 0) {
             logger.info(`🔍 REDDIT DEBUG: Found ${newerItems.length} posts >= lastItemId timestamp`);
+            logger.info(`🔍 REDDIT DEBUG: newerItems IDs: ${newerItems.map(i => i.id).join(', ')}`);
             // Return items that are NOT the lastItemId (exclude the known item itself)
             const trulyNewItems = newerItems.filter(item => item.id !== lastItemId);
             
+            logger.info(`🔍 REDDIT DEBUG: After filtering lastItemId (${lastItemId}): ${trulyNewItems.length} truly new items`);
             if (trulyNewItems.length > 0) {
               logger.info(`🔍 REDDIT DEBUG: Returning ${trulyNewItems.length} truly new posts (excluding known item)`);
               return { items: trulyNewItems, totalItemsCount, firstItemId };
+            } else {
+              logger.info(`🔍 REDDIT DEBUG: All newer items were filtered out (they were the lastItemId itself)`);
             }
           }
         }
