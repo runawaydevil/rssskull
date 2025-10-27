@@ -400,6 +400,17 @@ export class RSSService {
         return { items: [firstItem], totalItemsCount, firstItemId };
       }
       
+      // Check for staleness - warn if first post is very old
+      if (firstItem && firstItem.pubDate) {
+        const itemAge = Date.now() - firstItem.pubDate.getTime();
+        const oneHourMs = 60 * 60 * 1000;
+        
+        if (itemAge > oneHourMs && firstItem.id === lastItemId) {
+          logger.warn(`⚠️ STALENESS: First post in ${url} is ${Math.round(itemAge / 60000)} minutes old and no new items detected`);
+          logger.warn(`⚠️ This may indicate Reddit JSON API cache issues - consider using OAuth API`);
+        }
+      }
+      
       // For Reddit, check if there are items with newer timestamps (fallback logic)
       // This handles edge cases where posts have same timestamp
       if (url.includes('reddit.com')) {

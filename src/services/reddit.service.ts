@@ -496,6 +496,51 @@ export class RedditService {
       const result = await this.fetchSubreddit(subreddit);
       
       if (result.success && result.feed) {
+        // NEW: If JSON API succeeds but feed seems stale, try OAuth as fallback
+        const firstPost = result.feed.items[0];
+        
+        // Check if OAuth fallback should be attempted
+        const shouldTryOAuth = this.apiProvider && 
+                               this.tokenManager && 
+                               firstPost?.pubDate &&
+                               (Date.now() - firstPost.pubDate.getTime()) > (60 * 60 * 1000); // 1 hour
+
+        if (shouldTryOAuth && firstPost.pubDate) {
+          const ageMinutes = Math.round((Date.now() - firstPost.pubDate.getTime()) / 60000);
+          logger.warn(`⚠️ JSON API returned stale data (>${ageMinutes} min old)`);
+          logger.info(`🔄 Attempting OAuth API fallback for fresher data...`);
+          
+          try {
+            const accessToken = await this.tokenManager!.getValidToken('reddit');
+            if (accessToken) {
+              const oauthItems = await this.apiProvider!.fetchNew(subreddit);
+              
+              if (oauthItems.length > 0) {
+                const oauthFirstPost = oauthItems[0];
+                logger.info(`✅ OAuth returned ${oauthItems.length} posts (vs ${result.feed.items.length} from JSON)`);
+                
+                // Use OAuth data if it has newer posts
+                if (oauthFirstPost?.pubDate && oauthFirstPost.pubDate > firstPost.pubDate) {
+                  logger.info(`✅ OAuth has newer data (${oauthFirstPost.pubDate.toISOString()} vs ${firstPost.pubDate.toISOString()}), using OAuth feed`);
+                  return { 
+                    success: true, 
+                    feed: {
+                      title: `r/${subreddit}`,
+                      link: `${this.apiBaseUrl}/r/${subreddit}`,
+                      items: oauthItems,
+                    }
+                  };
+                } else if (oauthFirstPost?.pubDate && oauthFirstPost.pubDate.getTime() === firstPost.pubDate.getTime()) {
+                  logger.info(`⚠️ OAuth returned same timestamp, keeping JSON data`);
+                }
+              }
+            }
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+            logger.warn(`OAuth fallback failed, using JSON data: ${errorMsg}`);
+          }
+        }
+        
         return { success: true, feed: result.feed };
       }
       
