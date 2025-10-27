@@ -25,13 +25,37 @@ if echo "$MIGRATE_STATUS" | grep -q "failed"; then
   fi
 fi
 
+# Check for specific known migration issues (duplicate columns, etc.)
+if echo "$MIGRATE_STATUS" | grep -q "20251024174900_add_notification_timestamps.*failed"; then
+  echo "⚠️  Known issue: duplicate columns in migration 20251024174900"
+  echo "🔧 Marking this migration as applied (columns already exist)"
+  npx prisma migrate resolve --applied 20251024174900_add_notification_timestamps --schema=./prisma/schema.prisma || true
+fi
+
 # Try to deploy migrations
-if npx prisma migrate deploy --schema=./prisma/schema.prisma; then
+DEPLOY_OUTPUT=$(npx prisma migrate deploy --schema=./prisma/schema.prisma 2>&1)
+DEPLOY_EXIT=$?
+
+if [ $DEPLOY_EXIT -eq 0 ]; then
   echo "✅ Migrations applied successfully"
 else
+  echo "$DEPLOY_OUTPUT"
   echo "⚠️  Migrations failed, attempting fallback..."
-  # If deploy still fails, try to ignore the error and continue
-  # The database might already be in the correct state
+  
+  # Check if the error is about duplicate columns
+  if echo "$DEPLOY_OUTPUT" | grep -q "duplicate column"; then
+    echo "🔍 Detected duplicate column error"
+    FAILED_MIG=$(echo "$DEPLOY_OUTPUT" | grep "Migration name:" | sed 's/.*Migration name: //' || echo "")
+    if [ -n "$FAILED_MIG" ]; then
+      echo "🔧 Marking duplicate column migration as applied: $FAILED_MIG"
+      npx prisma migrate resolve --applied "$FAILED_MIG" --schema=./prisma/schema.prisma || true
+      
+      # Try deploying again
+      echo "🔄 Retrying migration deployment..."
+      npx prisma migrate deploy --schema=./prisma/schema.prisma || echo "⚠️  Second attempt failed, continuing anyway..."
+    fi
+  fi
+  
   echo "🔄 Continuing with startup despite migration errors..."
 fi
 
