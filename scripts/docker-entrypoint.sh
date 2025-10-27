@@ -25,13 +25,6 @@ if echo "$MIGRATE_STATUS" | grep -q "failed"; then
   fi
 fi
 
-# Check for specific known migration issues (duplicate columns, etc.)
-if echo "$MIGRATE_STATUS" | grep -q "20251024174900_add_notification_timestamps.*failed"; then
-  echo "⚠️  Known issue: duplicate columns in migration 20251024174900"
-  echo "🔧 Marking this migration as applied (columns already exist)"
-  npx prisma migrate resolve --applied 20251024174900_add_notification_timestamps --schema=./prisma/schema.prisma || true
-fi
-
 # Try to deploy migrations
 DEPLOY_OUTPUT=$(npx prisma migrate deploy --schema=./prisma/schema.prisma 2>&1)
 DEPLOY_EXIT=$?
