@@ -35,6 +35,9 @@ COPY scripts/ ./scripts/
 # Generate Prisma client with correct binary targets
 RUN npx prisma generate --schema=./prisma/schema.prisma
 
+# Fix line endings for shell scripts (convert CRLF to LF)
+RUN sed -i 's/\r$//' /app/scripts/docker-entrypoint.sh
+
 # Make entrypoint script executable
 RUN chmod +x /app/scripts/docker-entrypoint.sh
 
@@ -79,6 +82,9 @@ COPY --from=builder --chown=nodejs:nodejs /app/scripts ./scripts
 
 # Create data directory for SQLite
 RUN mkdir -p /app/data && chown nodejs:nodejs /app/data
+
+# Fix line endings for shell scripts (convert CRLF to LF)
+RUN sed -i 's/\r$//' /app/scripts/docker-entrypoint.sh
 
 # Make entrypoint script executable (run as root before switching to nodejs user)
 RUN chmod +x /app/scripts/docker-entrypoint.sh
