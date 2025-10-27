@@ -1,4 +1,4 @@
-﻿#!/bin/sh
+#!/bin/sh
 
 echo "🚀 Starting RSS Skull Bot..."
 

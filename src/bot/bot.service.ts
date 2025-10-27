@@ -1036,6 +1036,21 @@ export class BotService {
         logger.error('❌ Failed to start bot with runner:', error);
         console.error('❌ Failed to start bot with runner:', error);
         
+        // Check for 409 Conflict error (multiple instances)
+        if (error && typeof error === 'object' && 'error_code' in error && error.error_code === 409) {
+          logger.error('🔴 Conflict detected: Another bot instance is running');
+          logger.info('⏳ Waiting 5 seconds before retry...');
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          
+          // Retry deleting webhook
+          try {
+            await this.bot.api.deleteWebhook({ drop_pending_updates: true });
+            logger.info('✅ Webhook cleared on retry');
+          } catch (webhookError) {
+            logger.warn('Webhook clear failed on retry:', webhookError);
+          }
+        }
+        
         // Fallback to regular polling
         logger.info('🔄 Falling back to regular polling...');
         console.log('🔄 Falling back to regular polling...');

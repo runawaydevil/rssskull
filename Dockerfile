@@ -35,8 +35,9 @@ COPY scripts/ ./scripts/
 # Generate Prisma client with correct binary targets
 RUN npx prisma generate --schema=./prisma/schema.prisma
 
-# Fix line endings for shell scripts (convert CRLF to LF)
-RUN sed -i 's/\r$//' /app/scripts/docker-entrypoint.sh
+# Fix line endings and remove BOM from shell scripts
+RUN sed -i 's/\r$//' /app/scripts/docker-entrypoint.sh && \
+    sed -i '1s/^[[:space:]]*//' /app/scripts/docker-entrypoint.sh
 
 # Make entrypoint script executable
 RUN chmod +x /app/scripts/docker-entrypoint.sh
@@ -83,8 +84,9 @@ COPY --from=builder --chown=nodejs:nodejs /app/scripts ./scripts
 # Create data directory for SQLite
 RUN mkdir -p /app/data && chown nodejs:nodejs /app/data
 
-# Fix line endings for shell scripts (convert CRLF to LF)
-RUN sed -i 's/\r$//' /app/scripts/docker-entrypoint.sh
+# Fix line endings and remove BOM from shell scripts  
+RUN sed -i 's/\r$//' /app/scripts/docker-entrypoint.sh && \
+    sed -i '1s/^[[:space:]]*//' /app/scripts/docker-entrypoint.sh
 
 # Make entrypoint script executable (run as root before switching to nodejs user)
 RUN chmod +x /app/scripts/docker-entrypoint.sh
@@ -99,5 +101,5 @@ EXPOSE 8916
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8916/health || exit 1
 
-# Start the application with proper migration handling
-CMD ["sh", "/app/scripts/docker-entrypoint.sh"]
+# Start the application with proper migration handling (explicitly call sh to avoid shebang issues)
+CMD ["/bin/sh", "/app/scripts/docker-entrypoint.sh"]
