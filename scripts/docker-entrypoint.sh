@@ -9,19 +9,27 @@ export DATABASE_URL='file:/app/data/production.db'
 # Apply migrations (works for both new and existing databases)
 echo "📋 Applying database migrations..."
 
-# First, check migration status
-MIGRATE_STATUS=$(npx prisma migrate status --schema=./prisma/schema.prisma 2>&1 || true)
-echo "$MIGRATE_STATUS"
+# Check if database exists, if not create it first
+if [ ! -f /app/data/production.db ]; then
+  echo "📝 Database doesn't exist, creating it..."
+  touch /app/data/production.db
+fi
 
-# Check if there are failed migrations
-if echo "$MIGRATE_STATUS" | grep -q "failed"; then
-  echo "⚠️  Found failed migrations, attempting to resolve..."
-  # The last failed migration is usually the one causing issues
-  # Mark it as rolled back and then we can reapply
-  FAILED_MIG=$(echo "$MIGRATE_STATUS" | grep "failed" | tail -1 | awk '{print $1}' || echo "")
-  if [ -n "$FAILED_MIG" ]; then
-    echo "🔧 Marking migration as rolled back: $FAILED_MIG"
-    npx prisma migrate resolve --rolled-back "$FAILED_MIG" --schema=./prisma/schema.prisma || true
+# Try to check migration status only if database exists and has tables
+MIGRATE_STATUS=$(npx prisma migrate status --schema=./prisma/schema.prisma 2>&1 || echo "")
+if [ -n "$MIGRATE_STATUS" ]; then
+  echo "$MIGRATE_STATUS"
+  
+  # Check if there are failed migrations
+  if echo "$MIGRATE_STATUS" | grep -q "failed"; then
+    echo "⚠️  Found failed migrations, attempting to resolve..."
+    # The last failed migration is usually the one causing issues
+    # Mark it as rolled back and then we can reapply
+    FAILED_MIG=$(echo "$MIGRATE_STATUS" | grep "failed" | tail -1 | awk '{print $1}' || echo "")
+    if [ -n "$FAILED_MIG" ]; then
+      echo "🔧 Marking migration as rolled back: $FAILED_MIG"
+      npx prisma migrate resolve --rolled-back "$FAILED_MIG" --schema=./prisma/schema.prisma || true
+    fi
   fi
 fi
 
