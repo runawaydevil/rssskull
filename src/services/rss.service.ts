@@ -389,6 +389,30 @@ export class RSSService {
     // If lastItemIndex is 0, it means the lastItemId is still the most recent item
     // No new items to return, but always update to current first item
     if (lastItemIndex === 0) {
+      logger.info(`🔍 DEBUG: Feed ${url} - lastItemId found at position 0`);
+      
+      // For Reddit, check if there are items with newer timestamps
+      // This handles cases where new posts have different IDs but same timestamp
+      if (url.includes('reddit.com')) {
+        // Find the lastItemId in the feed to get its timestamp
+        const lastItem = items.find(item => item.id === lastItemId);
+        const lastItemDate = lastItem?.pubDate;
+        if (lastItemDate) {
+          logger.info(`🔍 REDDIT DEBUG: Checking for posts newer than ${lastItemDate.toISOString()}`);
+          
+          // Find items newer than the lastItemId by timestamp
+          const newerItems = items.filter(item => {
+            if (!item.pubDate) return false;
+            return item.pubDate > lastItemDate;
+          });
+          
+          if (newerItems.length > 0) {
+            logger.info(`🔍 REDDIT DEBUG: Found ${newerItems.length} posts newer than lastItemId by timestamp`);
+            return { items: newerItems, totalItemsCount, firstItemId };
+          }
+        }
+      }
+      
       logger.info(`🔍 DEBUG: Feed ${url} - No new items, lastItemId still at top`);
       return { items: [], totalItemsCount, firstItemId };
     }
