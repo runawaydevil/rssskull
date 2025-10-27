@@ -400,15 +400,23 @@ export class RSSService {
         if (lastItemDate) {
           logger.info(`🔍 REDDIT DEBUG: Checking for posts newer than ${lastItemDate.toISOString()}`);
           
-          // Find items newer than the lastItemId by timestamp
+          // Find items with timestamp >= lastItemId (include items with same timestamp)
+          // This catches posts that were created after the lastItemId was saved
           const newerItems = items.filter(item => {
             if (!item.pubDate) return false;
-            return item.pubDate > lastItemDate;
+            // Include items that are >= lastItemDate (catch same-timestamp posts)
+            return item.pubDate >= lastItemDate;
           });
           
           if (newerItems.length > 0) {
-            logger.info(`🔍 REDDIT DEBUG: Found ${newerItems.length} posts newer than lastItemId by timestamp`);
-            return { items: newerItems, totalItemsCount, firstItemId };
+            logger.info(`🔍 REDDIT DEBUG: Found ${newerItems.length} posts >= lastItemId timestamp`);
+            // Return items that are NOT the lastItemId (exclude the known item itself)
+            const trulyNewItems = newerItems.filter(item => item.id !== lastItemId);
+            
+            if (trulyNewItems.length > 0) {
+              logger.info(`🔍 REDDIT DEBUG: Returning ${trulyNewItems.length} truly new posts (excluding known item)`);
+              return { items: trulyNewItems, totalItemsCount, firstItemId };
+            }
           }
         }
       }
