@@ -38,6 +38,8 @@ async function bootstrap() {
     try {
       logger.info('🔄 Running database migrations...');
       const { execSync } = await import('child_process');
+      // Prisma CLI is now in dependencies, so it should be available directly
+      // Use npx as it handles PATH issues in Docker containers
       execSync('npx prisma migrate deploy --schema=./prisma/schema.prisma', { 
         stdio: 'inherit',
         timeout: 30000 

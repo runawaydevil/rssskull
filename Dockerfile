@@ -38,9 +38,9 @@ RUN npx prisma generate --schema=./prisma/schema.prisma
 # Build the application with optimizations
 RUN npm run build
 
-# Install only production dependencies and regenerate Prisma client for production
-RUN npm ci --only=production --no-audit --no-fund && \
-    npx prisma generate --schema=./prisma/schema.prisma
+# Install only production dependencies
+# Note: Prisma CLI is needed for migrations at runtime, so we keep it as production dependency
+RUN npm ci --only=production --no-audit --no-fund
 
 # Fix line endings and make scripts executable
 RUN sed -i 's/\r$//' /app/scripts/*.sh && \
