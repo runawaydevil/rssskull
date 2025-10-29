@@ -111,3 +111,56 @@ model AuthState {
   
   @@unique([provider])
 }
+
+model ConnectionState {
+  id                    String   @id @default(cuid())
+  service               String   // 'telegram', 'reddit', 'rss'
+  status                String   // 'connected', 'disconnected', 'recovering', 'circuit_open'
+  lastSuccessfulCall    DateTime @default(now())
+  consecutiveFailures   Int      @default(0)
+  currentRetryDelay     Int      @default(0) // milliseconds
+  nextRetryAt           DateTime @default(now())
+  totalDowntime         Int      @default(0) // milliseconds
+  lastErrorCode         Int?
+  lastErrorDescription  String?
+  lastErrorType         String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@unique([service])
+}
+
+model HealthMetric {
+  id           String   @id @default(cuid())
+  timestamp    DateTime @default(now())
+  service      String   // 'telegram', 'reddit', 'rss'
+  metricType   String   // 'connection_attempt', 'message_sent', 'error_occurred'
+  success      Boolean
+  responseTime Int?     // milliseconds
+  errorCode    String?
+  metadata     String?  // JSON string for additional data
+  createdAt    DateTime @default(now())
+  
+  @@index([service, timestamp])
+  @@index([metricType, timestamp])
+}
+
+model QueuedMessage {
+  id           String   @id @default(cuid())
+  chatId       String
+  messageData  String   // JSON serialized message content
+  priority     Int      @default(2) // 1=LOW, 2=NORMAL, 3=HIGH, 4=CRITICAL
+  enqueuedAt   DateTime @default(now())
+  processedAt  DateTime?
+  retryCount   Int      @default(0)
+  maxRetries   Int      @default(3)
+  expiresAt    DateTime
+  lastError    String?
+  status       String   @default("pending") // 'pending', 'processing', 'sent', 'failed', 'expired'
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([status, priority, enqueuedAt])
+  @@index([expiresAt])
+  @@index([chatId])
+}

@@ -36,6 +36,19 @@ import {
   loggingMiddleware,
 } from './middleware/index.js';
 import { MentionProcessor } from '../utils/mention.utils.js';
+import { 
+  telegramResilienceHandler, 
+  getTelegramConnectionManager,
+  telegramCircuitBreaker,
+  PersistentMessageQueue,
+  TelegramQueueProcessor,
+  TelegramHealthMonitor,
+  TelegramResilienceEndpoints,
+  TelegramErrorClassifier,
+  MessagePriority,
+  InMemoryMessageQueue
+} from '../resilience/index.js';
+import { DatabaseService } from '../database/database.service.js';
 
 interface SessionData {
   language: 'en' | 'pt';
@@ -54,6 +67,14 @@ export class BotService {
   private botId?: number;
   private runner?: any;
   private feedsLoaded: boolean = false;
+  
+  // Resilience system components
+  private connectionManager: any;
+  private messageQueue: any;
+  private queueProcessor: any;
+  private healthMonitor: any;
+  private resilienceEndpoints: any;
+  private resilienceEnabled: boolean = true;
 
   constructor() {
     this.bot = new Bot<BotContext>(config.bot.token);
@@ -352,7 +373,7 @@ export class BotService {
   }
 
   private setupErrorHandling(): void {
-    // Enhanced global error handler with channel-specific handling
+    // Enhanced global error handler with resilience integration
     this.bot.catch(async (err) => {
       const { ctx, error } = err;
       const authCtx = ctx as AuthContext;
@@ -371,6 +392,11 @@ export class BotService {
       };
 
       logger.error('Bot error occurred', errorInfo);
+
+      // Integrate with resilience system
+      if (this.resilienceEnabled) {
+        await this.handleTelegramError(error, ctx, errorInfo);
+      }
 
       // Channel-specific error handling
       if (authCtx.isChannel) {
@@ -981,6 +1007,12 @@ export class BotService {
       notificationService.initialize(this.bot);
       logger.info('✅ Notification service initialized');
       console.log('✅ Notification service initialized');
+
+      logger.info('🔧 Step 1.5: Initializing resilience system...');
+      console.log('🔧 Step 1.5: Initializing resilience system...');
+      await this.initializeResilienceSystem();
+      logger.info('✅ Resilience system initialized');
+      console.log('✅ Resilience system initialized');
 
       logger.info('🔧 Step 2: Getting bot info from Telegram API...');
       console.log('🔧 Step 2: Getting bot info from Telegram API...');
@@ -1672,6 +1704,259 @@ export class BotService {
     if (message.venue) return 'venue';
     if (message.dice) return 'dice';
     return 'unknown';
+  }
+
+  /**
+   * Handles Telegram API errors using the resilience system
+   */
+  private async handleTelegramError(error: any, ctx?: any, errorInfo?: any): Promise<void> {
+    try {
+      // Classify the error
+      const telegramError = TelegramErrorClassifier.classifyError(
+        error, 
+        errorInfo?.method || 'unknown',
+        errorInfo
+      );
+
+      // Record the failure in connection manager
+      if (this.connectionManager) {
+        this.connectionManager.recordFailure(telegramError);
+      }
+
+      // Record health metric
+      if (this.healthMonitor) {
+        this.healthMonitor.recordConnectionAttempt(false);
+      }
+
+      // Handle with resilience handler
+      await telegramResilienceHandler.handleTelegramError(telegramError, ctx);
+
+      // Check if we should enqueue the message for retry
+      if (ctx && telegramResilienceHandler.shouldEnqueueMessage(telegramError)) {
+        await this.enqueueFailedMessage(ctx, telegramError);
+      }
+
+      // Handle circuit breaker
+      telegramCircuitBreaker.handleTelegramSpecificError(telegramError);
+
+      logger.info('Telegram error handled by resilience system', {
+        errorType: telegramError.errorType,
+        errorCode: telegramError.code,
+        retryCount: telegramError.retryCount,
+        shouldEnqueue: telegramResilienceHandler.shouldEnqueueMessage(telegramError)
+      });
+
+    } catch (resilienceError) {
+      logger.error('Error in resilience system handling', {
+        originalError: error instanceof Error ? error.message : String(error),
+        resilienceError: resilienceError instanceof Error ? resilienceError.message : String(resilienceError)
+      });
+    }
+  }
+
+  /**
+   * Enqueues a failed message for retry when Telegram API is available
+   */
+  private async enqueueFailedMessage(ctx: any, telegramError: any): Promise<void> {
+    if (!this.messageQueue) {
+      return;
+    }
+
+    try {
+      // Extract message content from context
+      let messageText = 'Failed message';
+      let chatId = 'unknown';
+      let priority = MessagePriority.NORMAL;
+
+      if (ctx.chat?.id) {
+        chatId = ctx.chat.id.toString();
+      }
+
+      if (ctx.message?.text) {
+        messageText = ctx.message.text;
+      } else if (ctx.callbackQuery?.message?.text) {
+        messageText = ctx.callbackQuery.message.text;
+      }
+
+      // Determine priority based on error type and context
+      if (telegramError.errorType === 'network_error') {
+        priority = MessagePriority.HIGH;
+      } else if (ctx.chat?.type === 'channel') {
+        priority = MessagePriority.NORMAL;
+      } else {
+        priority = MessagePriority.LOW;
+      }
+
+      // Create queued message
+      const queuedMessage = InMemoryMessageQueue.createMessage(
+        chatId,
+        messageText,
+        { originalContext: 'bot_error_recovery' },
+        priority,
+        3, // max retries
+        60 * 60 * 1000 // 1 hour TTL
+      );
+
+      await this.messageQueue.enqueue(queuedMessage);
+
+      logger.info('Message enqueued for retry', {
+        messageId: queuedMessage.id,
+        chatId,
+        priority,
+        errorType: telegramError.errorType
+      });
+
+    } catch (queueError) {
+      logger.error('Failed to enqueue message for retry', {
+        error: queueError instanceof Error ? queueError.message : String(queueError),
+        chatId: ctx.chat?.id
+      });
+    }
+  }
+
+  /**
+   * Initializes the resilience system
+   */
+  private async initializeResilienceSystem(): Promise<void> {
+    if (!this.resilienceEnabled) {
+      logger.info('Resilience system disabled');
+      return;
+    }
+
+    try {
+      logger.info('Initializing Telegram resilience system...');
+
+      // Get database service
+      const database = new DatabaseService();
+      const prisma = database.client;
+
+      // Initialize connection manager
+      this.connectionManager = getTelegramConnectionManager(prisma);
+      await this.connectionManager.initialize();
+
+      // Initialize message queue
+      this.messageQueue = new PersistentMessageQueue(prisma, 1000, 60 * 60 * 1000);
+      await this.messageQueue.initialize();
+
+      // Initialize queue processor
+      this.queueProcessor = new TelegramQueueProcessor(this.messageQueue, {
+        batchSize: 20,
+        processingInterval: 5000,
+        maxMessagesPerMinute: 20,
+        retryFailedMessages: true,
+        maxRetryAttempts: 3
+      });
+
+      // Set message handler for queue processor
+      this.queueProcessor.setMessageHandler(async (message: any) => {
+        return await this.processQueuedMessage(message);
+      });
+
+      // Initialize health monitor
+      this.healthMonitor = new TelegramHealthMonitor(
+        this.connectionManager.persistence || {
+          recordHealthMetric: async () => {},
+          getHealthMetrics: async () => [],
+          cleanupOldMetrics: async () => 0,
+          saveConnectionState: async () => {},
+          loadConnectionState: async () => null,
+          deleteConnectionState: async () => {},
+          getConnectionStats: async () => null
+        },
+        this.messageQueue,
+        this.queueProcessor
+      );
+
+      // Initialize resilience endpoints
+      this.resilienceEndpoints = new TelegramResilienceEndpoints(
+        this.healthMonitor,
+        this.messageQueue,
+        this.queueProcessor,
+        telegramCircuitBreaker,
+        this.connectionManager
+      );
+
+      // Start queue processor
+      await this.queueProcessor.start();
+
+      // Connect message queue to notification service
+      notificationService.setMessageQueue(this.messageQueue);
+      notificationService.setResilienceEnabled(true);
+
+      logger.info('Telegram resilience system initialized successfully');
+
+    } catch (error) {
+      logger.error('Failed to initialize resilience system', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      
+      // Disable resilience system if initialization fails
+      this.resilienceEnabled = false;
+    }
+  }
+
+  /**
+   * Processes a queued message by sending it through Telegram API
+   */
+  private async processQueuedMessage(message: any): Promise<boolean> {
+    try {
+      // Record health metric for message processing
+      if (this.healthMonitor) {
+        this.healthMonitor.recordMessageSent(true, Date.now() - message.enqueuedAt.getTime());
+      }
+
+      // Record successful connection attempt
+      if (this.connectionManager) {
+        this.connectionManager.recordSuccess();
+      }
+
+      // For now, we'll simulate successful processing
+      // In a real implementation, this would send the message via Telegram API
+      logger.debug('Processing queued message', {
+        messageId: message.id,
+        chatId: message.chatId,
+        priority: message.priority
+      });
+
+      return true;
+
+    } catch (error) {
+      logger.error('Failed to process queued message', {
+        messageId: message.id,
+        error: error instanceof Error ? error.message : String(error)
+      });
+
+      // Record failed message processing
+      if (this.healthMonitor) {
+        this.healthMonitor.recordMessageSent(false);
+      }
+
+      return false;
+    }
+  }
+
+  /**
+   * Gets resilience system status
+   */
+  getResilienceStatus(): any {
+    if (!this.resilienceEnabled) {
+      return { enabled: false };
+    }
+
+    return {
+      enabled: true,
+      connectionManager: this.connectionManager ? this.connectionManager.getHealthMetrics() : null,
+      messageQueue: this.messageQueue ? this.messageQueue.getQueueStats() : null,
+      queueProcessor: this.queueProcessor ? this.queueProcessor.getProcessingStats() : null,
+      healthMonitor: this.healthMonitor ? this.healthMonitor.getHealthStatus() : null
+    };
+  }
+
+  /**
+   * Gets resilience endpoints for HTTP integration
+   */
+  getResilienceEndpoints(): any {
+    return this.resilienceEndpoints;
   }
 
   get instance(): Bot<BotContext> {

@@ -2,6 +2,12 @@ import type { Bot } from 'grammy';
 import { logger } from '../utils/logger/logger.service.js';
 import type { RSSItem } from './rss.service.js';
 import { TemplateService, type TemplateVariables } from './template.service.js';
+import { 
+  TelegramErrorClassifier, 
+  telegramCircuitBreaker, 
+  MessagePriority, 
+  InMemoryMessageQueue 
+} from '../resilience/index.js';
 
 export interface MessageTemplate {
   title?: string;
@@ -29,6 +35,10 @@ export class NotificationService {
   private readonly maxMessageLength = 4096; // Telegram's message length limit
   private readonly rateLimitDelay = 100; // 100ms between messages to avoid rate limits (reduced for tests)
   private lastMessageTime = 0;
+  
+  // Resilience system integration
+  private messageQueue: any = null;
+  private resilienceEnabled: boolean = true;
 
   /**
    * Initialize the notification service with a bot instance
@@ -39,7 +49,7 @@ export class NotificationService {
   }
 
   /**
-   * Send a notification message to a chat
+   * Send a notification message to a chat with resilience support
    */
   async sendMessage(message: NotificationMessage): Promise<SendResult> {
     if (!this.bot) {
@@ -47,6 +57,22 @@ export class NotificationService {
         success: false,
         error: 'Bot not initialized',
       };
+    }
+
+    // Check circuit breaker before attempting to send
+    if (this.resilienceEnabled) {
+      const canExecute = await telegramCircuitBreaker.canExecute('telegram_api');
+      if (!canExecute) {
+        logger.warn('Circuit breaker is open, queuing message', {
+          chatId: message.chatId
+        });
+        
+        await this.enqueueMessage(message, MessagePriority.NORMAL);
+        return {
+          success: false,
+          error: 'Circuit breaker open - message queued for retry'
+        };
+      }
     }
 
     try {
@@ -58,10 +84,17 @@ export class NotificationService {
 
       logger.debug(`Sending message to chat ${message.chatId}: ${content.substring(0, 100)}...`);
 
+      const startTime = Date.now();
       const result = await this.bot.api.sendMessage(message.chatId, content, {
         parse_mode: message.parseMode,
         link_preview_options: { is_disabled: message.disableWebPagePreview ?? true },
       });
+      const responseTime = Date.now() - startTime;
+
+      // Record successful operation in resilience system
+      if (this.resilienceEnabled) {
+        telegramCircuitBreaker.recordSuccess('telegram_api', responseTime);
+      }
 
       // 🔥 LOG ESPECÍFICO PARA MENSAGENS ENVIADAS AO TELEGRAM
       logger.info(`📤 TELEGRAM MESSAGE SENT - Chat: ${message.chatId} | Message ID: ${result.message_id} | Content Preview: ${content.substring(0, 150)}...`);
@@ -77,6 +110,11 @@ export class NotificationService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error(`Failed to send message to chat ${message.chatId}:`, errorMessage);
+
+      // Handle error with resilience system
+      if (this.resilienceEnabled) {
+        await this.handleSendError(error, message);
+      }
 
       return {
         success: false,
@@ -337,6 +375,171 @@ export class NotificationService {
       hour: '2-digit',
       minute: '2-digit',
     });
+  }
+
+  /**
+   * Sets the message queue for resilience support
+   */
+  setMessageQueue(messageQueue: any): void {
+    this.messageQueue = messageQueue;
+    logger.info('Message queue set for notification service');
+  }
+
+  /**
+   * Enables or disables resilience features
+   */
+  setResilienceEnabled(enabled: boolean): void {
+    this.resilienceEnabled = enabled;
+    logger.info(`Resilience ${enabled ? 'enabled' : 'disabled'} for notification service`);
+  }
+
+  /**
+   * Handles send errors with resilience system
+   */
+  private async handleSendError(error: any, message: NotificationMessage): Promise<void> {
+    try {
+      // Classify the error
+      const telegramError = TelegramErrorClassifier.classifyError(
+        error,
+        'sendMessage',
+        { chatId: message.chatId }
+      );
+
+      // Record failure in circuit breaker
+      telegramCircuitBreaker.recordFailure('telegram_api');
+
+      // Handle specific error types
+      telegramCircuitBreaker.handleTelegramSpecificError(telegramError);
+
+      // Determine if message should be queued for retry
+      const shouldQueue = this.shouldQueueMessage(telegramError);
+      
+      if (shouldQueue) {
+        const priority = this.determinePriority(message, telegramError);
+        await this.enqueueMessage(message, priority);
+        
+        logger.info('Message queued for retry due to error', {
+          chatId: message.chatId,
+          errorType: telegramError.errorType,
+          errorCode: telegramError.code,
+          priority
+        });
+      }
+
+    } catch (resilienceError) {
+      logger.error('Error in resilience error handling', {
+        originalError: error instanceof Error ? error.message : String(error),
+        resilienceError: resilienceError instanceof Error ? resilienceError.message : String(resilienceError)
+      });
+    }
+  }
+
+  /**
+   * Enqueues a message for retry
+   */
+  private async enqueueMessage(message: NotificationMessage, priority: MessagePriority): Promise<void> {
+    if (!this.messageQueue) {
+      logger.warn('Message queue not available, cannot enqueue message', {
+        chatId: message.chatId
+      });
+      return;
+    }
+
+    try {
+      const queuedMessage = InMemoryMessageQueue.createMessage(
+        message.chatId,
+        message.content,
+        {
+          parseMode: message.parseMode,
+          disableWebPagePreview: message.disableWebPagePreview,
+          originalSource: 'notification_service'
+        },
+        priority,
+        3, // max retries
+        60 * 60 * 1000 // 1 hour TTL
+      );
+
+      await this.messageQueue.enqueue(queuedMessage);
+
+      logger.debug('Message enqueued successfully', {
+        messageId: queuedMessage.id,
+        chatId: message.chatId,
+        priority
+      });
+
+    } catch (queueError) {
+      logger.error('Failed to enqueue message', {
+        chatId: message.chatId,
+        error: queueError instanceof Error ? queueError.message : String(queueError)
+      });
+    }
+  }
+
+  /**
+   * Determines if a message should be queued based on error type
+   */
+  private shouldQueueMessage(telegramError: any): boolean {
+    // Queue messages for recoverable errors
+    switch (telegramError.errorType) {
+      case 'network_error':
+      case 'server_error':
+      case 'timeout':
+      case 'connection_refused':
+        return true;
+      case 'rate_limited':
+        return true; // Queue rate limited messages for later retry
+      case 'client_error':
+        return false; // Don't queue client errors (4xx)
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Determines message priority based on content and error type
+   */
+  private determinePriority(message: NotificationMessage, telegramError: any): MessagePriority {
+    // High priority for network errors (need quick retry)
+    if (telegramError.errorType === 'network_error') {
+      return MessagePriority.HIGH;
+    }
+
+    // Normal priority for server errors
+    if (telegramError.errorType === 'server_error') {
+      return MessagePriority.NORMAL;
+    }
+
+    // Low priority for rate limited messages (can wait)
+    if (telegramError.errorType === 'rate_limited') {
+      return MessagePriority.LOW;
+    }
+
+    // Determine priority based on content
+    const content = message.content.toLowerCase();
+    
+    // Critical for error messages
+    if (content.includes('error') || content.includes('❌') || content.includes('failed')) {
+      return MessagePriority.CRITICAL;
+    }
+
+    // High for warnings
+    if (content.includes('warning') || content.includes('⚠️')) {
+      return MessagePriority.HIGH;
+    }
+
+    // Normal for regular feed updates
+    return MessagePriority.NORMAL;
+  }
+
+  /**
+   * Gets resilience status for monitoring
+   */
+  getResilienceStatus(): any {
+    return {
+      resilienceEnabled: this.resilienceEnabled,
+      hasMessageQueue: !!this.messageQueue,
+      queueSize: this.messageQueue ? this.messageQueue.size() : 0
+    };
   }
 }
 

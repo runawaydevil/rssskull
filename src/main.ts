@@ -39,7 +39,7 @@ async function bootstrap() {
       logger: false, // We use our own logger
     });
 
-    // Health check endpoint
+    // Enhanced health check endpoint with resilience
     fastify.get('/health', async (_, reply) => {
       try {
         const checks = {
@@ -50,6 +50,13 @@ async function bootstrap() {
           memory: process.memoryUsage(),
           mode: 'full-bot',
         };
+
+        // Add resilience system health if available
+        const resilienceEndpoints = botService.getResilienceEndpoints();
+        if (resilienceEndpoints) {
+          const resilienceHealth = await resilienceEndpoints.getHealthStatus();
+          checks.resilience = resilienceHealth;
+        }
 
         const isHealthy = checks.database && checks.redis;
 
@@ -108,6 +115,50 @@ async function bootstrap() {
         circuitBreaker: circuitBreakerService.getStats(),
         timestamp: new Date().toISOString(),
       };
+    });
+
+    // Resilience stats endpoint
+    fastify.get('/resilience-stats', async (_, reply) => {
+      try {
+        const resilienceEndpoints = botService.getResilienceEndpoints();
+        if (resilienceEndpoints) {
+          return await resilienceEndpoints.getResilienceStats();
+        } else {
+          reply.code(503);
+          return {
+            error: 'Resilience system not available',
+            timestamp: new Date().toISOString()
+          };
+        }
+      } catch (error) {
+        reply.code(500);
+        return {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          timestamp: new Date().toISOString()
+        };
+      }
+    });
+
+    // Detailed metrics endpoint
+    fastify.get('/metrics', async (_, reply) => {
+      try {
+        const resilienceEndpoints = botService.getResilienceEndpoints();
+        if (resilienceEndpoints) {
+          return await resilienceEndpoints.getDetailedMetrics();
+        } else {
+          reply.code(503);
+          return {
+            error: 'Resilience system not available',
+            timestamp: new Date().toISOString()
+          };
+        }
+      } catch (error) {
+        reply.code(500);
+        return {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          timestamp: new Date().toISOString()
+        };
+      }
     });
 
     // Initialize job service

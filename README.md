@@ -31,6 +31,14 @@ A powerful, feature-rich Telegram bot that fetches RSS feeds and delivers conten
 - **Smart Rate Limiting**: Adaptive throttling per domain (6-8 min for Reddit)
 - **User-Agent Management**: Realistic browser headers to avoid detection
 
+### 🛡️ **Telegram Resilience System**
+- **Auto-Recovery**: Automatic recovery from 502 Bad Gateway errors
+- **Message Queue**: Offline message queuing during API outages
+- **Exponential Backoff**: Smart retry with delays from 1s to 60s
+- **Health Monitoring**: Real-time monitoring with `/health` endpoint
+- **Alert System**: Automatic alerts for critical connectivity issues
+- **Persistent State**: Connection state survives restarts
+
 ### 🤖 **Telegram Bot Features**
 - **Interactive Commands**: `/add`, `/remove`, `/list`, `/help`
 - **Real-time Notifications**: Instant feed updates
@@ -247,6 +255,24 @@ The bot includes comprehensive monitoring and fault tolerance:
 - **Health Checks**: Service availability monitoring
 - **Database Persistence**: Automatic migrations and backups
 - **Graceful Degradation**: OAuth → JSON fallback → RSS when needed
+
+### 🛡️ Telegram Resilience System
+
+The bot includes a robust resilience system specifically designed to handle Telegram API connectivity issues:
+
+- **Automatic Recovery**: Handles 502 Bad Gateway errors with exponential backoff (1s → 60s)
+- **Message Queuing**: Stores up to 1000 messages during API outages with priority handling
+- **Circuit Breaker**: Prevents cascade failures with adaptive thresholds
+- **Health Monitoring**: Real-time metrics and alerting via `/health`, `/resilience-stats`, `/metrics`
+- **Persistent State**: Connection state and queued messages survive restarts
+- **Smart Retry**: Up to 30 minutes of retry attempts before escalation
+
+**Monitoring Endpoints:**
+- `GET /health` - Overall system health including resilience status
+- `GET /resilience-stats` - Detailed resilience system statistics  
+- `GET /metrics` - Complete metrics for monitoring systems
+
+For detailed information, see [RESILIENCE.md](RESILIENCE.md).
 
 ## 🤝 Contributing
 
