@@ -9,6 +9,10 @@ import { cacheService } from './utils/cache.service.js';
 import { cacheHTTPService } from './utils/cache-http.service.js';
 import { userAgentService } from './utils/user-agent.service.js';
 import { circuitBreakerService } from './utils/circuit-breaker.service.js';
+import { memoryMonitorService } from './utils/memory-monitor.service.js';
+import { errorRecoveryService } from './utils/error-recovery.service.js';
+import { resourceCleanupService } from './utils/resource-cleanup.service.js';
+import { autoRecoveryService } from './utils/auto-recovery.service.js';
 
 async function bootstrap() {
   try {
@@ -42,12 +46,17 @@ async function bootstrap() {
     // Enhanced health check endpoint with resilience
     fastify.get('/health', async (_, reply) => {
       try {
+        const memoryStats = memoryMonitorService.getMemoryStats();
         const checks: any = {
           database: await database.healthCheck(),
           redis: await jobService.healthCheck(),
           timestamp: new Date().toISOString(),
           uptime: process.uptime(),
-          memory: process.memoryUsage(),
+          memory: {
+            ...process.memoryUsage(),
+            usagePercent: Math.round(memoryStats.usagePercent * 100),
+            usageMB: Math.round(memoryStats.rss / 1024 / 1024)
+          },
           mode: 'full-bot',
         };
 
@@ -62,6 +71,13 @@ async function bootstrap() {
           // Resilience system may not be initialized yet, continue without it
           checks.resilience = { status: 'not_available', error: 'Resilience system not initialized' };
         }
+
+        // Add stability monitoring health
+        checks.stability = {
+          memoryMonitor: !!memoryMonitorService,
+          errorRecovery: errorRecoveryService.getStats(),
+          resourceCleanup: resourceCleanupService.getStats()
+        };
 
         const isHealthy = checks.database && checks.redis;
 
@@ -111,6 +127,7 @@ async function bootstrap() {
     // Stats endpoint (general)
     fastify.get('/stats', async () => {
       const feedQueueStats = await feedQueueService.getStats();
+      const memoryStats = memoryMonitorService.getMemoryStats();
       
       return {
         feedQueue: feedQueueStats,
@@ -118,6 +135,14 @@ async function bootstrap() {
         cacheHTTP: cacheHTTPService.getStats(),
         userAgent: userAgentService.getStats(),
         circuitBreaker: circuitBreakerService.getStats(),
+        memory: {
+          usageMB: Math.round(memoryStats.rss / 1024 / 1024),
+          usagePercent: Math.round(memoryStats.usagePercent * 100),
+          heapUsedMB: Math.round(memoryStats.heapUsed / 1024 / 1024),
+          heapTotalMB: Math.round(memoryStats.heapTotal / 1024 / 1024)
+        },
+        errorRecovery: errorRecoveryService.getStats(),
+        resourceCleanup: resourceCleanupService.getStats(),
         timestamp: new Date().toISOString(),
       };
     });
@@ -174,6 +199,26 @@ async function bootstrap() {
     logger.info('📋 Feed queue service initialized');
     console.log('📋 Feed queue service initialized');
 
+    // Start memory monitoring
+    logger.info('🧠 Starting memory monitor...');
+    console.log('🧠 Starting memory monitor...');
+    memoryMonitorService.start();
+
+    // Start error recovery service
+    logger.info('🔧 Starting error recovery service...');
+    console.log('🔧 Starting error recovery service...');
+    errorRecoveryService.start();
+
+    // Start resource cleanup service
+    logger.info('🧹 Starting resource cleanup service...');
+    console.log('🧹 Starting resource cleanup service...');
+    resourceCleanupService.start();
+
+    // Start auto-recovery service
+    logger.info('🔄 Starting auto-recovery service...');
+    console.log('🔄 Starting auto-recovery service...');
+    autoRecoveryService.start();
+
     // Initialize bot with timeout
     logger.info('🤖 Creating BotService instance...');
     console.log('🤖 Creating BotService instance...');
@@ -210,6 +255,10 @@ async function bootstrap() {
     const shutdown = async () => {
       logger.info('Shutting down gracefully...');
       try {
+        memoryMonitorService.stop();
+        errorRecoveryService.stop();
+        resourceCleanupService.stop();
+        autoRecoveryService.stop();
         await botService.stop();
         await feedQueueService.close();
         await jobService.close();
@@ -226,15 +275,14 @@ async function bootstrap() {
     process.once('SIGINT', shutdown);
     process.once('SIGTERM', shutdown);
     
-    // Handle uncaught exceptions
+    // Enhanced error handling with recovery
     process.on('uncaughtException', (error) => {
-      logger.error('Uncaught Exception:', error);
-      shutdown();
+      errorRecoveryService.interceptUncaughtException(error);
     });
     
     process.on('unhandledRejection', (reason, promise) => {
-      logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-      shutdown();
+      const error = reason instanceof Error ? reason : new Error(String(reason));
+      errorRecoveryService.interceptUnhandledRejection(error, promise);
     });
   } catch (error) {
     logger.error('❌ Failed to start application:', error);
