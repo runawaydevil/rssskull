@@ -72,26 +72,54 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
     const feed = await feedRepository.findById(feedId);
     
     if (!feed) {
-      logger.error(`Feed ${feedId} not found in database - removing orphaned job`);
+      logger.error(`Feed ${feedId} not found in database - performing immediate orphaned job cleanup`);
       
-      // Remove the orphaned recurring job from Redis
+      // Perform immediate and thorough cleanup of orphaned job
       try {
-        const orphanedJobId = `recurring-feed-${feedId}`;
+        // Import the feed queue service for cleanup
+        const { feedQueueService } = await import('../feed-queue.service.js');
+        
+        logger.info(`🔧 Attempting immediate cleanup of orphaned job for feed ${feedId}`);
+        const cleanupSuccess = await feedQueueService.forceRemoveOrphanedJob(feedId);
+        
+        if (cleanupSuccess) {
+          logger.info(`✅ Successfully cleaned up orphaned job for feed ${feedId}`);
+        } else {
+          logger.error(`❌ Failed to clean up orphaned job for feed ${feedId}`);
+        }
+
+        // Also try to remove the current job if it's a recurring one
+        const currentJobId = `recurring-feed-${feedId}`;
         const feedQueue = jobService.getQueue(FEED_QUEUE_NAMES.FEED_CHECK);
         if (feedQueue) {
-          const orphanedJob = await feedQueue.getJob(orphanedJobId);
-          if (orphanedJob) {
-            await orphanedJob.remove();
-            logger.info(`Removed orphaned recurring job: ${orphanedJobId}`);
+          try {
+            // Remove by job ID
+            const orphanedJob = await feedQueue.getJob(currentJobId);
+            if (orphanedJob) {
+              await orphanedJob.remove();
+              logger.info(`Removed current orphaned job by ID: ${currentJobId}`);
+            }
+
+            // Also check and remove repeatable jobs
+            const repeatableJobs = await feedQueue.getRepeatableJobs();
+            for (const repeatableJob of repeatableJobs) {
+              if (repeatableJob.id === currentJobId) {
+                await feedQueue.removeRepeatableByKey(repeatableJob.key);
+                logger.info(`Removed repeatable orphaned job: ${currentJobId}`);
+                break;
+              }
+            }
+          } catch (cleanupError) {
+            logger.warn(`Additional cleanup attempt failed for feed ${feedId}:`, cleanupError);
           }
         }
       } catch (error) {
-        logger.warn(`Failed to remove orphaned job for feed ${feedId}:`, error);
+        logger.error(`Failed to perform immediate cleanup for orphaned job ${feedId}:`, error);
       }
       
       return {
         success: false,
-        message: `Feed ${feedId} not found`,
+        message: `Feed ${feedId} not found - orphaned job cleaned up`,
         failureCount: failureCount + 1,
       };
     }

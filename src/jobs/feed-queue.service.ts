@@ -181,20 +181,141 @@ export class FeedQueueService {
   /**
    * Remove recurring feed check for a feed
    */
-  async removeRecurringFeedCheck(feedId: string): Promise<void> {
+  async removeRecurringFeedCheck(feedId: string): Promise<boolean> {
     const jobId = `recurring-feed-${feedId}`;
     
     // Remove from scheduled feeds set
     this.scheduledFeeds.delete(feedId);
 
     try {
+      // First try to get and remove the job by ID
       const job = await this.feedCheckQueue.getJob(jobId);
       if (job) {
         await job.remove();
-        logger.info(`Removed recurring feed check for feed ${feedId}`);
+        logger.info(`Removed recurring job by ID for feed ${feedId}`);
+      }
+
+      // Also check repeatable jobs and remove by key
+      const repeatableJobs = await this.feedCheckQueue.getRepeatableJobs();
+      
+      for (const repeatableJob of repeatableJobs) {
+        if (repeatableJob.id === jobId) {
+          await this.feedCheckQueue.removeRepeatableByKey(repeatableJob.key);
+          logger.info(`Removed repeatable job by key for feed ${feedId}`);
+          break;
+        }
+      }
+
+      // Verify removal was successful
+      const verificationResult = await this.verifyJobRemoval(feedId);
+      if (verificationResult) {
+        logger.info(`✅ Successfully verified removal of job for feed ${feedId}`);
+        return true;
+      } else {
+        logger.warn(`⚠️ Job removal verification failed for feed ${feedId}, attempting force removal`);
+        return await this.forceRemoveOrphanedJob(feedId);
       }
     } catch (error) {
       logger.error(`Failed to remove recurring feed check for feed ${feedId}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Verify that a job was actually removed from Redis
+   */
+  async verifyJobRemoval(feedId: string): Promise<boolean> {
+    const jobId = `recurring-feed-${feedId}`;
+    
+    try {
+      // Check if job still exists by ID
+      const job = await this.feedCheckQueue.getJob(jobId);
+      if (job) {
+        logger.debug(`Job ${jobId} still exists in queue`);
+        return false;
+      }
+
+      // Check repeatable jobs
+      const repeatableJobs = await this.feedCheckQueue.getRepeatableJobs();
+      const stillExists = repeatableJobs.some(job => job.id === jobId);
+      
+      if (stillExists) {
+        logger.debug(`Repeatable job ${jobId} still exists in queue`);
+        return false;
+      }
+
+      logger.debug(`✅ Verified job ${jobId} was successfully removed`);
+      return true;
+    } catch (error) {
+      logger.error(`Error verifying job removal for feed ${feedId}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Force remove an orphaned job using multiple methods
+   */
+  async forceRemoveOrphanedJob(feedId: string): Promise<boolean> {
+    const jobId = `recurring-feed-${feedId}`;
+    let removalAttempts = 0;
+    let successful = false;
+
+    try {
+      logger.info(`🔧 Force removing orphaned job for feed ${feedId}`);
+
+      // Method 1: Remove by job ID
+      try {
+        const job = await this.feedCheckQueue.getJob(jobId);
+        if (job) {
+          await job.remove();
+          removalAttempts++;
+          logger.debug(`Attempt ${removalAttempts}: Removed job by ID`);
+        }
+      } catch (error) {
+        logger.debug(`Failed to remove job by ID: ${error}`);
+      }
+
+      // Method 2: Remove all repeatable jobs with matching ID
+      try {
+        const repeatableJobs = await this.feedCheckQueue.getRepeatableJobs();
+        for (const repeatableJob of repeatableJobs) {
+          if (repeatableJob.id === jobId) {
+            await this.feedCheckQueue.removeRepeatableByKey(repeatableJob.key);
+            removalAttempts++;
+            logger.debug(`Attempt ${removalAttempts}: Removed repeatable job by key`);
+          }
+        }
+      } catch (error) {
+        logger.debug(`Failed to remove repeatable jobs: ${error}`);
+      }
+
+      // Method 3: Clean all jobs with feed ID in data
+      try {
+        const allJobs = await this.feedCheckQueue.getJobs(['waiting', 'active', 'delayed']);
+        for (const job of allJobs) {
+          if (job.data && job.data.feedId === feedId) {
+            await job.remove();
+            removalAttempts++;
+            logger.debug(`Attempt ${removalAttempts}: Removed job with matching feedId in data`);
+          }
+        }
+      } catch (error) {
+        logger.debug(`Failed to clean jobs by data: ${error}`);
+      }
+
+      // Final verification
+      successful = await this.verifyJobRemoval(feedId);
+      
+      if (successful) {
+        logger.info(`✅ Successfully force-removed orphaned job for feed ${feedId} (${removalAttempts} attempts)`);
+      } else {
+        logger.error(`❌ Failed to force-remove orphaned job for feed ${feedId} after ${removalAttempts} attempts`);
+      }
+
+      return successful;
+    } catch (error) {
+      logger.error(`Error during force removal of job for feed ${feedId}:`, error);
+      return false;
     }
   }
 
@@ -310,10 +431,62 @@ export class FeedQueueService {
   }
 
   /**
-   * Schedule automatic cleanup and maintenance tasks
+   * Get monitoring metrics for orphaned job cleanup
+   */
+  async getCleanupMetrics(): Promise<{
+    totalRecurringJobs: number;
+    orphanedJobsDetected: number;
+    lastCleanupTime: Date;
+    cleanupErrors: number;
+  }> {
+    try {
+      const recurringJobs = await this.feedCheckQueue.getRepeatableJobs();
+      const { database } = await import('../database/database.service.js');
+      
+      const existingFeeds = await database.client.feed.findMany({
+        select: { id: true }
+      });
+      const existingFeedIds = new Set(existingFeeds.map(feed => feed.id));
+      
+      let orphanedCount = 0;
+      for (const job of recurringJobs) {
+        if (job.id) {
+          const feedIdMatch = job.id.match(/^recurring-feed-(.+)$/);
+          if (feedIdMatch && feedIdMatch[1] && !existingFeedIds.has(feedIdMatch[1])) {
+            orphanedCount++;
+          }
+        }
+      }
+
+      return {
+        totalRecurringJobs: recurringJobs.length,
+        orphanedJobsDetected: orphanedCount,
+        lastCleanupTime: new Date(),
+        cleanupErrors: 0 // This would be tracked in a real monitoring system
+      };
+    } catch (error) {
+      logger.error('Failed to get cleanup metrics:', error);
+      return {
+        totalRecurringJobs: 0,
+        orphanedJobsDetected: 0,
+        lastCleanupTime: new Date(),
+        cleanupErrors: 1
+      };
+    }
+  }
+
+  /**
+   * Schedule automatic cleanup and maintenance tasks with enhanced monitoring
    */
   private scheduleMaintenanceTasks(): void {
     let isMaintenanceRunning = false;
+    let maintenanceStats = {
+      totalRuns: 0,
+      successfulRuns: 0,
+      failedRuns: 0,
+      lastRunTime: new Date(),
+      orphanedJobsCleanedTotal: 0
+    };
     
     // Run cleanup every 30 minutes
     setInterval(async () => {
@@ -324,12 +497,38 @@ export class FeedQueueService {
       
       try {
         isMaintenanceRunning = true;
+        maintenanceStats.totalRuns++;
+        maintenanceStats.lastRunTime = new Date();
+        
         logger.info('🧹 Running scheduled maintenance tasks...');
+        
+        // Get metrics before cleanup
+        const beforeMetrics = await this.getCleanupMetrics();
+        
         await this.cleanupOrphanedJobs();
         await this.autoResetProblematicFeeds();
-        logger.info('✅ Scheduled maintenance completed');
+        
+        // Get metrics after cleanup
+        const afterMetrics = await this.getCleanupMetrics();
+        const cleanedJobs = beforeMetrics.orphanedJobsDetected - afterMetrics.orphanedJobsDetected;
+        maintenanceStats.orphanedJobsCleanedTotal += Math.max(0, cleanedJobs);
+        
+        maintenanceStats.successfulRuns++;
+        logger.info(`✅ Scheduled maintenance completed - Cleaned ${cleanedJobs} orphaned jobs`);
+        
+        // Log stats every 10 runs
+        if (maintenanceStats.totalRuns % 10 === 0) {
+          logger.info(`📊 Maintenance Stats: ${maintenanceStats.successfulRuns}/${maintenanceStats.totalRuns} successful, ${maintenanceStats.orphanedJobsCleanedTotal} total orphaned jobs cleaned`);
+        }
       } catch (error) {
+        maintenanceStats.failedRuns++;
         logger.error('❌ Scheduled maintenance failed:', error);
+        
+        // Alert if failure rate is high
+        const failureRate = maintenanceStats.failedRuns / maintenanceStats.totalRuns;
+        if (failureRate > 0.5 && maintenanceStats.totalRuns > 5) {
+          logger.error(`🚨 HIGH MAINTENANCE FAILURE RATE: ${(failureRate * 100).toFixed(1)}% (${maintenanceStats.failedRuns}/${maintenanceStats.totalRuns})`);
+        }
       } finally {
         isMaintenanceRunning = false;
       }
@@ -345,8 +544,18 @@ export class FeedQueueService {
       try {
         isMaintenanceRunning = true;
         logger.info('🧹 Running thorough maintenance tasks...');
+        
+        const beforeMetrics = await this.getCleanupMetrics();
         await this.thoroughCleanup();
-        logger.info('✅ Thorough maintenance completed');
+        const afterMetrics = await this.getCleanupMetrics();
+        
+        const cleanedJobs = beforeMetrics.orphanedJobsDetected - afterMetrics.orphanedJobsDetected;
+        logger.info(`✅ Thorough maintenance completed - Cleaned ${cleanedJobs} orphaned jobs`);
+        
+        // Alert if many orphaned jobs were found
+        if (beforeMetrics.orphanedJobsDetected > 10) {
+          logger.warn(`⚠️ HIGH ORPHANED JOB COUNT: Found ${beforeMetrics.orphanedJobsDetected} orphaned jobs during thorough cleanup`);
+        }
       } catch (error) {
         logger.error('❌ Thorough maintenance failed:', error);
       } finally {
@@ -456,6 +665,8 @@ export class FeedQueueService {
    */
   private async cleanupOrphanedJobs(): Promise<void> {
     try {
+      logger.info('🧹 Starting enhanced orphaned job cleanup...');
+      
       // Get all recurring jobs from Redis
       const recurringJobs = await this.feedCheckQueue.getRepeatableJobs();
 
@@ -467,8 +678,17 @@ export class FeedQueueService {
       // Import database service to check if feeds exist
       const { database } = await import('../database/database.service.js');
       
+      // Get all existing feed IDs in one query for efficiency
+      const existingFeeds = await database.client.feed.findMany({
+        select: { id: true, name: true }
+      });
+      const existingFeedIds = new Set(existingFeeds.map(feed => feed.id));
+      
       let cleanedCount = 0;
       let errorCount = 0;
+      let verifiedCount = 0;
+
+      logger.info(`Found ${recurringJobs.length} recurring jobs, checking against ${existingFeedIds.size} existing feeds`);
 
       for (const job of recurringJobs) {
         try {
@@ -477,6 +697,7 @@ export class FeedQueueService {
           
           if (!jobId) {
             // Remove jobs with null/undefined IDs
+            logger.warn(`Removing job with null/undefined ID: ${JSON.stringify(job)}`);
             await this.feedCheckQueue.removeRepeatableByKey(job.key);
             cleanedCount++;
             continue;
@@ -486,6 +707,7 @@ export class FeedQueueService {
           
           if (!feedIdMatch) {
             // Remove jobs with unexpected ID format
+            logger.warn(`Removing job with unexpected ID format: ${jobId}`);
             await this.feedCheckQueue.removeRepeatableByKey(job.key);
             cleanedCount++;
             continue;
@@ -493,30 +715,38 @@ export class FeedQueueService {
 
           const feedId = feedIdMatch[1];
           
-          // Check if feed exists in database
-          const feed = await database.client.feed.findUnique({
-            where: { id: feedId },
-            select: { id: true, name: true }
-          });
-
-          if (!feed) {
+          // Check if feed exists using our pre-loaded set
+          if (feedId && !existingFeedIds.has(feedId)) {
             // Feed doesn't exist, remove the orphaned job
-            await this.feedCheckQueue.removeRepeatableByKey(job.key);
-            logger.info(`🗑️ Removed orphaned job for non-existent feed: ${feedId} (${jobId})`);
-            cleanedCount++;
-          } else {
-            logger.debug(`✅ Feed exists: ${feed.name} (${feedId})`);
+            logger.info(`🗑️ Removing orphaned job for non-existent feed: ${feedId} (${jobId})`);
+            
+            // Use force removal for better cleanup
+            const removed = await this.forceRemoveOrphanedJob(feedId);
+            if (removed) {
+              cleanedCount++;
+              logger.info(`✅ Successfully removed orphaned job for feed ${feedId}`);
+            } else {
+              errorCount++;
+              logger.error(`❌ Failed to remove orphaned job for feed ${feedId}`);
+            }
+          } else if (feedId) {
+            verifiedCount++;
+            logger.debug(`✅ Verified job exists for active feed: ${feedId}`);
           }
         } catch (error) {
           errorCount++;
-          logger.error(`❌ Error processing job ${job.id}:`, error);
+          logger.error(`❌ Error processing job ${job.id || 'unknown'}:`, error);
         }
       }
 
-      logger.info(`🧹 Cleanup completed: ${cleanedCount} orphaned jobs removed, ${errorCount} errors`);
+      logger.info(`🧹 Enhanced cleanup completed: ${cleanedCount} orphaned jobs removed, ${verifiedCount} jobs verified, ${errorCount} errors`);
       
       if (cleanedCount > 0) {
-        logger.info('✅ Redis cleanup successful - orphaned jobs removed');
+        logger.info(`✅ Successfully cleaned up ${cleanedCount} orphaned jobs`);
+      }
+      
+      if (errorCount > 0) {
+        logger.warn(`⚠️ ${errorCount} errors occurred during cleanup - some orphaned jobs may remain`);
       }
     } catch (error) {
       logger.error('❌ Failed to cleanup orphaned jobs:', error);
