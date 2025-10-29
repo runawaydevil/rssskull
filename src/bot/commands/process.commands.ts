@@ -512,7 +512,7 @@ export class ReloadFeedsCommand extends BaseCommandHandler {
 
       if (scheduledCount > 0) {
         message += `🔄 **Feeds scheduled successfully:**\n`;
-        feeds.forEach(feed => {
+        feeds.forEach((feed: any) => {
           if (!errors.find(e => e.name === feed.name)) {
             message += `• ✅ ${feed.name}\n`;
           }

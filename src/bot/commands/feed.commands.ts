@@ -133,7 +133,7 @@ export class ListFeedsCommand extends BaseCommandHandler {
       .map((feed, index) => {
         const status = feed.enabled ? '✅' : '❌';
         // Escape HTML characters
-        const escapedName = feed.name.replace(/[<>&"']/g, (char) => {
+        const escapedName = feed.name.replace(/[<>&"']/g, (char: string) => {
           switch (char) {
             case '<': return '&lt;';
             case '>': return '&gt;';
@@ -143,7 +143,7 @@ export class ListFeedsCommand extends BaseCommandHandler {
             default: return char;
           }
         });
-        const escapedUrl = feed.url.replace(/[<>&"']/g, (char) => {
+        const escapedUrl = feed.url.replace(/[<>&"']/g, (char: string) => {
           switch (char) {
             case '<': return '&lt;';
             case '>': return '&gt;';
@@ -397,9 +397,9 @@ export class FeedStatusCommand extends BaseCommandHandler {
       });
 
       // Calculate statistics
-      const enabledFeeds = feeds.filter(f => f.enabled);
-      const disabledFeeds = feeds.filter(f => !f.enabled);
-      const feedsWithJobs = new Set(jobsForThisChat.map(j => {
+      const enabledFeeds = feeds.filter((f: any) => f.enabled);
+      const disabledFeeds = feeds.filter((f: any) => !f.enabled);
+      const feedsWithJobs = new Set(jobsForThisChat.map((j: any) => {
         const match = j.id?.match(/^recurring-feed-(.+)$/);
         return match ? match[1] : null;
       }).filter(Boolean));

@@ -311,7 +311,7 @@ export class FixFeedsCommand extends BaseCommandHandler {
         deletedFilters: deletedFilters.count,
       });
 
-      await ctx.reply(`✅ Problematic feeds removed!\n\n📊 Data removed:\n• ${deletedFeeds.count} feeds\n• ${deletedFilters.count} filters\n\n🔗 Removed feeds:\n${problematicFeeds.map(f => `• ${f.name} (${f.rssUrl})`).join('\n')}`);
+      await ctx.reply(`✅ Problematic feeds removed!\n\n📊 Data removed:\n• ${deletedFeeds.count} feeds\n• ${deletedFilters.count} filters\n\n🔗 Removed feeds:\n${problematicFeeds.map((f: any) => `• ${f.name} (${f.rssUrl})`).join('\n')}`);
     } catch (error) {
       logger.error('Error in fixfeeds command:', error);
       await ctx.reply('❌ Internal error while executing command.');

@@ -448,7 +448,7 @@ export class FeedQueueService {
       const existingFeeds = await database.client.feed.findMany({
         select: { id: true }
       });
-      const existingFeedIds = new Set(existingFeeds.map(feed => feed.id));
+      const existingFeedIds = new Set(existingFeeds.map((feed: any) => feed.id));
       
       let orphanedCount = 0;
       for (const job of recurringJobs) {
@@ -694,7 +694,7 @@ export class FeedQueueService {
       const existingFeeds = await database.client.feed.findMany({
         select: { id: true, name: true }
       });
-      const existingFeedIds = new Set(existingFeeds.map(feed => feed.id));
+      const existingFeedIds = new Set(existingFeeds.map((feed: any) => feed.id));
       
       let cleanedCount = 0;
       let errorCount = 0;

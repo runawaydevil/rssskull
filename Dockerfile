@@ -32,11 +32,11 @@ COPY src/ ./src/
 COPY prisma/ ./prisma/
 COPY scripts/ ./scripts/
 
+# Generate Prisma client BEFORE build (required for TypeScript compilation)
+RUN npx prisma generate --schema=./prisma/schema.prisma
+
 # Build the application with optimizations
 RUN npm run build
-
-# Generate Prisma client with correct binary targets AFTER build
-RUN npx prisma generate --schema=./prisma/schema.prisma
 
 # Install only production dependencies and regenerate Prisma client for production
 RUN npm ci --only=production --no-audit --no-fund && \
