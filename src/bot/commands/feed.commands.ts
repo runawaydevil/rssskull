@@ -428,8 +428,20 @@ export class FeedStatusCommand extends BaseCommandHandler {
           const status = feed.enabled ? '✅' : '❌';
           const jobStatus = hasJob ? '🔄' : '⚠️';
           
+          // Calculate time since last check
+          const lastCheckTime = feed.lastCheck ? new Date(feed.lastCheck) : null;
+          const timeSinceCheck = lastCheckTime ? Math.round((Date.now() - lastCheckTime.getTime()) / 60000) : null;
+          const lastCheckStr = timeSinceCheck !== null ? `${timeSinceCheck}m ago` : 'never';
+          
+          // Calculate time since last notification
+          const lastNotifiedTime = feed.lastNotifiedAt ? new Date(feed.lastNotifiedAt) : null;
+          const timeSinceNotified = lastNotifiedTime ? Math.round((Date.now() - lastNotifiedTime.getTime()) / 60000) : null;
+          const lastNotifiedStr = timeSinceNotified !== null ? `${timeSinceNotified}m ago` : 'never';
+          
           message += `${status} ${jobStatus} **${feed.name}**\n`;
           message += `   URL: ${feed.rssUrl}\n`;
+          message += `   🕐 Last check: ${lastCheckStr} | Last notify: ${lastNotifiedStr}\n`;
+          message += `   🔄 Interval: ${feed.checkIntervalMinutes}m | LastItemId: ${feed.lastItemId ? 'set' : 'none'}\n`;
           
           if (feed.lastCheck) {
             const lastCheckDate = new Date(feed.lastCheck);

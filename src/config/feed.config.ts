@@ -28,19 +28,19 @@ export interface FeedDomainConfig {
 }
 
 export const FEED_DOMAIN_CONFIGS: Record<string, FeedDomainConfig> = {
-  // Reddit - Safe rate limiting for polling
+  // Reddit - Optimized rate limiting for reliable polling
   'reddit.com': {
     rateLimit: {
-      maxRequests: 6, // 6 requests per 10 minutes (reduced from 10 to avoid blocks)
+      maxRequests: 10, // 10 requests per 10 minutes (increased for better coverage)
       windowMs: 600000, // 10 minutes
-      minDelayMs: 540000, // 9 minutes minimum between requests per feed (increased from 6 to avoid blocks)
+      minDelayMs: 300000, // 5 minutes minimum between requests per feed (reduced from 9 to allow more frequent checks)
       adaptiveEnabled: true,
       successThreshold: 0.9,
-      failurePenalty: 1.5,   // 50% penalty (not 300%)
-      successReward: 0.9,    // 90% reward (faster recovery)
+      failurePenalty: 1.2,   // 20% penalty (reduced from 50%)
+      successReward: 0.95,   // 95% reward (faster recovery)
     },
-    checkIntervalMinutes: 10, // Check every 10 minutes with jitter (increased from 6 to avoid blocks)
-    description: 'Reddit feeds (safe rate limiting for polling)',
+    checkIntervalMinutes: 10, // Check every 10 minutes with jitter
+    description: 'Reddit feeds (optimized rate limiting for reliable polling)',
     flags: {
       requiresUserAgent: true,
       isHighVolume: true,

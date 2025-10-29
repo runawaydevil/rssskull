@@ -153,8 +153,8 @@ export class FeedQueueService {
       }
     }
 
-    // Add jitter to avoid thundering herd: ±1-2 minutes random
-    const jitterMs = Math.floor(Math.random() * 120000) - 60000; // ±1 minute in milliseconds
+    // Add jitter to avoid thundering herd: ±30 seconds random (reduced from ±1 minute)
+    const jitterMs = Math.floor(Math.random() * 60000) - 30000; // ±30 seconds in milliseconds
     const intervalMs = intervalMinutes * 60 * 1000;
     const jitteredIntervalMs = Math.max(60000, intervalMs + jitterMs); // Minimum 1 minute
 

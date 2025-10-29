@@ -8,6 +8,7 @@ import {
   AddFeedCommand,
   DisableFeedCommand,
   CircuitBreakerStatsCommand,
+  DebugFeedCommand,
   DiscoverFeedsCommand,
   EnableFeedCommand,
   FeedStatusCommand,
@@ -363,6 +364,7 @@ export class BotService {
     this.commandRouter.register(StatsCommand.create());
     // this.commandRouter.register(ProcessFeedsCommand.create()); // Disabled - command no longer used
     // this.commandRouter.register(ProcessFeedCommand.create()); // Disabled - command no longer used
+    this.commandRouter.register(DebugFeedCommand.create());
     this.commandRouter.register(ResetFeedCommand.create());
     this.commandRouter.register(FeedStatusCommand.create());
     this.commandRouter.register(ReloadFeedsCommand.create());

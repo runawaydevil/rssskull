@@ -26,4 +26,4 @@ export { StatsCommand } from './stats.commands.js';
 
 // Secret/debug commands (not listed in help)
 // export { ProcessFeedsCommand, ProcessFeedCommand, ResetFeedCommand, ReloadFeedsCommand } from './process.commands.js'; // Disabled - ProcessFeedsCommand and ProcessFeedCommand are no longer used
-export { ResetFeedCommand, ReloadFeedsCommand } from './process.commands.js';
+export { DebugFeedCommand, ResetFeedCommand, ReloadFeedsCommand } from './process.commands.js';

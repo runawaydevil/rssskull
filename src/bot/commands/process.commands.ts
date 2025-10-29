@@ -1,10 +1,13 @@
+import { z } from 'zod';
 import { database } from '../../database/database.service.js';
 import { feedQueueService } from '../../jobs/index.js';
 import { feedIntervalService } from '../../utils/feed-interval.service.js';
 import {
   BaseCommandHandler,
+  type BotContext,
   type CommandContext,
   type CommandHandler,
+  type CommandInfo,
   CommandSchemas,
 } from '../handlers/command.handler.js';
 import { logger } from '../../utils/logger/logger.service.js';
@@ -118,6 +121,74 @@ export class CancelResetCommand extends BaseCommandHandler {
 
   protected async execute(ctx: CommandContext): Promise<void> {
       await ctx.reply('✅ **Reset cancelled**\n\nNo changes were made to the database.');
+  }
+}
+
+/**
+ * Debug command to check a specific feed immediately
+ * This command is for admin/debug purposes
+ */
+export class DebugFeedCommand extends BaseCommandHandler {
+  static create(): CommandHandler {
+    const instance = new DebugFeedCommand();
+    return {
+      name: 'debugfeed',
+      aliases: ['df'],
+      handler: instance.handle.bind(instance),
+    };
+  }
+
+  getCommandInfo(): CommandInfo {
+    return {
+      name: 'debugfeed',
+      aliases: ['df'],
+      description: 'Debug a specific feed by name (force immediate check)',
+      schema: z.object({
+        feedName: z.string().min(1, 'Feed name is required'),
+      }),
+    };
+  }
+
+  async execute(ctx: BotContext, args: { feedName: string }): Promise<void> {
+    try {
+      const { feedService } = await import('../../services/index.js');
+      const { feedQueueService } = await import('../../jobs/index.js');
+      
+      // Get the feed by name
+      const feeds = await feedService.listFeeds(ctx.chatIdString);
+      const feed = feeds.find(f => f.name.toLowerCase() === args.feedName.toLowerCase());
+      
+      if (!feed) {
+        await ctx.reply(`❌ Feed "${args.feedName}" not found. Use /list to see available feeds.`);
+        return;
+      }
+
+      await ctx.reply(`🔍 **Debug Feed: ${feed.name}**\n\n` +
+        `📊 **Current Status:**\n` +
+        `• Enabled: ${feed.enabled ? '✅' : '❌'}\n` +
+        `• URL: ${feed.rssUrl}\n` +
+        `• Interval: ${feed.checkIntervalMinutes} minutes\n` +
+        `• Last Check: ${feed.lastCheck ? new Date(feed.lastCheck).toLocaleString() : 'Never'}\n` +
+        `• Last Notified: ${feed.lastNotifiedAt ? new Date(feed.lastNotifiedAt).toLocaleString() : 'Never'}\n` +
+        `• Last Item ID: ${feed.lastItemId || 'None'}\n\n` +
+        `🚀 **Forcing immediate check...**`, 
+        { parse_mode: 'Markdown' });
+
+      // Force immediate feed check
+      await feedQueueService.scheduleFeedCheck({
+        feedId: feed.id,
+        chatId: feed.chatId,
+        feedUrl: feed.rssUrl,
+        lastItemId: feed.lastItemId ?? undefined,
+      }, 0); // No delay
+
+      await ctx.reply(`✅ Debug check queued for "${feed.name}". Check logs for detailed results.`);
+      
+      logger.info(`Debug feed check initiated for feed ${feed.name} (${feed.id}) by user in chat ${ctx.chatIdString}`);
+    } catch (error) {
+      logger.error('Failed to debug feed:', error);
+      await ctx.reply('❌ Failed to debug feed. Please try again.');
+    }
   }
 }
 

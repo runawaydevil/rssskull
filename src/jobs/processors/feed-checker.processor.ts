@@ -130,14 +130,22 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
     // Only fall back to job data if database has no lastItemId
     const currentLastItemId = feed.lastItemId ?? lastItemId;
     
-    logger.info(`Feed ${feedId} lastItemId - Database: ${feed.lastItemId || 'none'}, Job: ${lastItemId || 'none'}, Using: ${currentLastItemId || 'none'}`);
+    logger.info(`🔍 Feed ${feedId} (${feedName}) lastItemId - Database: ${feed.lastItemId || 'none'}, Job: ${lastItemId || 'none'}, Using: ${currentLastItemId || 'none'}`);
+    logger.info(`🔍 Feed ${feedId} URL: ${feedUrl}`);
+    logger.info(`🔍 Feed ${feedId} last check: ${feed.lastCheck}, enabled: ${feed.enabled}`);
 
     // Check the feed for new items
     const checkResult = await parserService.checkFeed(feedUrl, currentLastItemId, failureCount);
     
     // Log total items found before filtering (for visibility)
     if (checkResult.success && checkResult.totalItemsCount !== undefined) {
-      logger.info(`Feed check results for ${feedUrl}: total items found: ${checkResult.totalItemsCount}, new items: ${checkResult.newItems.length}`);
+      logger.info(`🔍 Feed check results for ${feedUrl}: total items found: ${checkResult.totalItemsCount}, new items: ${checkResult.newItems.length}`);
+      
+      // Log first few items for debugging
+      if (checkResult.newItems.length > 0) {
+        const firstItem = checkResult.newItems[0];
+        logger.info(`🔍 First new item: ID=${firstItem.id}, title="${firstItem.title?.substring(0, 50)}...", pubDate=${firstItem.pubDate?.toISOString()}`);
+      }
     }
 
     if (!checkResult.success) {
@@ -168,6 +176,8 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
     const freshItems: RSSItem[] = [];
     const allSeenItems: RSSItem[] = [];
     
+    logger.info(`🔍 Feed ${feedId} filtering: lastNotifiedAt=${lastNotifiedAt?.toISOString()}, checking ${checkResult.newItems.length} items`);
+    
     for (const item of checkResult.newItems) {
       // Track all items seen (even if we don't notify)
       allSeenItems.push(item);
@@ -175,12 +185,21 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
       // Check if item is newer than last notification
       const isNew = !item.pubDate || !lastNotifiedAt || item.pubDate > lastNotifiedAt;
       
+      logger.debug(`🔍 Item ${item.id}: pubDate=${item.pubDate?.toISOString()}, isNew=${isNew}`);
+      
       if (isNew) {
         // Check dedupe before adding
         const alreadySeen = await dedupeService.has(item.id);
+        logger.debug(`🔍 Item ${item.id}: alreadySeen=${alreadySeen}`);
+        
         if (!alreadySeen) {
           freshItems.push(item);
+          logger.info(`✅ Item ${item.id} added to fresh items: "${item.title?.substring(0, 50)}..."`);
+        } else {
+          logger.info(`🔄 Item ${item.id} skipped (already seen): "${item.title?.substring(0, 50)}..."`);
         }
+      } else {
+        logger.info(`⏰ Item ${item.id} skipped (too old): "${item.title?.substring(0, 50)}..."`);
       }
     }
     
@@ -253,7 +272,7 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
       // Don't fail the entire job if database update fails
     }
 
-    // Log already done above with total count, no need to duplicate
+    logger.info(`✅ Feed ${feedId} (${feedName}) check completed: ${newItemsCount} new items processed, next check in ~${Math.round((nextCheckAt.getTime() - Date.now()) / 60000)} minutes`);
     return result;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
