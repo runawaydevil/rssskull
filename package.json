@@ -44,7 +44,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.9.2",
+    "@biomejs/biome": "^2.3.2",
     "@types/node": "^20.16.10",
     "@types/sqlite3": "^3.1.11",
     "tsx": "^4.19.1",
