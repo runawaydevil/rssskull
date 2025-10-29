@@ -22,9 +22,31 @@ async function bootstrap() {
     logger.info('🚀 Starting RSS Skull Bot v0.01 (FULL BOT MODE)...');
     console.log('🚀 Starting RSS Skull Bot v0.01 (FULL BOT MODE)...');
 
-    // Initialize database with timeout
+    // Initialize database with migrations
     logger.info('📊 Initializing database...');
     console.log('📊 Initializing database...');
+    
+    // Ensure data directory exists
+    const fs = await import('fs');
+    const path = await import('path');
+    const dataDir = path.dirname(config.database.url.replace('file:', ''));
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    
+    // Run migrations first
+    try {
+      logger.info('🔄 Running database migrations...');
+      const { execSync } = await import('child_process');
+      execSync('npx prisma migrate deploy --schema=./prisma/schema.prisma', { 
+        stdio: 'inherit',
+        timeout: 30000 
+      });
+      logger.info('✅ Database migrations completed');
+    } catch (error) {
+      logger.warn('⚠️ Migration failed, continuing anyway:', error);
+    }
+    
     const database = new DatabaseService();
     
     const dbConnectPromise = database.connect();

@@ -32,21 +32,19 @@ COPY src/ ./src/
 COPY prisma/ ./prisma/
 COPY scripts/ ./scripts/
 
-# Generate Prisma client with correct binary targets
-RUN npx prisma generate --schema=./prisma/schema.prisma
-
-# Fix line endings and remove BOM from shell scripts
-RUN sed -i 's/\r$//' /app/scripts/docker-entrypoint.sh && \
-    sed -i '1s/^[[:space:]]*//' /app/scripts/docker-entrypoint.sh
-
-# Make entrypoint script executable
-RUN chmod +x /app/scripts/docker-entrypoint.sh
-
 # Build the application with optimizations
 RUN npm run build
 
-# Install only production dependencies
-RUN npm ci --only=production --no-audit --no-fund
+# Generate Prisma client with correct binary targets AFTER build
+RUN npx prisma generate --schema=./prisma/schema.prisma
+
+# Install only production dependencies and regenerate Prisma client for production
+RUN npm ci --only=production --no-audit --no-fund && \
+    npx prisma generate --schema=./prisma/schema.prisma
+
+# Fix line endings and make scripts executable
+RUN sed -i 's/\r$//' /app/scripts/*.sh && \
+    chmod +x /app/scripts/*.sh
 
 # Production stage
 FROM node:20-slim AS production
@@ -70,9 +68,9 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# Create non-root user
+# Create non-root user with home directory
 RUN groupadd -g 1001 nodejs && \
-    useradd -r -u 1001 -g nodejs nodejs
+    useradd -r -u 1001 -g nodejs -m -d /home/nodejs nodejs
 
 # Copy built application
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
@@ -81,18 +79,13 @@ COPY --from=builder --chown=nodejs:nodejs /app/package.json ./
 COPY --from=builder --chown=nodejs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nodejs:nodejs /app/scripts ./scripts
 
-# Create data directory for SQLite
-RUN mkdir -p /app/data && chown nodejs:nodejs /app/data
+# Create data directory for SQLite and ensure proper permissions
+RUN mkdir -p /app/data /home/nodejs/.npm && \
+    chown -R nodejs:nodejs /app /home/nodejs
 
-# Fix line endings and remove BOM from shell scripts  
-RUN sed -i 's/\r$//' /app/scripts/docker-entrypoint.sh && \
-    sed -i '1s/^[[:space:]]*//' /app/scripts/docker-entrypoint.sh
-
-# Make entrypoint script executable (run as root before switching to nodejs user)
-RUN chmod +x /app/scripts/docker-entrypoint.sh
-
-# Switch to non-root user
-USER nodejs
+# Fix line endings and make scripts executable
+RUN sed -i 's/\r$//' /app/scripts/*.sh && \
+    chmod +x /app/scripts/*.sh
 
 # Expose port
 EXPOSE 8916
@@ -101,5 +94,12 @@ EXPOSE 8916
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8916/health || exit 1
 
-# Start the application with proper migration handling (explicitly call sh to avoid shebang issues)
-CMD ["/bin/sh", "/app/scripts/docker-entrypoint.sh"]
+# Set environment variables for runtime
+ENV NODE_ENV=production
+ENV DATABASE_URL=file:/app/data/production.db
+
+# Switch to non-root user
+USER nodejs
+
+# Start the application directly without complex entrypoint
+CMD ["node", "dist/main.js"]
