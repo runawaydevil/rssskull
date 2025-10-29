@@ -144,7 +144,9 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
       // Log first few items for debugging
       if (checkResult.newItems.length > 0) {
         const firstItem = checkResult.newItems[0];
-        logger.info(`🔍 First new item: ID=${firstItem.id}, title="${firstItem.title?.substring(0, 50)}...", pubDate=${firstItem.pubDate?.toISOString()}`);
+        if (firstItem) {
+          logger.info(`🔍 First new item: ID=${firstItem.id}, title="${firstItem.title?.substring(0, 50) || 'No title'}...", pubDate=${firstItem.pubDate?.toISOString() || 'No date'}`);
+        }
       }
     }
 

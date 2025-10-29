@@ -1,13 +1,10 @@
-import { z } from 'zod';
 import { database } from '../../database/database.service.js';
 import { feedQueueService } from '../../jobs/index.js';
 import { feedIntervalService } from '../../utils/feed-interval.service.js';
 import {
   BaseCommandHandler,
-  type BotContext,
   type CommandContext,
   type CommandHandler,
-  type CommandInfo,
   CommandSchemas,
 } from '../handlers/command.handler.js';
 import { logger } from '../../utils/logger/logger.service.js';
@@ -134,29 +131,29 @@ export class DebugFeedCommand extends BaseCommandHandler {
     return {
       name: 'debugfeed',
       aliases: ['df'],
-      handler: instance.handle.bind(instance),
-    };
-  }
-
-  getCommandInfo(): CommandInfo {
-    return {
-      name: 'debugfeed',
-      aliases: ['df'],
       description: 'Debug a specific feed by name (force immediate check)',
-      schema: z.object({
-        feedName: z.string().min(1, 'Feed name is required'),
-      }),
+      handler: async (ctx: CommandContext, args: string[]) => {
+        const feedName = args[0];
+        if (!feedName) {
+          await ctx.reply('❌ Feed name is required. Usage: /debugfeed <feed_name>');
+          return;
+        }
+        await instance.execute(ctx, { feedName });
+      },
     };
   }
 
-  async execute(ctx: BotContext, args: { feedName: string }): Promise<void> {
+  async execute(ctx: CommandContext, args: { feedName: string }): Promise<void> {
     try {
-      const { feedService } = await import('../../services/index.js');
+      const { FeedService } = await import('../../services/index.js');
       const { feedQueueService } = await import('../../jobs/index.js');
+      
+      // Create feed service instance
+      const feedService = new FeedService(database.client);
       
       // Get the feed by name
       const feeds = await feedService.listFeeds(ctx.chatIdString);
-      const feed = feeds.find(f => f.name.toLowerCase() === args.feedName.toLowerCase());
+      const feed = feeds.find((f: any) => f.name.toLowerCase() === args.feedName.toLowerCase());
       
       if (!feed) {
         await ctx.reply(`❌ Feed "${args.feedName}" not found. Use /list to see available feeds.`);
