@@ -42,7 +42,7 @@ async function bootstrap() {
     // Enhanced health check endpoint with resilience
     fastify.get('/health', async (_, reply) => {
       try {
-        const checks = {
+        const checks: any = {
           database: await database.healthCheck(),
           redis: await jobService.healthCheck(),
           timestamp: new Date().toISOString(),
@@ -52,10 +52,15 @@ async function bootstrap() {
         };
 
         // Add resilience system health if available
-        const resilienceEndpoints = botService.getResilienceEndpoints();
-        if (resilienceEndpoints) {
-          const resilienceHealth = await resilienceEndpoints.getHealthStatus();
-          checks.resilience = resilienceHealth;
+        try {
+          const resilienceEndpoints = botService.getResilienceEndpoints();
+          if (resilienceEndpoints) {
+            const resilienceHealth = await resilienceEndpoints.getHealthStatus();
+            checks.resilience = resilienceHealth;
+          }
+        } catch (resilienceError) {
+          // Resilience system may not be initialized yet, continue without it
+          checks.resilience = { status: 'not_available', error: 'Resilience system not initialized' };
         }
 
         const isHealthy = checks.database && checks.redis;
