@@ -104,7 +104,9 @@ export class RSSService {
     }
 
     // Check if URL is known to be problematic
-    if (this.isProblematicUrl(url)) {
+    // BUT: Only skip if it's NOT a Reddit URL that should be handled by RedditService
+    // This prevents blocking legitimate Reddit URLs before they can be properly routed
+    if (this.isProblematicUrl(url) && !redditService.isRedditUrl(url)) {
       logger.warn(`Skipping problematic URL: ${url}`);
       return {
         success: false,
@@ -867,10 +869,12 @@ export class RSSService {
 
   /**
    * Check if a URL is known to be problematic
+   * Note: reddit.com.br is a different domain (not official Reddit)
+   * URLs with this domain are blocked as they're not the official Reddit service
    */
   private isProblematicUrl(url: string): boolean {
     const problematicPatterns = [
-      'reddit.com.br', // Known problematic domain
+      'reddit.com.br', // Known problematic domain (not official Reddit)
       'reddit.com.br/r/', // Specific pattern
     ];
 

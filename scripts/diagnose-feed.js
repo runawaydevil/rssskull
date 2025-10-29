@@ -2,25 +2,24 @@
 /**
  * Script para diagnosticar feeds do Reddit
  * Uso: node scripts/diagnose-feed.js [feed-name-or-url]
- * Ou: tsx scripts/diagnose-feed.ts [feed-name-or-url]
  */
 
-import { PrismaClient } from '@prisma/client';
-import { config } from '../src/config/config.service.js';
-import { redditService } from '../src/services/reddit.service.js';
-import { classifySource } from '../src/utils/source-classifier.js';
-import { extractSubreddit } from '../src/utils/url-sanitizer.js';
-import { RSSService } from '../src/services/rss.service.js';
+const { PrismaClient } = require('@prisma/client');
+const path = require('path');
+const fs = require('fs');
+
+// Load environment variables
+require('dotenv').config();
 
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: config.database.url,
+      url: process.env.DATABASE_URL || 'file:./prisma/data/production.db',
     },
   },
 });
 
-async function diagnoseFeed(feedNameOrUrl?: string) {
+async function diagnoseFeed(feedNameOrUrl) {
   try {
     console.log('🔍 Diagnóstico de Feeds do Reddit\n');
 
@@ -104,41 +103,24 @@ async function diagnoseFeed(feedNameOrUrl?: string) {
 
       // Análise de detecção
       console.log('\n   🔍 Análise de Detecção:');
-      const sourceType = classifySource(feed.rssUrl);
-      console.log(`   Classificação: ${sourceType}`);
-      
-      const isRedditUrl = redditService.isRedditUrl(feed.rssUrl);
-      console.log(`   isRedditUrl(): ${isRedditUrl ? '✅ Sim' : '❌ Não'}`);
-      
-      const subreddit = extractSubreddit(feed.rssUrl);
-      console.log(`   Subreddit extraído: ${subreddit || '❌ Não encontrado'}`);
-
-      // Verificar se URL é problemática
-      const rssService = new RSSService();
-      const isProblematic = (rssService as any).isProblematicUrl?.(feed.rssUrl) ?? false;
-      console.log(`   URL Problemática: ${isProblematic ? '⚠️ Sim' : '✅ Não'}`);
-
-      // Testar fetch (se for Reddit)
-      if (isRedditUrl && subreddit) {
-        console.log('\n   🧪 Teste de Fetch:');
-        try {
-          console.log(`   Tentando buscar r/${subreddit}...`);
-          const result = await redditService.fetchFeed(feed.rssUrl);
-          
-          if (result.success && result.feed) {
-            console.log(`   ✅ Sucesso! ${result.feed.items.length} itens encontrados`);
-            if (result.feed.items.length > 0) {
-              const firstItem = result.feed.items[0];
-              console.log(`   Primeiro item: "${firstItem?.title?.substring(0, 50)}..."`);
-              console.log(`   ID: ${firstItem?.id}`);
-              console.log(`   Data: ${firstItem?.pubDate?.toISOString()}`);
-            }
-          } else {
-            console.log(`   ❌ Falhou: ${result.error}`);
-          }
-        } catch (error) {
-          console.log(`   ❌ Erro: ${error instanceof Error ? error.message : String(error)}`);
-        }
+      try {
+        const urlObj = new URL(feed.rssUrl);
+        const hostname = urlObj.hostname.toLowerCase();
+        const hasReddit = hostname.includes('reddit');
+        const isComBr = hostname.includes('reddit.com.br');
+        const isRedditCom = hostname === 'reddit.com' || hostname === 'www.reddit.com';
+        
+        console.log(`   Hostname: ${hostname}`);
+        console.log(`   Contém 'reddit': ${hasReddit ? '✅' : '❌'}`);
+        console.log(`   É reddit.com.br: ${isComBr ? '⚠️ Sim (domínio diferente)' : '❌ Não'}`);
+        console.log(`   É reddit.com oficial: ${isRedditCom ? '✅ Sim' : '❌ Não'}`);
+        
+        // Extrair subreddit
+        const subredditMatch = feed.rssUrl.match(/reddit\.com\/r\/([a-zA-Z0-9_]+)/i);
+        const subreddit = subredditMatch ? subredditMatch[1] : null;
+        console.log(`   Subreddit: ${subreddit || '❌ Não encontrado'}`);
+      } catch (e) {
+        console.log(`   ❌ Erro ao analisar URL: ${e.message}`);
       }
 
       console.log('');
@@ -146,6 +128,10 @@ async function diagnoseFeed(feedNameOrUrl?: string) {
 
     console.log('─'.repeat(80));
     console.log('\n✅ Diagnóstico completo');
+    console.log('\n💡 Dicas:');
+    console.log('   - Se URL contém reddit.com.br, é um domínio diferente (não oficial)');
+    console.log('   - Apenas reddit.com ou www.reddit.com são detectados como Reddit oficial');
+    console.log('   - Feeds privados requerem OAuth configurado (REDDIT_CLIENT_ID, etc)');
   } catch (error) {
     console.error('❌ Erro durante diagnóstico:', error);
     process.exit(1);

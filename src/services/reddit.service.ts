@@ -116,11 +116,23 @@ export class RedditService {
       const urlObj = new URL(url);
       const hostname = urlObj.hostname.toLowerCase();
       
-      // Detect Reddit URLs (with or without .rss/.json extension)
-      return (
-        (hostname === 'reddit.com' || hostname === 'www.reddit.com') &&
-        (urlObj.pathname.startsWith('/r/') || urlObj.pathname.includes('/r/'))
-      );
+      // Exclude known fake/problematic domains (reddit.com.br is not official Reddit)
+      if (hostname.includes('reddit.com.br')) {
+        return false;
+      }
+      
+      // Detect official Reddit URLs (with or without www, with or without .rss/.json extension)
+      // Accept: reddit.com, www.reddit.com, oauth.reddit.com (for API)
+      const isOfficialReddit = 
+        hostname === 'reddit.com' || 
+        hostname === 'www.reddit.com' ||
+        hostname === 'oauth.reddit.com' ||
+        hostname.endsWith('.reddit.com'); // subdomains like old.reddit.com
+      
+      // Must have /r/subreddit in path
+      const hasSubreddit = urlObj.pathname.startsWith('/r/') || urlObj.pathname.includes('/r/');
+      
+      return isOfficialReddit && hasSubreddit;
     } catch {
       return false;
     }
@@ -128,13 +140,35 @@ export class RedditService {
 
   /**
    * Extract subreddit name from URL
+   * Handles various formats: /r/subreddit, r/subreddit, reddit.com/r/subreddit, etc.
    */
   extractSubreddit(url: string): string | null {
     try {
-      const urlObj = new URL(url);
-      // Match /r/subreddit with optional /rss or /json
-      const match = urlObj.pathname.match(/\/r\/([a-zA-Z0-9_]+)/);
-      return match ? match[1] ?? null : null;
+      // Try URL object first (most reliable)
+      try {
+        const urlObj = new URL(url);
+        // Match /r/subreddit with optional trailing path or query
+        const match = urlObj.pathname.match(/\/r\/([a-zA-Z0-9_]+)/);
+        if (match && match[1]) {
+          return match[1];
+        }
+      } catch {
+        // URL parsing failed, try regex fallback
+      }
+      
+      // Fallback: regex match for reddit.com/r/subreddit pattern
+      const regexMatch = url.match(/reddit\.com\/r\/([a-zA-Z0-9_]+)/i);
+      if (regexMatch && regexMatch[1]) {
+        return regexMatch[1];
+      }
+      
+      // Fallback: match /r/subreddit at start or anywhere
+      const rMatch = url.match(/\/r\/([a-zA-Z0-9_]+)/);
+      if (rMatch && rMatch[1]) {
+        return rMatch[1];
+      }
+      
+      return null;
     } catch {
       return null;
     }
@@ -419,8 +453,11 @@ export class RedditService {
     // Extract subreddit name
     const subreddit = this.extractSubreddit(sanitizedUrl);
     if (!subreddit) {
+      logger.error(`Failed to extract subreddit from URL: ${sanitizedUrl}`);
       return { success: false, error: 'Could not extract subreddit from URL' };
     }
+    
+    logger.debug(`Extracted subreddit: r/${subreddit} from URL: ${sanitizedUrl}`);
 
     // Check circuit breaker (using normalized origin)
     if (this.isCircuitBreakerOpen()) {
@@ -461,38 +498,45 @@ export class RedditService {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         
-        // Handle 403 errors by opening circuit breaker
+        // Handle 403/401 errors - may indicate private subreddit or auth issues
         if (errorMessage.includes('auth_failed:403') || errorMessage.includes('auth_failed:401')) {
-          this.handle403Error();
-          logger.error(`Reddit OAuth authentication failed: ${errorMessage}`);
+          logger.warn(`Reddit OAuth auth failed (${errorMessage}) for r/${subreddit} - may be private subreddit or auth issue`);
           
-          // NÃO PROSSEGUIR para fallback - CB está aberto
-          // Retornar erro imediatamente
-          const remainingMinutes = Math.ceil((this.cbOpenUntil - Date.now()) / (60 * 1000));
-          return {
-            success: false,
-            error: `Circuit breaker open due to 403 errors. Try again in ${remainingMinutes} minutes`,
-          };
+          // For 403 on subreddit (private/restricted), try JSON fallback first before opening circuit breaker
+          // Only open CB if JSON fallback also fails
+          const useJsonFallback = process.env.USE_REDDIT_JSON_FALLBACK !== 'false';
+          if (useJsonFallback && !this.isCircuitBreakerOpen()) {
+            logger.info(`Attempting JSON API fallback for r/${subreddit} after OAuth 403`);
+            // Will try fallback below, don't return error yet
+          } else {
+            // CB already open or JSON disabled - handle 403 error
+            this.handle403Error();
+            const remainingMinutes = Math.ceil((this.cbOpenUntil - Date.now()) / (60 * 1000));
+            return {
+              success: false,
+              error: `OAuth failed: Subreddit may be private/restricted. Circuit breaker: ${remainingMinutes} minutes`,
+            };
+          }
         } else {
           logger.warn(`Reddit OAuth API failed for r/${subreddit}, falling back to JSON API: ${errorMessage}`);
         }
       }
     }
 
-    // Fallback to JSON API (always available) - MAS CHECAR CB ANTES
+    // Fallback to JSON API (always available) - BUT check CB first
     const useJsonFallback = process.env.USE_REDDIT_JSON_FALLBACK !== 'false';
     if (useJsonFallback) {
-      // VERIFICAR SE CB ESTÁ ABERTO ANTES DE CHAMAR FALLBACK
+      // Check if CB is open before trying fallback (unless we're here because of 403 on private subreddit)
       if (this.isCircuitBreakerOpen()) {
         const remainingMinutes = Math.ceil((this.cbOpenUntil - Date.now()) / (60 * 1000));
-        logger.warn(`Reddit circuit breaker is open. Skipping fallback for r/${subreddit}`);
+        logger.warn(`Circuit breaker is open, skipping JSON fallback for r/${subreddit}. Remaining: ${remainingMinutes} minutes`);
         return {
           success: false,
-          error: `Circuit breaker open due to 403 errors. Try again in ${remainingMinutes} minutes`,
+          error: `Circuit breaker open. Try again in ${remainingMinutes} minutes`,
         };
       }
       
-      logger.info(`🔄 Using Reddit JSON API for r/${subreddit}`);
+      logger.info(`🔄 Using Reddit JSON API fallback for r/${subreddit}`);
       const result = await this.fetchSubreddit(subreddit);
       
       if (result.success && result.feed) {
@@ -544,10 +588,16 @@ export class RedditService {
         return { success: true, feed: result.feed };
       }
       
-      return { success: false, error: result.error || 'Failed to fetch Reddit feed' };
+      // If JSON fallback also failed, check if subreddit might be private
+      logger.warn(`Both OAuth and JSON API failed for r/${subreddit}`);
+      return { 
+        success: false, 
+        error: result.error || `Failed to fetch Reddit feed. Subreddit r/${subreddit} may be private or restricted.` 
+      };
     }
 
-    return { success: false, error: 'Both OAuth and JSON APIs are disabled' };
+    logger.error(`Both OAuth and JSON APIs are disabled for r/${subreddit}`);
+    return { success: false, error: 'Both OAuth and JSON APIs are disabled. Enable at least one method.' };
   }
 }
 

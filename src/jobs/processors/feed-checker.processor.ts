@@ -133,6 +133,14 @@ export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<Feed
     logger.info(`🔍 Feed ${feedId} (${feedName}) lastItemId - Database: ${feed.lastItemId || 'none'}, Job: ${lastItemId || 'none'}, Using: ${currentLastItemId || 'none'}`);
     logger.info(`🔍 Feed ${feedId} URL: ${feedUrl}`);
     logger.info(`🔍 Feed ${feedId} last check: ${feed.lastCheck}, enabled: ${feed.enabled}`);
+    
+    // Additional debug for Reddit feeds
+    if (feedUrl.includes('reddit.com')) {
+      const { redditService } = await import('../../services/reddit.service.js');
+      const isReddit = redditService.isRedditUrl(feedUrl);
+      const subreddit = redditService.extractSubreddit(feedUrl);
+      logger.info(`🔍 Reddit feed detection - isRedditUrl: ${isReddit}, subreddit: ${subreddit || 'none'}`);
+    }
 
     // Check the feed for new items
     const checkResult = await parserService.checkFeed(feedUrl, currentLastItemId, failureCount);

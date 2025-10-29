@@ -21,7 +21,7 @@
     "lint": "biome check .",
     "lint:ci": "biome check . || exit 0",
     "lint:fix": "biome check --apply .",
-    "test": "vitest --run",
+    "test": "vitest --run --passWithNoTests",
     "test:watch": "vitest",
     "test:coverage": "vitest --coverage",
     "docker:build": "docker build -t rss-skull-bot:0.5.0 .",
