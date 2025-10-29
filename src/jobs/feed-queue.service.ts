@@ -41,7 +41,9 @@ export class FeedQueueService {
     this.autoResetProblematicFeeds();
     
     // Schedule automatic maintenance tasks
-    this.scheduleMaintenanceTasks();
+    this.scheduleMaintenanceTasks().catch(error => {
+      logger.error('Failed to schedule maintenance tasks:', error);
+    });
   }
 
   /**
@@ -478,7 +480,7 @@ export class FeedQueueService {
   /**
    * Schedule automatic cleanup and maintenance tasks with enhanced monitoring
    */
-  private scheduleMaintenanceTasks(): void {
+  private async scheduleMaintenanceTasks(): Promise<void> {
     let isMaintenanceRunning = false;
     let maintenanceStats = {
       totalRuns: 0,
@@ -488,7 +490,17 @@ export class FeedQueueService {
       orphanedJobsCleanedTotal: 0
     };
     
-    // Run cleanup every 30 minutes
+    // Get cleanup configuration
+    const { config } = await import('../config/config.service.js');
+    const cleanupIntervalMs = config.jobCleanup.intervalMinutes * 60 * 1000;
+    const thoroughIntervalMs = config.jobCleanup.thoroughIntervalHours * 60 * 60 * 1000;
+    
+    if (!config.jobCleanup.enabled) {
+      logger.info('🚫 Job cleanup is disabled via configuration');
+      return;
+    }
+    
+    // Run cleanup every configured interval (default: 30 minutes)
     setInterval(async () => {
       if (isMaintenanceRunning) {
         logger.debug('⏭️ Maintenance already running, skipping...');
@@ -532,9 +544,9 @@ export class FeedQueueService {
       } finally {
         isMaintenanceRunning = false;
       }
-    }, 30 * 60 * 1000); // 30 minutes
+    }, cleanupIntervalMs);
 
-    // Run cleanup every 2 hours for more thorough cleanup
+    // Run cleanup every configured thorough interval (default: 2 hours)
     setInterval(async () => {
       if (isMaintenanceRunning) {
         logger.debug('⏭️ Maintenance already running, skipping thorough cleanup...');
@@ -552,16 +564,16 @@ export class FeedQueueService {
         const cleanedJobs = beforeMetrics.orphanedJobsDetected - afterMetrics.orphanedJobsDetected;
         logger.info(`✅ Thorough maintenance completed - Cleaned ${cleanedJobs} orphaned jobs`);
         
-        // Alert if many orphaned jobs were found
-        if (beforeMetrics.orphanedJobsDetected > 10) {
-          logger.warn(`⚠️ HIGH ORPHANED JOB COUNT: Found ${beforeMetrics.orphanedJobsDetected} orphaned jobs during thorough cleanup`);
+        // Alert if many orphaned jobs were found (configurable threshold)
+        if (beforeMetrics.orphanedJobsDetected > config.jobCleanup.orphanedThreshold) {
+          logger.warn(`⚠️ HIGH ORPHANED JOB COUNT: Found ${beforeMetrics.orphanedJobsDetected} orphaned jobs during thorough cleanup (threshold: ${config.jobCleanup.orphanedThreshold})`);
         }
       } catch (error) {
         logger.error('❌ Thorough maintenance failed:', error);
       } finally {
         isMaintenanceRunning = false;
       }
-    }, 2 * 60 * 60 * 1000); // 2 hours
+    }, thoroughIntervalMs);
   }
 
   /**

@@ -27,6 +27,12 @@ const configSchema = z.object({
     environment: z.enum(['development', 'production', 'test']).default('development'),
     allowedUserId: z.number().optional(),
   }),
+  jobCleanup: z.object({
+    enabled: z.boolean().default(true),
+    intervalMinutes: z.number().int().positive().default(30),
+    thoroughIntervalHours: z.number().int().positive().default(2),
+    orphanedThreshold: z.number().int().positive().default(10),
+  }),
 });
 
 type Config = z.infer<typeof configSchema>;
@@ -54,6 +60,12 @@ function loadConfig(): Config {
       logLevel: (process.env.LOG_LEVEL as any) || (process.env.NODE_ENV === 'production' ? 'info' : 'warn'),
       environment: (process.env.NODE_ENV as any) || 'development',
       allowedUserId: process.env.ALLOWED_USER_ID ? Number.parseInt(process.env.ALLOWED_USER_ID, 10) : undefined,
+    },
+    jobCleanup: {
+      enabled: process.env.JOB_CLEANUP_ENABLED !== 'false',
+      intervalMinutes: process.env.JOB_CLEANUP_INTERVAL_MINUTES ? Number.parseInt(process.env.JOB_CLEANUP_INTERVAL_MINUTES, 10) : 30,
+      thoroughIntervalHours: process.env.JOB_CLEANUP_THOROUGH_INTERVAL_HOURS ? Number.parseInt(process.env.JOB_CLEANUP_THOROUGH_INTERVAL_HOURS, 10) : 2,
+      orphanedThreshold: process.env.JOB_CLEANUP_ORPHANED_THRESHOLD ? Number.parseInt(process.env.JOB_CLEANUP_ORPHANED_THRESHOLD, 10) : 10,
     },
   };
 
