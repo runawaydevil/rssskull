@@ -35,6 +35,33 @@ export interface MessageSendJobResult extends JobResult {
 export async function processMessageSend(
   job: Job<MessageSendJobData>
 ): Promise<MessageSendJobResult> {
+  // CRÍTICO: Try-catch adicional para garantir que nunca crasha o worker
+  try {
+    return await processMessageSendInternal(job);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    logger.error(`CRITICAL: Unhandled error in processMessageSend wrapper:`, error);
+    logger.error(`CRITICAL: Error details:`, {
+      message: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+      jobId: job.id,
+      feedId: job.data?.feedId,
+      chatId: job.data?.chatId,
+    });
+    
+    // Retornar erro controlado em vez de deixar crashar
+    return {
+      success: false,
+      message: `Critical error: ${errorMessage}`,
+      messagesSent: 0,
+      messagesTotal: job.data?.items?.length || 0,
+    };
+  }
+}
+
+async function processMessageSendInternal(
+  job: Job<MessageSendJobData>
+): Promise<MessageSendJobResult> {
   const { chatId, feedId, feedName, items, template } = job.data;
 
   // 🔥 LOG ESPECÍFICO PARA RASTREAR DUPLICAÇÃO

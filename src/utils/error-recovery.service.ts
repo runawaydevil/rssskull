@@ -57,20 +57,22 @@ export class ErrorRecoveryService {
   }
 
   interceptUncaughtException(error: Error): void {
-    logger.error('Uncaught exception intercepted', {
+    logger.error('CRITICAL: Uncaught exception intercepted', {
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
+      note: 'Application will continue running but may be in unstable state'
     });
 
-    // For uncaught exceptions, we still need to be careful
-    // but we can try to recover instead of immediately exiting
+    // Try to recover instead of immediately exiting
     this.analyzeAndQueueError(error);
     
-    // Give some time for cleanup, then exit gracefully
-    setTimeout(() => {
-      logger.error('Exiting after uncaught exception cleanup');
-      process.exit(1);
-    }, 5000);
+    // NÃO CHAMAR process.exit() - isso mata o container!
+    // Em vez disso, apenas logamos o erro crítico
+    // O erro já foi interceptado e logado, a aplicação deve continuar
+    logger.error('CRITICAL: Uncaught exception handled - application continuing (may be unstable)');
+    
+    // Não fazer nada mais - deixar o processo continuar
+    // Se o erro é realmente crítico, o monitoramento externo deve detectar
   }
 
   queueFailedOperation(operation: FailedOperation): void {

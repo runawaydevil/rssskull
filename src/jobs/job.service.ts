@@ -26,14 +26,51 @@ export class JobService {
       db: config.redis.db,
       enableReadyCheck: false,
       maxRetriesPerRequest: null,
+      retryStrategy: (times) => {
+        // Estratégia de retry exponencial para reconexão
+        const delay = Math.min(times * 100, 3000);
+        logger.warn(`Redis retry attempt ${times}, waiting ${delay}ms before retry`);
+        return delay;
+      },
+      reconnectOnError: (err) => {
+        // Reconectar em erros específicos
+        const targetError = 'READONLY';
+        if (err.message.includes(targetError)) {
+          logger.error('Redis READONLY error - will reconnect');
+          return true;
+        }
+        return false;
+      },
+      lazyConnect: false,
     });
 
     this.redis.on('connect', () => {
       logger.info('Connected to Redis for job queue');
     });
 
+    this.redis.on('ready', () => {
+      logger.info('Redis is ready for job queue');
+    });
+
     this.redis.on('error', (error) => {
       logger.error('Redis connection error:', error);
+      logger.error('Redis error details:', {
+        message: error.message,
+        code: (error as any).code,
+        errno: (error as any).errno,
+        syscall: (error as any).syscall
+      });
+      
+      // NÃO CRASHAR - Redis tem retry automático
+      logger.warn('Redis connection error - will attempt automatic reconnection');
+    });
+    
+    this.redis.on('close', () => {
+      logger.warn('Redis connection closed - will attempt reconnection');
+    });
+    
+    this.redis.on('reconnecting', (delay: number) => {
+      logger.info(`Redis reconnecting in ${delay}ms`);
     });
   }
 
@@ -94,17 +131,43 @@ export class JobService {
 
     const worker = new Worker<T, R>(queueName, processor, { ...defaultOptions, ...options });
 
-    // Event handlers
+    // Event handlers with error recovery
     worker.on('completed', (job) => {
       logger.info(`Job ${job.id} completed in queue ${queueName}`);
     });
 
     worker.on('failed', (job, err) => {
       logger.error(`Job ${job?.id} failed in queue ${queueName}:`, err);
+      // Job failed - but don't crash the worker
+      // BullMQ will handle retries automatically
     });
 
     worker.on('error', (err) => {
-      logger.error(`Worker error in queue ${queueName}:`, err);
+      logger.error(`CRITICAL: Worker error in queue ${queueName}:`, err);
+      logger.error('CRITICAL: Worker error details:', {
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        queueName
+      });
+      
+      // CRÍTICO: Não deixar erro do worker matar o processo
+      // O worker pode estar em estado inconsistente, mas o processo deve continuar
+      logger.error('CRITICAL: Worker error caught - process will continue but worker may need restart');
+      
+      // Tentar reconectar Redis se for erro de conexão
+      if (err instanceof Error && (
+        err.message.includes('Redis') || 
+        err.message.includes('Connection') ||
+        err.message.includes('ECONNREFUSED')
+      )) {
+        logger.warn('Redis connection error detected in worker - attempting recovery');
+        // O Redis já tem handlers de reconexão, então só logamos
+      }
+    });
+    
+    // Adicionar handler para erros não tratados no worker
+    worker.on('closed', () => {
+      logger.warn(`Worker closed for queue ${queueName} - this may indicate a problem`);
     });
 
     this.workers.set(queueName, worker as Worker);

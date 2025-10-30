@@ -17,7 +17,7 @@ export class MemoryMonitorService {
   private lastGCTime: number = 0;
   private readonly gcCooldownMs: number = 30000; // 30 seconds
 
-  constructor(memoryLimitMB: number = 512) {
+  constructor(memoryLimitMB: number = 4096) {
     this.memoryLimitMB = memoryLimitMB;
   }
 
@@ -147,10 +147,13 @@ export class MemoryMonitorService {
   }
 
   private triggerGracefulRestart(): void {
-    logger.error('Triggering graceful restart due to memory pressure');
+    logger.error('CRITICAL: Memory usage still high after GC - but NOT killing process');
+    logger.error('CRITICAL: Application will continue running. Monitor memory usage manually.');
     
-    // Emit event for graceful shutdown
-    process.emit('SIGTERM');
+    // NÃO EMITIR SIGTERM - isso mata o container!
+    // Em vez disso, apenas logamos o problema crítico
+    // O sistema de monitoramento externo (Docker, etc.) deve lidar com isso
+    logger.error('CRITICAL: Consider restarting the container manually if memory usage persists');
   }
 }
 

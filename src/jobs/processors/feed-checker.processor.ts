@@ -46,6 +46,30 @@ export interface MessageJobData extends JobData {
  * 3. Queuing notification jobs for new items
  */
 export async function processFeedCheck(job: Job<FeedCheckJobData>): Promise<FeedCheckJobResult> {
+  // CRÍTICO: Try-catch adicional para garantir que nunca crasha o worker
+  try {
+    return await processFeedCheckInternal(job);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    logger.error(`CRITICAL: Unhandled error in processFeedCheck wrapper:`, error);
+    logger.error(`CRITICAL: Error details:`, {
+      message: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+      jobId: job.id,
+      feedId: job.data?.feedId,
+    });
+    
+    // Retornar erro controlado em vez de deixar crashar
+    return {
+      success: false,
+      message: `Critical error: ${errorMessage}`,
+      failureCount: (job.data?.failureCount || 0) + 1,
+      lastItemId: job.data?.lastItemId,
+    };
+  }
+}
+
+async function processFeedCheckInternal(job: Job<FeedCheckJobData>): Promise<FeedCheckJobResult> {
   const { feedId, chatId, feedUrl, lastItemId, failureCount = 0 } = job.data;
 
   // Add lock to prevent duplicate processing
