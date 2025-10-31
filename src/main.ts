@@ -17,8 +17,7 @@ import { autoRecoveryService } from './utils/auto-recovery.service.js';
 // Global service references for watchdog
 let botService: BotService | null = null;
 let database: DatabaseService | null = null;
-let fastify: Fastify.FastifyInstance | null = null;
-let bootstrapAttempts = 0;
+let fastify: ReturnType<typeof Fastify> | null = null;
 const MAX_BOOTSTRAP_ATTEMPTS = 5;
 const INITIAL_RETRY_DELAY = 5000; // 5 seconds
 
@@ -28,7 +27,6 @@ const INITIAL_RETRY_DELAY = 5000; // 5 seconds
 class ServiceWatchdog {
   private healthCheckInterval?: NodeJS.Timeout;
   private heartbeatInterval?: NodeJS.Timeout;
-  private lastHealthCheck = Date.now();
   private consecutiveFailures = 0;
   private isRunning = false;
 
@@ -160,8 +158,6 @@ class ServiceWatchdog {
           await this.attemptRecovery(checks);
         }
       }
-
-      this.lastHealthCheck = Date.now();
     } catch (error) {
       logger.error('Error during health check:', error);
     }
@@ -216,7 +212,6 @@ async function bootstrapWithRetry(): Promise<void> {
   while (attempt < MAX_BOOTSTRAP_ATTEMPTS) {
     try {
       attempt++;
-      bootstrapAttempts = attempt;
 
       if (attempt > 1) {
         logger.info(`🔄 Bootstrap attempt ${attempt}/${MAX_BOOTSTRAP_ATTEMPTS}...`);
@@ -325,11 +320,11 @@ async function bootstrap() {
     });
 
     // Enhanced health check endpoint with resilience
-    fastify.get('/health', async (_, reply) => {
+    fastify.get('/health', async (_request: any, reply: any) => {
       try {
         const memoryStats = memoryMonitorService.getMemoryStats();
         const checks: any = {
-          database: await database.healthCheck(),
+          database: database ? await database.healthCheck() : false,
           redis: await jobService.healthCheck(),
           timestamp: new Date().toISOString(),
           uptime: process.uptime(),
@@ -343,10 +338,12 @@ async function bootstrap() {
 
         // Add resilience system health if available
         try {
-          const resilienceEndpoints = botService.getResilienceEndpoints();
-          if (resilienceEndpoints) {
-            const resilienceHealth = await resilienceEndpoints.getHealthStatus();
-            checks.resilience = resilienceHealth;
+          if (botService) {
+            const resilienceEndpoints = botService.getResilienceEndpoints();
+            if (resilienceEndpoints) {
+              const resilienceHealth = await resilienceEndpoints.getHealthStatus();
+              checks.resilience = resilienceHealth;
+            }
           }
         } catch (resilienceError) {
           // Resilience system may not be initialized yet, continue without it
@@ -429,8 +426,15 @@ async function bootstrap() {
     });
 
     // Resilience stats endpoint
-    fastify.get('/resilience-stats', async (_, reply) => {
+    fastify.get('/resilience-stats', async (_request: any, reply: any) => {
       try {
+        if (!botService) {
+          reply.code(503);
+          return {
+            error: 'Bot service not available',
+            timestamp: new Date().toISOString()
+          };
+        }
         const resilienceEndpoints = botService.getResilienceEndpoints();
         if (resilienceEndpoints) {
           return await resilienceEndpoints.getResilienceStats();
@@ -451,8 +455,15 @@ async function bootstrap() {
     });
 
     // Detailed metrics endpoint
-    fastify.get('/metrics', async (_, reply) => {
+    fastify.get('/metrics', async (_request: any, reply: any) => {
       try {
+        if (!botService) {
+          reply.code(503);
+          return {
+            error: 'Bot service not available',
+            timestamp: new Date().toISOString()
+          };
+        }
         const resilienceEndpoints = botService.getResilienceEndpoints();
         if (resilienceEndpoints) {
           return await resilienceEndpoints.getDetailedMetrics();
