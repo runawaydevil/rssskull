@@ -1236,6 +1236,102 @@ export class BotService {
   }
 
   /**
+   * Check if bot polling is active
+   */
+  async isPollingActive(): Promise<boolean> {
+    try {
+      if (this.runner) {
+        // For grammY Runner, we can check if it's running
+        // Runner doesn't expose a direct isRunning method, so we'll use a workaround
+        // Try to get bot info - if this succeeds, polling is likely active
+        try {
+          await this.bot.api.getMe();
+          return true;
+        } catch (error) {
+          logger.warn('Bot polling health check failed:', error);
+          return false;
+        }
+      } else {
+        // For regular polling, check if bot is running
+        try {
+          await this.bot.api.getMe();
+          return true;
+        } catch (error) {
+          logger.warn('Bot polling health check failed:', error);
+          return false;
+        }
+      }
+    } catch (error) {
+      logger.error('Error checking bot polling status:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Restart bot polling if it's not active
+   */
+  async restartPollingIfNeeded(): Promise<boolean> {
+    try {
+      const isActive = await this.isPollingActive();
+      
+      if (isActive) {
+        logger.debug('Bot polling is active - no restart needed');
+        return false;
+      }
+
+      logger.warn('⚠️ Bot polling is not active - attempting to restart...');
+      console.log('⚠️ Bot polling is not active - attempting to restart...');
+
+      // Stop existing polling/runner first
+      try {
+        if (this.runner) {
+          await this.runner.stop();
+        } else {
+          await this.bot.stop();
+        }
+      } catch (stopError) {
+        logger.warn('Error stopping existing polling (continuing anyway):', stopError);
+      }
+
+      // Clear webhook
+      try {
+        await this.bot.api.deleteWebhook({ drop_pending_updates: true });
+        logger.info('Webhook cleared for restart');
+      } catch (webhookError) {
+        logger.warn('Webhook clear failed during restart (continuing anyway):', webhookError);
+      }
+
+      // Wait a bit before restarting
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Restart polling
+      try {
+        this.runner = run(this.bot);
+        logger.info('✅ Bot polling restarted successfully');
+        console.log('✅ Bot polling restarted successfully');
+        return true;
+      } catch (runnerError) {
+        logger.error('Failed to restart with runner, trying regular polling:', runnerError);
+        
+        // Fallback to regular polling
+        try {
+          await this.bot.start();
+          logger.info('✅ Bot polling restarted with regular polling');
+          console.log('✅ Bot polling restarted with regular polling');
+          return true;
+        } catch (pollingError) {
+          logger.error('❌ Failed to restart bot polling:', pollingError);
+          console.error('❌ Failed to restart bot polling:', pollingError);
+          return false;
+        }
+      }
+    } catch (error) {
+      logger.error('Error during bot polling restart:', error);
+      return false;
+    }
+  }
+
+  /**
    * Load all existing feeds from database and schedule them for checking (async version)
    */
   private loadAndScheduleAllFeedsAsync(): void {

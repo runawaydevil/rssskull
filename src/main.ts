@@ -14,6 +14,263 @@ import { errorRecoveryService } from './utils/error-recovery.service.js';
 import { resourceCleanupService } from './utils/resource-cleanup.service.js';
 import { autoRecoveryService } from './utils/auto-recovery.service.js';
 
+// Global service references for watchdog
+let botService: BotService | null = null;
+let database: DatabaseService | null = null;
+let fastify: Fastify.FastifyInstance | null = null;
+let bootstrapAttempts = 0;
+const MAX_BOOTSTRAP_ATTEMPTS = 5;
+const INITIAL_RETRY_DELAY = 5000; // 5 seconds
+
+/**
+ * Service watchdog that monitors critical services and restarts them if needed
+ */
+class ServiceWatchdog {
+  private healthCheckInterval?: NodeJS.Timeout;
+  private heartbeatInterval?: NodeJS.Timeout;
+  private lastHealthCheck = Date.now();
+  private consecutiveFailures = 0;
+  private isRunning = false;
+
+  start() {
+    if (this.isRunning) {
+      logger.warn('Watchdog already running');
+      return;
+    }
+
+    this.isRunning = true;
+    logger.info('🔍 Starting service watchdog...');
+
+    // Health check every 30 seconds
+    this.healthCheckInterval = setInterval(() => {
+      this.checkServicesHealth();
+    }, 30000);
+
+    // Heartbeat every 5 minutes
+    this.heartbeatInterval = setInterval(() => {
+      this.heartbeat();
+    }, 300000);
+
+    // Initial heartbeat
+    this.heartbeat();
+  }
+
+  stop() {
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      this.healthCheckInterval = undefined;
+    }
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = undefined;
+    }
+    this.isRunning = false;
+    logger.info('Service watchdog stopped');
+  }
+
+  private heartbeat() {
+    const uptime = process.uptime();
+    const memory = process.memoryUsage();
+    const memoryMB = Math.round(memory.rss / 1024 / 1024);
+
+    logger.info('💓 Heartbeat - Application is alive', {
+      uptime: `${Math.floor(uptime / 60)} minutes`,
+      memoryMB,
+      pid: process.pid,
+      timestamp: new Date().toISOString(),
+    });
+    console.log(`💓 Heartbeat - Application running for ${Math.floor(uptime / 60)} minutes, Memory: ${memoryMB}MB`);
+  }
+
+  private async checkServicesHealth() {
+    try {
+      const checks: Record<string, boolean> = {};
+
+      // Check database
+      if (database) {
+        try {
+          checks.database = await database.healthCheck();
+        } catch (error) {
+          checks.database = false;
+          logger.error('Database health check failed:', error);
+        }
+      } else {
+        checks.database = false;
+      }
+
+      // Check Redis
+      try {
+        checks.redis = await jobService.healthCheck();
+      } catch (error) {
+        checks.redis = false;
+        logger.error('Redis health check failed:', error);
+      }
+
+      // Check server
+      if (fastify) {
+        try {
+          // Try to make a request to verify server is actually listening
+          // We'll check if the server is listening by checking its internal state
+          const serverInfo = fastify.server;
+          checks.server = !!serverInfo && serverInfo.listening;
+        } catch (error) {
+          checks.server = false;
+          logger.error('Server health check failed:', error);
+        }
+      } else {
+        checks.server = false;
+      }
+
+      // Check bot polling status
+      if (botService) {
+        try {
+          checks.bot = await botService.isPollingActive();
+          
+          // If polling is not active, try to restart it
+          if (!checks.bot) {
+            logger.warn('Bot polling is not active - attempting restart...');
+            const restarted = await botService.restartPollingIfNeeded();
+            if (restarted) {
+              checks.bot = true;
+              logger.info('Bot polling restarted successfully');
+            }
+          }
+        } catch (error) {
+          checks.bot = false;
+          logger.error('Bot polling check failed:', error);
+        }
+      } else {
+        checks.bot = false;
+      }
+
+      const allHealthy = Object.values(checks).every((check) => check === true);
+
+      if (allHealthy) {
+        this.consecutiveFailures = 0;
+      } else {
+        this.consecutiveFailures++;
+        logger.warn('Service health check failed', {
+          checks,
+          consecutiveFailures: this.consecutiveFailures,
+        });
+
+        // If we have too many consecutive failures, try to recover
+        if (this.consecutiveFailures >= 3) {
+          logger.error('Multiple consecutive health check failures - attempting recovery...');
+          await this.attemptRecovery(checks);
+        }
+      }
+
+      this.lastHealthCheck = Date.now();
+    } catch (error) {
+      logger.error('Error during health check:', error);
+    }
+  }
+
+  private async attemptRecovery(checks: Record<string, boolean>) {
+    logger.info('Attempting service recovery...');
+
+    // Try to recover Redis if it's down
+    if (!checks.redis) {
+      logger.info('Attempting Redis recovery...');
+      try {
+        // JobService should handle reconnection automatically
+        const recovered = await jobService.healthCheck();
+        if (recovered) {
+          logger.info('Redis recovery successful');
+        }
+      } catch (error) {
+        logger.error('Redis recovery failed:', error);
+      }
+    }
+
+    // Try to recover database if it's down
+    if (!checks.database && database) {
+      logger.info('Attempting database recovery...');
+      try {
+        await database.disconnect();
+        await database.connect();
+        const recovered = await database.healthCheck();
+        if (recovered) {
+          logger.info('Database recovery successful');
+        }
+      } catch (error) {
+        logger.error('Database recovery failed:', error);
+      }
+    }
+
+    // Reset failure counter after recovery attempt
+    this.consecutiveFailures = 0;
+  }
+}
+
+const watchdog = new ServiceWatchdog();
+
+/**
+ * Bootstrap with retry logic and backoff
+ */
+async function bootstrapWithRetry(): Promise<void> {
+  let attempt = 0;
+  let delay = INITIAL_RETRY_DELAY;
+
+  while (attempt < MAX_BOOTSTRAP_ATTEMPTS) {
+    try {
+      attempt++;
+      bootstrapAttempts = attempt;
+
+      if (attempt > 1) {
+        logger.info(`🔄 Bootstrap attempt ${attempt}/${MAX_BOOTSTRAP_ATTEMPTS}...`);
+        console.log(`🔄 Retrying bootstrap in ${delay / 1000} seconds (attempt ${attempt}/${MAX_BOOTSTRAP_ATTEMPTS})...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        // Exponential backoff
+        delay = Math.min(delay * 2, 60000); // Max 60 seconds
+      }
+
+      await bootstrap();
+      // If bootstrap succeeds, break out of retry loop
+      return;
+    } catch (error) {
+      logger.error(`❌ Bootstrap attempt ${attempt} failed:`, error);
+      console.error(`❌ Bootstrap attempt ${attempt}/${MAX_BOOTSTRAP_ATTEMPTS} failed`);
+
+      if (attempt >= MAX_BOOTSTRAP_ATTEMPTS) {
+        logger.error(`❌ All ${MAX_BOOTSTRAP_ATTEMPTS} bootstrap attempts failed. Application will continue running but may be in unstable state.`);
+        console.error(`❌ All ${MAX_BOOTSTRAP_ATTEMPTS} bootstrap attempts failed.`);
+        console.error('⚠️  Application will continue running but may be in unstable state.');
+        console.error('⚠️  Check logs for details and consider manual intervention.');
+
+        // Don't exit - keep the process alive so we can attempt manual recovery
+        // Set up a keep-alive loop to prevent process from exiting
+        setupKeepAlive();
+        return;
+      }
+    }
+  }
+}
+
+/**
+ * Setup keep-alive loop to ensure process never exits unexpectedly
+ */
+function setupKeepAlive() {
+  logger.info('🔒 Setting up keep-alive loop to prevent unexpected exits...');
+  
+  // Keep event loop alive with periodic intervals
+  setInterval(() => {
+    // Just keep the process alive
+    if (process.memoryUsage().rss > 0) {
+      // Process is still alive
+    }
+  }, 10000); // Every 10 seconds
+
+  // Log keep-alive status periodically
+  setInterval(() => {
+    logger.info('🔒 Keep-alive: Process is still running', {
+      uptime: process.uptime(),
+      memory: Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB',
+    });
+  }, 60000); // Every minute
+}
+
 async function bootstrap() {
   try {
     // Set bot startup time for feed processing (ISO string format)
@@ -49,7 +306,7 @@ async function bootstrap() {
       logger.warn('⚠️ Migration failed, continuing anyway:', error);
     }
     
-    const database = new DatabaseService();
+    database = new DatabaseService();
     
     const dbConnectPromise = database.connect();
     const dbTimeout = new Promise((_, reject) => 
@@ -63,7 +320,7 @@ async function bootstrap() {
     // Initialize Fastify server
     logger.info('🌐 Initializing Fastify server...');
     console.log('🌐 Initializing Fastify server...');
-    const fastify = Fastify({
+    fastify = Fastify({
       logger: false, // We use our own logger
     });
 
@@ -246,7 +503,7 @@ async function bootstrap() {
     // Initialize bot with timeout
     logger.info('🤖 Creating BotService instance...');
     console.log('🤖 Creating BotService instance...');
-    const botService = new BotService();
+    botService = new BotService();
     
     logger.info('🔧 Initializing bot service...');
     console.log('🔧 Initializing bot service...');
@@ -275,39 +532,12 @@ async function bootstrap() {
     console.log('📊 Health check: http://localhost:8916/health');
     console.log('💬 Bot is ready to receive commands!');
 
-    // Graceful shutdown
-    const shutdown = async () => {
-      logger.info('Shutting down gracefully...');
-      try {
-        memoryMonitorService.stop();
-        errorRecoveryService.stop();
-        resourceCleanupService.stop();
-        autoRecoveryService.stop();
-        await botService.stop();
-        await feedQueueService.close();
-        await jobService.close();
-        await fastify.close();
-        await database.disconnect();
-        logger.info('Shutdown completed successfully');
-      } catch (error) {
-        logger.error('Error during shutdown:', error);
-      }
-      process.exit(0);
-    };
-
-    // Handle shutdown signals
-    process.once('SIGINT', shutdown);
-    process.once('SIGTERM', shutdown);
+    // Start watchdog and keep-alive after successful bootstrap
+    logger.info('🔍 Starting service watchdog...');
+    watchdog.start();
     
-    // Enhanced error handling with recovery
-    process.on('uncaughtException', (error) => {
-      errorRecoveryService.interceptUncaughtException(error);
-    });
-    
-    process.on('unhandledRejection', (reason, promise) => {
-      const error = reason instanceof Error ? reason : new Error(String(reason));
-      errorRecoveryService.interceptUnhandledRejection(error, promise);
-    });
+    // Setup keep-alive to prevent process from exiting
+    setupKeepAlive();
   } catch (error) {
     logger.error('❌ Failed to start application:', error);
     console.error('❌ Failed to start application:', error);
@@ -320,8 +550,73 @@ async function bootstrap() {
       console.error('💡 Initialization timed out - check network connectivity');
     }
     
-    process.exit(1);
+    // Don't call process.exit(1) - let retry logic handle it
+    // Throw error to be caught by bootstrapWithRetry
+    throw error;
   }
 }
 
-bootstrap();
+// Handle shutdown signals globally
+let shutdownInProgress = false;
+const gracefulShutdown = async () => {
+  if (shutdownInProgress) {
+    logger.warn('Shutdown already in progress');
+    return;
+  }
+  
+  shutdownInProgress = true;
+  logger.info('Shutting down gracefully...');
+  try {
+    watchdog.stop();
+    memoryMonitorService.stop();
+    errorRecoveryService.stop();
+    resourceCleanupService.stop();
+    autoRecoveryService.stop();
+    if (botService) {
+      await botService.stop();
+    }
+    await feedQueueService.close();
+    await jobService.close();
+    if (fastify) {
+      await fastify.close();
+    }
+    if (database) {
+      await database.disconnect();
+    }
+    logger.info('Shutdown completed successfully');
+  } catch (error) {
+    logger.error('Error during shutdown:', error);
+  }
+  process.exit(0);
+};
+
+// Handle shutdown signals
+process.once('SIGINT', gracefulShutdown);
+process.once('SIGTERM', gracefulShutdown);
+
+// Enhanced error handling with recovery - set up globally
+process.on('uncaughtException', (error) => {
+  errorRecoveryService.interceptUncaughtException(error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  const error = reason instanceof Error ? reason : new Error(String(reason));
+  errorRecoveryService.interceptUnhandledRejection(error, promise);
+});
+
+// Prevent process from exiting due to empty event loop
+process.on('beforeExit', (code) => {
+  if (code === 0) {
+    logger.info('Process attempting to exit with code 0 - this should only happen during graceful shutdown');
+  } else {
+    logger.warn(`Process attempting to exit with code ${code} - keeping alive...`);
+    // Don't allow exit unless it's a graceful shutdown
+  }
+});
+
+// Start bootstrap with retry
+bootstrapWithRetry().catch((error) => {
+  logger.error('Critical: bootstrapWithRetry failed completely:', error);
+  console.error('Critical: All bootstrap attempts failed. Process will remain alive for manual intervention.');
+  setupKeepAlive();
+});
