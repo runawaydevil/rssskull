@@ -80,8 +80,11 @@ COPY --from=builder --chown=nodejs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nodejs:nodejs /app/scripts ./scripts
 
 # Create data directory for SQLite and ensure proper permissions
+# NOTE: Most files already have correct ownership from COPY --chown above
+# Only need to chown the newly created directories
 RUN mkdir -p /app/data /home/nodejs/.npm && \
-    chown -R nodejs:nodejs /app /home/nodejs
+    chown nodejs:nodejs /app/data /home/nodejs/.npm && \
+    chown -R nodejs:nodejs /home/nodejs
 
 # Fix line endings and make scripts executable
 RUN sed -i 's/\r$//' /app/scripts/*.sh && \
