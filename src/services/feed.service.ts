@@ -188,7 +188,8 @@ export class FeedService {
       
       // Get polling interval from provider if available
       const providerInterval = providerRegistry.getPollInterval(input.url);
-      const checkIntervalMinutes = providerInterval || (isReddit ? 6 : 10);
+      // Use 5 minutes for Reddit (matching feed.config.ts) for faster detection
+      const checkIntervalMinutes = providerInterval || (isReddit ? 5 : 10);
       
       // Determine max age based on feed type
       const maxAgeMinutes = isReddit ? 90 : isInstagram ? 90 : 1440; // Reddit/IG: 90 min, others: 24h
