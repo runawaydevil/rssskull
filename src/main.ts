@@ -243,27 +243,77 @@ async function bootstrapWithRetry(): Promise<void> {
   }
 }
 
+// Global flag to track if graceful shutdown is in progress
+let gracefulShutdownFlag = false;
+const keepAliveIntervals: NodeJS.Timeout[] = [];
+
 /**
  * Setup keep-alive loop to ensure process never exits unexpectedly
+ * This creates multiple intervals that will never be cleared (except on graceful shutdown)
  */
 function setupKeepAlive() {
-  logger.info('🔒 Setting up keep-alive loop to prevent unexpected exits...');
+  logger.info('🔒 Setting up infinite keep-alive loop to prevent unexpected exits...');
+  console.log('🔒 Setting up infinite keep-alive loop to prevent unexpected exits...');
   
-  // Keep event loop alive with periodic intervals
-  setInterval(() => {
-    // Just keep the process alive
-    if (process.memoryUsage().rss > 0) {
-      // Process is still alive
+  // Primary keep-alive interval - NEVER cleared, keeps event loop alive permanently
+  const primaryInterval = setInterval(() => {
+    // This interval should NEVER be cleared, ensuring the event loop never empties
+    if (!gracefulShutdownFlag) {
+      // Process is alive and should continue running
+      const mem = process.memoryUsage();
+      if (mem.rss === 0) {
+        logger.error('CRITICAL: Process memory is 0 - this should never happen!');
+      }
+    }
+  }, 5000); // Every 5 seconds - frequent enough to prevent event loop from emptying
+  
+  keepAliveIntervals.push(primaryInterval);
+
+  // Secondary keep-alive interval - heartbeat logging
+  const heartbeatInterval = setInterval(() => {
+    if (!gracefulShutdownFlag) {
+      const uptime = process.uptime();
+      const memory = process.memoryUsage();
+      const memoryMB = Math.round(memory.rss / 1024 / 1024);
+      
+      logger.info('💓 HEARTBEAT - Process is ALIVE and RUNNING', {
+        uptime: `${Math.floor(uptime / 60)} minutes`,
+        memoryMB,
+        pid: process.pid,
+        timestamp: new Date().toISOString(),
+        eventLoopActive: true,
+      });
+      console.log(`💓 HEARTBEAT - Process running for ${Math.floor(uptime / 60)} minutes, Memory: ${memoryMB}MB, PID: ${process.pid}`);
+    }
+  }, 30000); // Every 30 seconds - more frequent for better tracking
+  
+  keepAliveIntervals.push(heartbeatInterval);
+
+  // Tertiary keep-alive - additional safety net
+  const safetyInterval = setInterval(() => {
+    if (!gracefulShutdownFlag) {
+      // Just keep the process alive - this interval is never cleared
+      // Check memory usage to create async operation
+      process.memoryUsage();
     }
   }, 10000); // Every 10 seconds
+  
+  keepAliveIntervals.push(safetyInterval);
 
-  // Log keep-alive status periodically
-  setInterval(() => {
-    logger.info('🔒 Keep-alive: Process is still running', {
-      uptime: process.uptime(),
-      memory: Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB',
-    });
-  }, 60000); // Every minute
+  logger.info(`✅ Keep-alive setup complete - ${keepAliveIntervals.length} intervals active`);
+  console.log(`✅ Keep-alive setup complete - ${keepAliveIntervals.length} intervals active`);
+}
+
+/**
+ * Clear all keep-alive intervals (only called during graceful shutdown)
+ */
+function clearKeepAlive() {
+  gracefulShutdownFlag = true;
+  logger.info(`🧹 Clearing ${keepAliveIntervals.length} keep-alive intervals...`);
+  keepAliveIntervals.forEach((interval) => {
+    clearInterval(interval);
+  });
+  keepAliveIntervals.length = 0;
 }
 
 async function bootstrap() {
@@ -542,13 +592,26 @@ async function bootstrap() {
     console.log('🎉 RSS Skull Bot is now fully operational!');
     console.log('📊 Health check: http://localhost:8916/health');
     console.log('💬 Bot is ready to receive commands!');
+    console.log(`🆔 Process PID: ${process.pid}`);
+    logger.info('Process information', {
+      pid: process.pid,
+      nodeVersion: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      uptime: process.uptime(),
+    });
 
     // Start watchdog and keep-alive after successful bootstrap
     logger.info('🔍 Starting service watchdog...');
+    console.log('🔍 Starting service watchdog...');
     watchdog.start();
     
-    // Setup keep-alive to prevent process from exiting
+    // Setup keep-alive to prevent process from exiting - CRITICAL
     setupKeepAlive();
+    
+    // Additional logging to confirm everything is running
+    logger.info('✅ All systems operational - process should NEVER exit unless graceful shutdown');
+    console.log('✅ All systems operational - process should NEVER exit unless graceful shutdown');
   } catch (error) {
     logger.error('❌ Failed to start application:', error);
     console.error('❌ Failed to start application:', error);
@@ -576,28 +639,55 @@ const gracefulShutdown = async () => {
   }
   
   shutdownInProgress = true;
-  logger.info('Shutting down gracefully...');
+  gracefulShutdownFlag = true;
+  
+  logger.info('🛑 GRACEFUL SHUTDOWN INITIATED...');
+  console.log('🛑 GRACEFUL SHUTDOWN INITIATED...');
+  
   try {
+    logger.info('🧹 Stopping services...');
+    console.log('🧹 Stopping services...');
+    
+    // Clear keep-alive intervals first
+    clearKeepAlive();
+    
     watchdog.stop();
     memoryMonitorService.stop();
     errorRecoveryService.stop();
     resourceCleanupService.stop();
     autoRecoveryService.stop();
+    
     if (botService) {
+      logger.info('🛑 Stopping bot service...');
       await botService.stop();
     }
+    
+    logger.info('🛑 Closing feed queue service...');
     await feedQueueService.close();
+    
+    logger.info('🛑 Closing job service...');
     await jobService.close();
+    
     if (fastify) {
+      logger.info('🛑 Closing HTTP server...');
       await fastify.close();
     }
+    
     if (database) {
+      logger.info('🛑 Disconnecting database...');
       await database.disconnect();
     }
-    logger.info('Shutdown completed successfully');
+    
+    logger.info('✅ Shutdown completed successfully');
+    console.log('✅ Shutdown completed successfully');
   } catch (error) {
-    logger.error('Error during shutdown:', error);
+    logger.error('❌ Error during shutdown:', error);
+    console.error('❌ Error during shutdown:', error);
   }
+  
+  // Only exit after everything is cleaned up
+  logger.info('👋 Process exiting...');
+  console.log('👋 Process exiting...');
   process.exit(0);
 };
 
@@ -616,18 +706,91 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // Prevent process from exiting due to empty event loop
+// CRITICAL: This handler MUST prevent exit unless it's a graceful shutdown
+let beforeExitHandled = false;
 process.on('beforeExit', (code) => {
-  if (code === 0) {
-    logger.info('Process attempting to exit with code 0 - this should only happen during graceful shutdown');
-  } else {
-    logger.warn(`Process attempting to exit with code ${code} - keeping alive...`);
-    // Don't allow exit unless it's a graceful shutdown
+  if (gracefulShutdownFlag) {
+    // Only allow exit if graceful shutdown was initiated
+    logger.info('Process exiting gracefully as requested');
+    return;
+  }
+
+  // CRITICAL: Prevent exit by scheduling a new async operation
+  // This creates a new task in the event loop, preventing exit
+  logger.error(`⚠️ BEFORE EXIT DETECTED (code: ${code}) - PREVENTING EXIT!`);
+  console.error(`⚠️ BEFORE EXIT DETECTED (code: ${code}) - PREVENTING EXIT!`);
+  console.error(`⚠️ This should NOT happen - keeping process alive!`);
+  
+  if (!beforeExitHandled) {
+    beforeExitHandled = true;
+    
+    // Schedule immediate async operation to prevent exit
+    setImmediate(() => {
+      beforeExitHandled = false;
+      logger.info('✅ Exit prevented - process continuing');
+      console.log('✅ Exit prevented - process continuing');
+    });
+
+    // Also schedule a timeout to ensure event loop stays active
+    setTimeout(() => {
+      logger.warn('⚠️ Keep-alive timeout fired - ensuring process stays alive');
+    }, 0);
+
+    // Force keep-alive by checking memory (creates async operation)
+    process.nextTick(() => {
+      process.memoryUsage();
+      logger.debug('Keep-alive nextTick executed');
+    });
   }
 });
 
-// Start bootstrap with retry
-bootstrapWithRetry().catch((error) => {
+// Additional safety: handle 'exit' event (but this is too late to prevent)
+process.on('exit', (code) => {
+  if (!gracefulShutdownFlag) {
+    logger.error(`❌ CRITICAL: Process exiting with code ${code} without graceful shutdown!`);
+    console.error(`❌ CRITICAL: Process exiting with code ${code} without graceful shutdown!`);
+  }
+});
+
+// Global promise rejection handler wrapper
+function safeAsync<T>(promise: Promise<T>, context: string): Promise<T> {
+  return promise.catch((error) => {
+    logger.error(`Unhandled promise rejection in ${context}:`, error);
+    console.error(`Unhandled promise rejection in ${context}:`, error);
+    // Don't re-throw - keep the process alive
+    return Promise.resolve() as unknown as T;
+  });
+}
+
+// Wrap all critical async operations to prevent unhandled rejections
+process.on('unhandledRejection', (reason, promise) => {
+  const error = reason instanceof Error ? reason : new Error(String(reason));
+  logger.error('🚨 UNHANDLED REJECTION DETECTED - Keeping process alive:', {
+    error: error.message,
+    stack: error.stack,
+    promise: promise.toString(),
+  });
+  console.error('🚨 UNHANDLED REJECTION DETECTED - Keeping process alive:', error.message);
+  
+  // Intercept and handle
+  errorRecoveryService.interceptUnhandledRejection(error, promise);
+  
+  // CRITICAL: Prevent process from exiting due to unhandled rejection
+  // By handling it here and not re-throwing, we keep the process alive
+});
+
+// Start bootstrap with retry - wrapped in safe async
+safeAsync(bootstrapWithRetry(), 'bootstrapWithRetry').catch((error) => {
   logger.error('Critical: bootstrapWithRetry failed completely:', error);
   console.error('Critical: All bootstrap attempts failed. Process will remain alive for manual intervention.');
+  console.error('⚠️  Process will continue running to allow manual recovery.');
+  
+  // Setup keep-alive even if bootstrap failed
   setupKeepAlive();
+  
+  // Keep process alive by scheduling periodic checks
+  setInterval(() => {
+    logger.warn('⚠️ Bootstrap failed - process still alive, waiting for manual intervention');
+    console.log('⚠️ Bootstrap failed - process still alive, waiting for manual intervention');
+  }, 60000); // Every minute
 });

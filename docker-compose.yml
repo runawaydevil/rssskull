@@ -110,7 +110,7 @@ services:
         condition: service_healthy
       # rss-bridge:  # Disabled
       #   condition: service_healthy
-    restart: unless-stopped
+    restart: always
     # Enhanced health check with more tolerant settings
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8916/health"]
