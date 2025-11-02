@@ -26,19 +26,17 @@ class FeedService:
     async def get_feed(self, chat_id: str, name: str) -> Optional[Feed]:
         """Get a specific feed"""
         with database.get_session() as session:
-            statement = select(Feed).where(
-                Feed.chat_id == chat_id,
-                Feed.name == name
-            )
+            statement = select(Feed).where(Feed.chat_id == chat_id, Feed.name == name)
             return session.exec(statement).first()
 
     async def add_feed(self, chat_id: str, name: str, url: str) -> Dict[str, Any]:
         """Add a new feed"""
         try:
             feed_url = url
-            
+
             # Convert YouTube URLs to RSS format BEFORE validation
             from app.services.youtube_service import youtube_service
+
             if youtube_service.is_youtube_url(url):
                 rss_url = youtube_service.convert_to_rss_url(url)
                 if rss_url:
@@ -49,10 +47,11 @@ class FeedService:
                         "success": False,
                         "error": "Could not convert YouTube URL to RSS feed",
                     }
-            
+
             # Convert Reddit URLs to RSS format BEFORE validation
             if feed_url == url:  # Only check Reddit if not already converted
                 from app.services.reddit_service import reddit_service
+
                 if reddit_service.is_reddit_url(url):
                     # Convert to RSS URL if not already in RSS format
                     if not url.endswith(".rss") and not url.endswith(".xml"):
@@ -62,7 +61,7 @@ class FeedService:
                             logger.info(f"Converting Reddit URL to RSS: {url} -> {feed_url}")
                         else:
                             feed_url = f"{url}.rss"
-            
+
             # Validate feed URL (use converted URL for YouTube/Reddit)
             is_valid = await rss_service.validate_feed_url(feed_url)
             if not is_valid:
@@ -182,27 +181,34 @@ class FeedService:
                 total_statement = select(Feed)
                 total_feeds = session.exec(total_statement).all()
                 total_count = len(list(total_feeds))
-                
+
                 # Get enabled feeds
                 statement = select(Feed).where(Feed.enabled)
                 feeds = session.exec(statement).all()
                 feeds_list = list(feeds)
                 enabled_count = len(feeds_list)
-                
-                logger.info(f"📈 Feed statistics: {enabled_count} enabled out of {total_count} total feeds")
-                
+
+                logger.info(
+                    f"📈 Feed statistics: {enabled_count} enabled out of {total_count} total feeds"
+                )
+
                 if enabled_count == 0 and total_count > 0:
-                    logger.warning(f"⚠️ No enabled feeds found, but {total_count} feed(s) exist in database (they may be disabled)")
+                    logger.warning(
+                        f"⚠️ No enabled feeds found, but {total_count} feed(s) exist in database (they may be disabled)"
+                    )
                 elif total_count == 0:
                     logger.info("ℹ️ No feeds found in database at all")
-                
+
                 return feeds_list
         except Exception as e:
             logger.error(f"❌ Failed to get enabled feeds from database: {e}", exc_info=True)
             return []
 
     async def update_feed_last_check(
-        self, feed_id: str, last_item_id: Optional[str] = None, last_notified_at: Optional[datetime] = None
+        self,
+        feed_id: str,
+        last_item_id: Optional[str] = None,
+        last_notified_at: Optional[datetime] = None,
     ):
         """Update feed's last check time and last item ID"""
         try:
@@ -215,14 +221,17 @@ class FeedService:
                         logger.debug(f"Updated feed {feed.name} lastItemId: {last_item_id}")
                     if last_notified_at:
                         feed.last_notified_at = last_notified_at
-                        logger.debug(f"Updated feed {feed.name} lastNotifiedAt: {last_notified_at.isoformat()}")
+                        logger.debug(
+                            f"Updated feed {feed.name} lastNotifiedAt: {last_notified_at.isoformat()}"
+                        )
                     session.add(feed)
                     session.commit()
-                    logger.debug(f"Feed {feed.name} last check updated: {feed.last_check.isoformat()}")
+                    logger.debug(
+                        f"Feed {feed.name} last check updated: {feed.last_check.isoformat()}"
+                    )
         except Exception as e:
             logger.error(f"Failed to update feed last check: {e}")
 
 
 # Global feed service instance
 feed_service = FeedService()
-

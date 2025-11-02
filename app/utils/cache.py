@@ -26,7 +26,9 @@ class CacheService:
 
         pool = None
         try:
-            connection_string = f"redis://{settings.redis_host}:{settings.redis_port}/{settings.redis_db}"
+            connection_string = (
+                f"redis://{settings.redis_host}:{settings.redis_port}/{settings.redis_db}"
+            )
             if settings.redis_password:
                 connection_string = f"redis://:{settings.redis_password}@{settings.redis_host}:{settings.redis_port}/{settings.redis_db}"
 
@@ -121,4 +123,3 @@ class CacheService:
 
 # Global cache instance
 cache_service = CacheService()
-

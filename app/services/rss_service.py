@@ -12,16 +12,20 @@ from app.utils.cache import cache_service
 
 logger = get_logger(__name__)
 
+
 # Import reddit_service here to avoid circular dependency
 def get_reddit_service():
     """Get Reddit service instance"""
     from app.services.reddit_service import reddit_service
+
     return reddit_service
+
 
 # Import youtube_service here to avoid circular dependency
 def get_youtube_service():
     """Get YouTube service instance"""
     from app.services.youtube_service import youtube_service
+
     return youtube_service
 
 
@@ -38,14 +42,16 @@ class RSSItem:
         author: Optional[str] = None,
         categories: Optional[List[str]] = None,
         guid: Optional[str] = None,
-        **kwargs  # Allow additional fields for cached items
+        **kwargs,  # Allow additional fields for cached items
     ):
         self.id = id
         self.title = title
         self.link = link
         self.description = description
         # Handle both pub_date and pubDate (for cached items)
-        self.pub_date = pub_date or (kwargs.get("pubDate") if isinstance(kwargs.get("pubDate"), datetime) else None)
+        self.pub_date = pub_date or (
+            kwargs.get("pubDate") if isinstance(kwargs.get("pubDate"), datetime) else None
+        )
         self.author = author
         self.categories = categories or []
         self.guid = guid
@@ -117,20 +123,20 @@ class RSSService:
         """
         if not url:
             return False
-        
+
         url_lower = url.lower()
         # Check for common RSS/XML extensions
-        if url_lower.endswith('.rss') or url_lower.endswith('.xml'):
+        if url_lower.endswith(".rss") or url_lower.endswith(".xml"):
             return True
-        
+
         # Check for YouTube RSS feed pattern
-        if 'feeds/videos.xml' in url_lower:
+        if "feeds/videos.xml" in url_lower:
             return True
-        
+
         # Check for Atom feed
-        if 'atom.xml' in url_lower:
+        if "atom.xml" in url_lower:
             return True
-        
+
         return False
 
     async def fetch_feed(self, url: str) -> Dict[str, Any]:
@@ -147,7 +153,7 @@ class RSSService:
         if self._is_rss_url(url):
             logger.info(f"📡 URL already in RSS format, fetching directly: {url}")
             return await self._fetch_feed_from_url(url)
-        
+
         # Check if this is a YouTube URL - if so, use YouTube service
         youtube_service = get_youtube_service()
         if youtube_service.is_youtube_url(url):
@@ -163,7 +169,7 @@ class RSSService:
                 "success": False,
                 "error": result.get("error") or "Failed to fetch YouTube feed",
             }
-        
+
         # Check if this is a Reddit URL - if so, use Reddit service
         reddit_service = get_reddit_service()
         if reddit_service.is_reddit_url(url):
@@ -196,16 +202,19 @@ class RSSService:
                 if item_dict.get("pubDate"):
                     try:
                         from dateutil import parser as date_parser
+
                         pub_date = date_parser.parse(item_dict["pubDate"])
                     except Exception:
                         pass
                 item_dict["pub_date"] = pub_date
                 items.append(RSSItem(**item_dict))
-            
+
             # DEBUG: Log cache results
             logger.info(f"🔍 Using cached feed for {url}: {len(items)} items from cache")
             if items:
-                logger.info(f"🔍 Cached first item: id={items[0].id}, title={items[0].title[:50]}, pub_date={items[0].pub_date.isoformat() if items[0].pub_date else 'N/A'}")
+                logger.info(
+                    f"🔍 Cached first item: id={items[0].id}, title={items[0].title[:50]}, pub_date={items[0].pub_date.isoformat() if items[0].pub_date else 'N/A'}"
+                )
                 # Cache has items - use it
                 feed = RSSFeed(
                     items=items,
@@ -217,7 +226,9 @@ class RSSService:
                 return {"success": True, "feed": feed}
             else:
                 # Cache returned empty - clear it and force refetch
-                logger.warning(f"⚠️ Cache returned empty feed for {url} - clearing cache and will refetch")
+                logger.warning(
+                    f"⚠️ Cache returned empty feed for {url} - clearing cache and will refetch"
+                )
                 await cache_service.delete(f"feed:{url}")
                 await cache_service.delete(f"feed_meta:{url}")
                 # Fall through to fetch fresh data below
@@ -256,16 +267,21 @@ class RSSService:
                                 if item_dict.get("pubDate"):
                                     try:
                                         from dateutil import parser as date_parser
+
                                         pub_date = date_parser.parse(item_dict["pubDate"])
                                     except Exception:
                                         pass
                                 item_dict["pub_date"] = pub_date
                                 items.append(RSSItem(**item_dict))
-                            
+
                             # DEBUG: Log 304 cache results
-                            logger.info(f"🔍 Received 304 Not Modified for {url}: {len(items)} items from cache")
+                            logger.info(
+                                f"🔍 Received 304 Not Modified for {url}: {len(items)} items from cache"
+                            )
                             if not items:
-                                logger.warning("⚠️ 304 cache returned empty feed - clearing cache and refetching")
+                                logger.warning(
+                                    "⚠️ 304 cache returned empty feed - clearing cache and refetching"
+                                )
                                 await cache_service.delete(f"feed:{url}")
                                 await cache_service.delete(f"feed_meta:{url}")
                                 # Fall through to refetch
@@ -279,7 +295,9 @@ class RSSService:
                                 logger.debug(f"Received 304 Not Modified, using cached feed: {url}")
                                 return {"success": True, "feed": feed}
                         else:
-                            logger.warning(f"⚠️ Received 304 but no cache found for {url} - refetching")
+                            logger.warning(
+                                f"⚠️ Received 304 but no cache found for {url} - refetching"
+                            )
                             # Fall through to refetch
 
                     if not response.ok:
@@ -303,9 +321,13 @@ class RSSService:
                         raise Exception(error_msg)
 
                     # DEBUG: Log feed parsing results
-                    logger.info(f"🔍 Feed parser result for {url}: {len(parsed.entries)} entries found")
+                    logger.info(
+                        f"🔍 Feed parser result for {url}: {len(parsed.entries)} entries found"
+                    )
                     if parsed.entries:
-                        logger.info(f"🔍 First entry: id={parsed.entries[0].get('id', 'N/A')}, title={parsed.entries[0].get('title', 'N/A')[:50]}")
+                        logger.info(
+                            f"🔍 First entry: id={parsed.entries[0].get('id', 'N/A')}, title={parsed.entries[0].get('title', 'N/A')[:50]}"
+                        )
 
                     # Convert to RSSFeed
                     items = []
@@ -323,6 +345,7 @@ class RSSService:
                             try:
                                 # Try to parse published string
                                 from email.utils import parsedate_tz
+
                                 parsed_date = parsedate_tz(entry.published)
                                 if parsed_date:
                                     pub_date = datetime(*parsed_date[:6])
@@ -330,10 +353,17 @@ class RSSService:
                                 pass
 
                         # Extract ID (prioritize id, guid, then link)
-                        item_id = entry.get("id") or entry.get("guid") or entry.get("link") or entry.get("title", "")
+                        item_id = (
+                            entry.get("id")
+                            or entry.get("guid")
+                            or entry.get("link")
+                            or entry.get("title", "")
+                        )
                         if not item_id:
                             entries_skipped += 1
-                            logger.warning(f"⚠️ Skipping entry without ID: title={entry.get('title', 'N/A')[:50]}")
+                            logger.warning(
+                                f"⚠️ Skipping entry without ID: title={entry.get('title', 'N/A')[:50]}"
+                            )
                             continue  # Skip entries without ID
 
                         item = RSSItem(
@@ -343,15 +373,23 @@ class RSSService:
                             description=entry.get("description") or entry.get("summary"),
                             pub_date=pub_date,
                             author=entry.get("author"),
-                            categories=[tag.get("term") for tag in entry.get("tags", []) if isinstance(tag, dict)],
+                            categories=[
+                                tag.get("term")
+                                for tag in entry.get("tags", [])
+                                if isinstance(tag, dict)
+                            ],
                             guid=entry.get("guid"),
                         )
                         items.append(item)
 
                     # DEBUG: Log conversion results
-                    logger.info(f"🔍 Feed conversion result for {url}: {len(items)} items created from {len(parsed.entries)} entries (skipped: {entries_skipped})")
+                    logger.info(
+                        f"🔍 Feed conversion result for {url}: {len(items)} items created from {len(parsed.entries)} entries (skipped: {entries_skipped})"
+                    )
                     if items:
-                        logger.info(f"🔍 First item: id={items[0].id}, title={items[0].title[:50]}, pub_date={items[0].pub_date.isoformat() if items[0].pub_date else 'N/A'}")
+                        logger.info(
+                            f"🔍 First item: id={items[0].id}, title={items[0].title[:50]}, pub_date={items[0].pub_date.isoformat() if items[0].pub_date else 'N/A'}"
+                        )
 
                     feed = RSSFeed(
                         items=items,
@@ -400,7 +438,10 @@ class RSSService:
         }
 
     async def get_new_items(
-        self, url: str, last_item_id: Optional[str] = None, last_item_date: Optional[datetime] = None
+        self,
+        url: str,
+        last_item_id: Optional[str] = None,
+        last_item_date: Optional[datetime] = None,
     ) -> Dict[str, Any]:
         """
         Get new items from a feed - SIMPLIFIED VERSION
@@ -420,16 +461,18 @@ class RSSService:
         feed = result["feed"]
         items = feed.items
         total_items_count = len(items)
-        
+
         if not items:
             return {"items": [], "totalItemsCount": 0}
-        
+
         first_item = items[0]
         first_item_id = first_item.id
 
         # If no last item ID, this is the first time processing this feed
         if not last_item_id:
-            logger.info(f"No lastItemId for {url} - First time processing, returning empty (will not process old items)")
+            logger.info(
+                f"No lastItemId for {url} - First time processing, returning empty (will not process old items)"
+            )
             return {
                 "items": [],
                 "totalItemsCount": total_items_count,
@@ -451,20 +494,26 @@ class RSSService:
 
         # Check ALL items for posts newer than lastNotifiedAt
         # This is necessary because Reddit feeds are sorted by popularity, not by date
-        logger.info(f"🔍 Checking ALL {len(items)} items for posts newer than lastNotifiedAt {last_item_date.isoformat()}")
-        
+        logger.info(
+            f"🔍 Checking ALL {len(items)} items for posts newer than lastNotifiedAt {last_item_date.isoformat()}"
+        )
+
         # Log all items with their dates for debugging
         items_with_dates = [item for item in items if item.pub_date]
         items_without_dates = [item for item in items if not item.pub_date]
-        
+
         if items_with_dates:
             all_dates = [item.pub_date.isoformat() for item in items_with_dates]
             all_ids = [item.id for item in items_with_dates]
-            logger.info(f"🔍 Items with dates ({len(items_with_dates)}): IDs={', '.join(all_ids[:5])}, Dates={', '.join(all_dates[:5])}")
-        
+            logger.info(
+                f"🔍 Items with dates ({len(items_with_dates)}): IDs={', '.join(all_ids[:5])}, Dates={', '.join(all_dates[:5])}"
+            )
+
         if items_without_dates:
-            logger.warning(f"⚠️ Found {len(items_without_dates)} items without dates: {', '.join([item.id for item in items_without_dates[:5]])}")
-        
+            logger.warning(
+                f"⚠️ Found {len(items_without_dates)} items without dates: {', '.join([item.id for item in items_without_dates[:5]])}"
+            )
+
         new_items = []
         for item in items:
             if item.pub_date:
@@ -486,10 +535,12 @@ class RSSService:
         if new_items:
             new_items.sort(key=lambda x: x.pub_date or datetime.min, reverse=True)
             # Format new posts list (avoid backslash in f-string)
-            new_posts_str = ', '.join([
-                f'{item.id} ({item.pub_date.isoformat() if item.pub_date else "no date"})' 
-                for item in new_items[:5]
-            ])
+            new_posts_str = ", ".join(
+                [
+                    f'{item.id} ({item.pub_date.isoformat() if item.pub_date else "no date"})'
+                    for item in new_items[:5]
+                ]
+            )
             logger.info(
                 f"✅ Found {len(new_items)} new post(s) out of {total_items_count} total items. "
                 f"New posts: {new_posts_str}"
@@ -519,10 +570,12 @@ class RSSService:
                             f"{'✅ NEWER' if item.pub_date > last_item_date else '❌ older'}"
                         )
                 else:
-                    logger.warning(f"⚠️ No new posts: Feed has {len(items)} items but none have dates")
+                    logger.warning(
+                        f"⚠️ No new posts: Feed has {len(items)} items but none have dates"
+                    )
             else:
                 logger.warning("⚠️ No new posts: Feed is empty")
-            
+
             return {
                 "items": [],
                 "totalItemsCount": total_items_count,
@@ -542,4 +595,3 @@ class RSSService:
 
 # Global RSS service instance
 rss_service = RSSService()
-

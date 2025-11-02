@@ -7,6 +7,7 @@ from dataclasses import dataclass
 @dataclass
 class RateLimitConfig:
     """Rate limit configuration"""
+
     max_requests: int
     window_ms: int
     min_delay_ms: int
@@ -19,6 +20,7 @@ class RateLimitConfig:
 @dataclass
 class FeedDomainConfig:
     """Configuration for a specific domain"""
+
     rate_limit: RateLimitConfig
     check_interval_minutes: int
     description: str
@@ -97,4 +99,3 @@ def get_feed_config(url: str) -> FeedDomainConfig:
 
     except Exception:
         return FEED_DOMAIN_CONFIGS["default"]
-

@@ -67,9 +67,7 @@ async def setup_feed_commands(dp: Optional[Dispatcher], bot: Optional[Bot]):
 
             if result.get("success"):
                 await message.answer(
-                    f"✅ <b>Feed added successfully!</b>\n\n"
-                    f"Name: <b>{name}</b>\n"
-                    f"URL: {url}"
+                    f"✅ <b>Feed added successfully!</b>\n\n" f"Name: <b>{name}</b>\n" f"URL: {url}"
                 )
             else:
                 error = result.get("error", "Unknown error")
@@ -164,4 +162,3 @@ async def setup_feed_commands(dp: Optional[Dispatcher], bot: Optional[Bot]):
         except Exception as e:
             logger.error(f"Failed to disable feed for {chat_id}: {e}")
             await message.answer("❌ Failed to disable feed. Please try again.")
-

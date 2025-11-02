@@ -38,16 +38,14 @@ async def retry_with_backoff(
 
             if attempt < max_retries:
                 # Calculate delay with exponential backoff
-                delay = min(base_delay * (2 ** attempt), max_delay)
+                delay = min(base_delay * (2**attempt), max_delay)
 
                 # Add jitter if enabled
                 if jitter:
                     jitter_amount = delay * 0.1 * random.random()
                     delay += jitter_amount
 
-                logger.warn(
-                    f"Retry attempt {attempt + 1}/{max_retries} after {delay:.2f}s: {e}"
-                )
+                logger.warn(f"Retry attempt {attempt + 1}/{max_retries} after {delay:.2f}s: {e}")
 
                 if on_retry:
                     try:
@@ -64,4 +62,3 @@ async def retry_with_backoff(
         raise last_exception
 
     raise Exception("Unexpected error in retry logic")
-

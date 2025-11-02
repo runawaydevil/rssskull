@@ -11,6 +11,7 @@ logger = get_logger(__name__)
 
 class CircuitState(Enum):
     """Circuit breaker states"""
+
     CLOSED = "closed"  # Normal operation
     OPEN = "open"  # Failing, reject requests
     HALF_OPEN = "half_open"  # Testing if service recovered
@@ -101,7 +102,9 @@ class CircuitBreaker:
             "state": self.state.value,
             "failure_count": self.failure_count,
             "success_count": self.success_count,
-            "last_failure_time": self.last_failure_time.isoformat() if self.last_failure_time else None,
+            "last_failure_time": (
+                self.last_failure_time.isoformat() if self.last_failure_time else None
+            ),
             "last_state_change": self.last_state_change.isoformat(),
         }
 
@@ -115,4 +118,3 @@ def get_circuit_breaker(domain: str) -> CircuitBreaker:
     if domain not in _circuit_breakers:
         _circuit_breakers[domain] = CircuitBreaker()
     return _circuit_breakers[domain]
-

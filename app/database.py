@@ -28,12 +28,12 @@ class DatabaseService:
             # Convert SQLite URL format
             database_url = settings.database_url
             logger.info(f"Raw database URL from settings: {database_url}")
-            
+
             # Handle different URL formats
             if database_url.startswith("file:"):
                 # Prisma format: file:/app/data/production.db or file:./data/development.db
                 path = database_url.replace("file:", "")
-                
+
                 # Only fix paths on Windows (keep Docker/Unix paths as-is)
                 if os.name == "nt" and path.startswith("/"):  # Windows
                     # Unix absolute path on Windows, convert to relative
@@ -45,17 +45,17 @@ class DatabaseService:
                         path = "./data/" + os.path.basename(path)
                     # Normalize path separators for Windows
                     path = path.replace("/", os.sep)
-                
+
                 # Create directory if it doesn't exist
                 db_dir = os.path.dirname(path)
                 if db_dir and not os.path.exists(db_dir):
                     os.makedirs(db_dir, exist_ok=True)
                     logger.info(f"Created database directory: {db_dir}")
-                
+
                 # Convert to SQLAlchemy format (always use forward slashes for SQLite URLs)
                 normalized_path = path.replace("\\", "/")
                 database_url = f"sqlite:///{normalized_path}"
-                
+
             elif database_url.startswith("sqlite:///./"):
                 # Relative path: sqlite:///./data/development.db
                 path = database_url.replace("sqlite:///./", "")
@@ -72,7 +72,7 @@ class DatabaseService:
             elif database_url.startswith("sqlite:///"):
                 # Absolute or relative: sqlite:///data/development.db
                 path = database_url.replace("sqlite:///", "")
-                
+
                 # Handle absolute paths that don't exist on Windows
                 if path.startswith("/app/") or (path.startswith("/") and os.name == "nt"):
                     # Convert Unix/Docker absolute paths to relative on Windows
@@ -80,17 +80,17 @@ class DatabaseService:
                         path = "./" + path.split("/app/")[-1]
                     else:
                         path = "./data/" + os.path.basename(path)
-                
+
                 # Normalize path separators for Windows
                 if os.name == "nt":
                     path = path.replace("/", os.sep)
-                
+
                 # Create directory if it doesn't exist
                 db_dir = os.path.dirname(path)
                 if db_dir and not os.path.exists(db_dir):
                     os.makedirs(db_dir, exist_ok=True)
                     logger.info(f"Created database directory: {db_dir}")
-                
+
                 # Normalize for SQLite URL
                 normalized_path = path.replace("\\", "/")
                 database_url = f"sqlite:///{normalized_path}"

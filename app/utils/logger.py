@@ -43,4 +43,3 @@ def get_logger(name: str) -> Any:
 
 # Configure logging on import
 configure_logging()
-

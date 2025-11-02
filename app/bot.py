@@ -205,6 +205,7 @@ For more information, visit the repository.
             self.is_polling = True
             # Store the task so we can cancel it later
             import asyncio
+
             self._polling_task = asyncio.create_task(self.dp.start_polling(self.bot))
             logger.info("✅ Bot polling started")
         except Exception as e:
@@ -310,4 +311,3 @@ For more information, visit the repository.
 
 # Global bot instance
 bot_service = BotService()
-

@@ -44,6 +44,7 @@ async def startup_event():
 
     # Add feed checker job (runs every 5 minutes)
     from app.jobs.feed_checker import check_feeds_job
+
     scheduler.add_interval_job(
         check_feeds_job,
         minutes=5,
@@ -55,6 +56,7 @@ async def startup_event():
     await bot_service.initialize()
     # Start polling in background task
     import asyncio
+
     try:
         asyncio.create_task(bot_service.start_polling())
     except Exception as e:
@@ -62,6 +64,7 @@ async def startup_event():
 
     # Start keep-alive service
     from app.resilience.keep_alive import keep_alive_service
+
     keep_alive_service.start()
     logger.info("✅ Keep-alive service started")
 
@@ -73,6 +76,7 @@ async def shutdown_event():
 
     # Stop keep-alive service
     from app.resilience.keep_alive import keep_alive_service
+
     keep_alive_service.stop()
 
     # Stop bot
@@ -93,14 +97,17 @@ async def health_check() -> Dict[str, Any]:
     """Health check endpoint with detailed service status"""
     try:
         import psutil
+
         process = psutil.Process()
         memory_info = process.memory_info()
         memory_percent = process.memory_percent()
     except ImportError:
         try:
             import sys
+
             if sys.platform != "win32":
                 import resource
+
                 memory_info = resource.getrusage(resource.RUSAGE_SELF)
             else:
                 # Windows doesn't have resource module
@@ -112,7 +119,7 @@ async def health_check() -> Dict[str, Any]:
 
     current_time = time.time()
     uptime = (current_time - _app_start_time) if _app_start_time else 0
-    
+
     checks: Dict[str, Any] = {
         "status": "ok",
         "timestamp": current_time,
@@ -182,6 +189,7 @@ async def metrics() -> Dict[str, Any]:
     """Metrics endpoint for Prometheus"""
     try:
         import psutil
+
         process = psutil.Process()
         memory_info = process.memory_info()
         cpu_percent = process.cpu_percent(interval=0.1)
@@ -191,7 +199,7 @@ async def metrics() -> Dict[str, Any]:
 
     current_time = time.time()
     uptime_seconds = (current_time - _app_start_time) if _app_start_time else 0
-    
+
     metrics_data = {
         "memory_rss_bytes": memory_info.rss,
         "memory_vms_bytes": getattr(memory_info, "vms", 0),
@@ -253,4 +261,3 @@ async def root():
             "stats": "/stats",
         },
     }
-

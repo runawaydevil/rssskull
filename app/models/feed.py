@@ -7,25 +7,34 @@ from sqlmodel import SQLModel, Field, Relationship
 
 class ChatBase(SQLModel):
     """Base chat model"""
+
     type: str  # 'private', 'group', 'channel'
     title: Optional[str] = None
 
 
 class Chat(ChatBase, table=True):
     """Chat model"""
+
     __tablename__ = "chat"
 
     id: str = Field(primary_key=True)
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow, alias="createdAt")
     updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow, alias="updatedAt")
 
-    settings: Optional["ChatSettings"] = Relationship(back_populates="chat", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-    feeds: List["Feed"] = Relationship(back_populates="chat", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-    statistics: List["Statistic"] = Relationship(back_populates="chat", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    settings: Optional["ChatSettings"] = Relationship(
+        back_populates="chat", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    feeds: List["Feed"] = Relationship(
+        back_populates="chat", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    statistics: List["Statistic"] = Relationship(
+        back_populates="chat", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
 
 class ChatSettings(SQLModel, table=True):
     """Chat settings model"""
+
     __tablename__ = "chatsettings"
 
     chat_id: str = Field(primary_key=True, foreign_key="chat.id", alias="chatId")
@@ -51,6 +60,7 @@ class ChatSettings(SQLModel, table=True):
 
 class FeedBase(SQLModel):
     """Base feed model"""
+
     chat_id: str = Field(foreign_key="chat.id", alias="chatId")
     name: str
     url: str  # Original URL
@@ -67,6 +77,7 @@ class FeedBase(SQLModel):
 
 class Feed(FeedBase, table=True):
     """Feed model"""
+
     __tablename__ = "feed"
 
     id: str = Field(primary_key=True)
@@ -74,11 +85,14 @@ class Feed(FeedBase, table=True):
     updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow, alias="updatedAt")
 
     chat: Chat = Relationship(back_populates="feeds")
-    filters: List["FeedFilter"] = Relationship(back_populates="feed", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    filters: List["FeedFilter"] = Relationship(
+        back_populates="feed", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
 
 class FeedFilter(SQLModel, table=True):
     """Feed filter model"""
+
     __tablename__ = "feedfilter"
 
     id: str = Field(primary_key=True)
@@ -92,6 +106,7 @@ class FeedFilter(SQLModel, table=True):
 
 class Statistic(SQLModel, table=True):
     """Statistic model"""
+
     __tablename__ = "statistic"
 
     id: str = Field(primary_key=True)
@@ -106,6 +121,7 @@ class Statistic(SQLModel, table=True):
 
 class ItemDedupe(SQLModel, table=True):
     """Item deduplication model"""
+
     __tablename__ = "itemdedupe"
 
     id: str = Field(primary_key=True)
@@ -117,6 +133,7 @@ class ItemDedupe(SQLModel, table=True):
 
 class AuthState(SQLModel, table=True):
     """Authentication state model"""
+
     __tablename__ = "authstate"
 
     id: str = Field(primary_key=True)
@@ -132,12 +149,15 @@ class AuthState(SQLModel, table=True):
 
 class ConnectionState(SQLModel, table=True):
     """Connection state model"""
+
     __tablename__ = "connectionstate"
 
     id: str = Field(primary_key=True)
     service: str = Field(unique=True)  # 'telegram', 'reddit', 'rss'
     status: str = "connected"  # 'connected', 'disconnected', 'recovering', 'circuit_open'
-    last_successful_call: datetime = Field(default_factory=datetime.utcnow, alias="lastSuccessfulCall")
+    last_successful_call: datetime = Field(
+        default_factory=datetime.utcnow, alias="lastSuccessfulCall"
+    )
     consecutive_failures: int = Field(default=0, alias="consecutiveFailures")
     current_retry_delay: int = Field(default=0, alias="currentRetryDelay")  # milliseconds
     next_retry_at: datetime = Field(default_factory=datetime.utcnow, alias="nextRetryAt")
@@ -151,21 +171,27 @@ class ConnectionState(SQLModel, table=True):
 
 class HealthMetric(SQLModel, table=True):
     """Health metric model"""
+
     __tablename__ = "healthmetric"
 
     id: str = Field(primary_key=True)
     timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
     service: str = Field(index=True)  # 'telegram', 'reddit', 'rss'
-    metric_type: str = Field(index=True, alias="metricType")  # 'connection_attempt', 'message_sent', 'error_occurred'
+    metric_type: str = Field(
+        index=True, alias="metricType"
+    )  # 'connection_attempt', 'message_sent', 'error_occurred'
     success: bool
     response_time: Optional[int] = Field(default=None, alias="responseTime")  # milliseconds
     error_code: Optional[str] = Field(default=None, alias="errorCode")
-    extra_data: Optional[str] = Field(default=None, alias="metadata")  # JSON string for additional data (renamed from metadata to avoid SQLAlchemy conflict)
+    extra_data: Optional[str] = Field(
+        default=None, alias="metadata"
+    )  # JSON string for additional data (renamed from metadata to avoid SQLAlchemy conflict)
     created_at: datetime = Field(default_factory=datetime.utcnow, alias="createdAt")
 
 
 class QueuedMessage(SQLModel, table=True):
     """Queued message model"""
+
     __tablename__ = "queuedmessage"
 
     id: str = Field(primary_key=True)
@@ -178,7 +204,8 @@ class QueuedMessage(SQLModel, table=True):
     max_retries: int = Field(default=3, alias="maxRetries")
     expires_at: datetime = Field(index=True, alias="expiresAt")
     last_error: Optional[str] = Field(default=None, alias="lastError")
-    status: str = Field(default="pending", index=True)  # 'pending', 'processing', 'sent', 'failed', 'expired'
+    status: str = Field(
+        default="pending", index=True
+    )  # 'pending', 'processing', 'sent', 'failed', 'expired'
     created_at: datetime = Field(default_factory=datetime.utcnow, alias="createdAt")
     updated_at: datetime = Field(default_factory=datetime.utcnow, alias="updatedAt")
-

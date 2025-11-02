@@ -39,7 +39,7 @@ class RedditService:
         """
         try:
             original_url = url
-            
+
             # Convert to RSS URL if not already in RSS format
             if not url.endswith(".rss") and not url.endswith(".xml"):
                 # Convert to RSS URL
@@ -89,4 +89,3 @@ class RedditService:
 
 # Global Reddit service instance
 reddit_service = RedditService()
-

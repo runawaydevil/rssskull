@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # Application Configuration
     environment: str = Field(default="production", validation_alias="ENVIRONMENT")
     log_level: str = "info"
-    
+
     @model_validator(mode="before")
     @classmethod
     def map_node_env(cls, data: dict) -> dict:
@@ -96,4 +96,3 @@ class Settings(BaseSettings):
 
 # Global settings instance
 settings = Settings()
-

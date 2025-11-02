@@ -22,23 +22,12 @@ class SchedulerService:
     def initialize(self):
         """Initialize scheduler"""
         try:
-            jobstores = {
-                'default': MemoryJobStore()
-            }
-            executors = {
-                'default': AsyncIOExecutor()
-            }
-            job_defaults = {
-                'coalesce': False,
-                'max_instances': 1,
-                'misfire_grace_time': 30
-            }
+            jobstores = {"default": MemoryJobStore()}
+            executors = {"default": AsyncIOExecutor()}
+            job_defaults = {"coalesce": False, "max_instances": 1, "misfire_grace_time": 30}
 
             self.scheduler = AsyncIOScheduler(
-                jobstores=jobstores,
-                executors=executors,
-                job_defaults=job_defaults,
-                timezone='UTC'
+                jobstores=jobstores, executors=executors, job_defaults=job_defaults, timezone="UTC"
             )
 
             logger.info("Scheduler initialized successfully")
@@ -76,11 +65,7 @@ class SchedulerService:
 
         try:
             self.scheduler.add_job(
-                func,
-                trigger=trigger,
-                id=job_id,
-                replace_existing=True,
-                **kwargs
+                func, trigger=trigger, id=job_id, replace_existing=True, **kwargs
             )
             logger.info(f"Job added: {job_id or func.__name__}")
         except Exception as e:
@@ -92,7 +77,9 @@ class SchedulerService:
         trigger = IntervalTrigger(minutes=minutes)
         self.add_job(func, trigger, job_id=job_id, **kwargs)
 
-    def add_cron_job(self, func, hour: int = 0, minute: int = 0, job_id: Optional[str] = None, **kwargs):
+    def add_cron_job(
+        self, func, hour: int = 0, minute: int = 0, job_id: Optional[str] = None, **kwargs
+    ):
         """Add a cron job"""
         trigger = CronTrigger(hour=hour, minute=minute)
         self.add_job(func, trigger, job_id=job_id, **kwargs)
@@ -117,4 +104,3 @@ class SchedulerService:
 
 # Global scheduler instance
 scheduler = SchedulerService()
-

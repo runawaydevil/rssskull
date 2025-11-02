@@ -74,12 +74,14 @@ class KeepAliveService:
 
                 try:
                     import psutil
+
                     process = psutil.Process()
                     memory_info = process.memory_info()
                     memory_mb = round(memory_info.rss / 1024 / 1024)
                 except ImportError:
                     try:
                         import resource
+
                         memory_info = resource.getrusage(resource.RUSAGE_SELF)
                         memory_mb = round(getattr(memory_info, "rss", 0) / 1024 / 1024)
                     except (ImportError, AttributeError):
@@ -114,6 +116,7 @@ class KeepAliveService:
                 # Simple check to keep event loop active
                 try:
                     import psutil
+
                     process = psutil.Process()
                     memory_info = process.memory_info()
                     if memory_info.rss == 0:
@@ -129,4 +132,3 @@ class KeepAliveService:
 
 # Global keep-alive instance
 keep_alive_service = KeepAliveService()
-
