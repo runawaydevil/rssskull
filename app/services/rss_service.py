@@ -1,13 +1,12 @@
 """RSS service using aiohttp and feedparser"""
 
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any, List
 import asyncio
 import aiohttp
 import feedparser
 from urllib.parse import urlparse
 
-from app.config import settings
 from app.utils.logger import get_logger
 from app.utils.cache import cache_service
 
