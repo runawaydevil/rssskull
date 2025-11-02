@@ -79,10 +79,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install tomli
+        run: pip install tomli
+
       - name: Extract version
         id: version
         run: |
-          pip install tomli
           VERSION="${{ github.ref }}" 
           VERSION=${VERSION#refs/tags/v}
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -91,7 +98,6 @@ jobs:
       - name: Read project metadata
         id: package
         run: |
-          pip install tomli
           VERSION=$(python -c "import tomli; data = tomli.load(open('pyproject.toml', 'rb')); print(data['project']['version'])")
           NAME=$(python -c "import tomli; data = tomli.load(open('pyproject.toml', 'rb')); print(data['project']['name'])")
           echo "name=$NAME" >> $GITHUB_OUTPUT
