@@ -7,6 +7,10 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.utils.logger import get_logger
+from app.database import database
+from app.utils.cache import cache_service
+from app.bot import bot_service
+from app.scheduler import scheduler
 
 logger = get_logger(__name__)
 
@@ -19,12 +23,6 @@ app = FastAPI(
 
 # Track application start time for uptime calculation
 _app_start_time: Optional[float] = None
-
-# Import services
-from app.database import database
-from app.utils.cache import cache_service
-from app.bot import bot_service
-from app.scheduler import scheduler
 
 
 @app.on_event("startup")
@@ -100,7 +98,6 @@ async def health_check() -> Dict[str, Any]:
         memory_percent = process.memory_percent()
     except ImportError:
         try:
-            import os
             import sys
             if sys.platform != "win32":
                 import resource

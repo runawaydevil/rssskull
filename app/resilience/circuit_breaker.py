@@ -2,8 +2,7 @@
 
 from enum import Enum
 from typing import Optional, Callable, Any
-from datetime import datetime, timedelta
-import asyncio
+from datetime import datetime
 
 from app.utils.logger import get_logger
 
@@ -86,7 +85,7 @@ class CircuitBreaker:
     async def execute(self, func: Callable, *args, **kwargs) -> Any:
         """Execute function with circuit breaker protection"""
         if not self.can_execute():
-            raise Exception(f"Circuit breaker is OPEN - request rejected")
+            raise Exception("Circuit breaker is OPEN - request rejected")
 
         try:
             result = await func(*args, **kwargs)

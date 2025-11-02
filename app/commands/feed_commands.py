@@ -5,7 +5,6 @@ from aiogram import Dispatcher, Bot
 from aiogram.types import Message
 from aiogram.filters import Command
 
-from app.database import database
 from app.services.feed_service import feed_service
 from app.utils.logger import get_logger
 

@@ -87,7 +87,7 @@ class KeepAliveService:
                         memory_mb = 0
 
                 logger.info(
-                    f"💓 HEARTBEAT - Process is ALIVE and RUNNING",
+                    "💓 HEARTBEAT - Process is ALIVE and RUNNING",
                     extra={
                         "uptime": f"{uptime_minutes} minutes",
                         "memoryMB": memory_mb,

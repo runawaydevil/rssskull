@@ -96,7 +96,6 @@ class BotService:
         # Start command
         @self.dp.message(CommandStart())
         async def start_command(message: Message):
-            chat_id = message.chat.id
             user_id = message.from_user.id if message.from_user else None
 
             # Check if user is allowed

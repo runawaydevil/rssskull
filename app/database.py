@@ -2,7 +2,6 @@
 
 from typing import Dict, Any, Optional
 from sqlmodel import SQLModel, create_engine, Session, select
-from sqlalchemy import event
 from sqlalchemy.engine import Engine
 import os
 
@@ -10,15 +9,7 @@ from app.config import settings
 from app.utils.logger import get_logger
 from app.models.feed import (
     Chat,
-    ChatSettings,
     Feed,
-    FeedFilter,
-    Statistic,
-    ItemDedupe,
-    AuthState,
-    ConnectionState,
-    HealthMetric,
-    QueuedMessage,
 )
 
 logger = get_logger(__name__)

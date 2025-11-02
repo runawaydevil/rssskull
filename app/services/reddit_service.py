@@ -1,6 +1,6 @@
 """Reddit service for fetching Reddit feeds via RSS or OAuth API"""
 
-from typing import Optional, Dict, Any, List
+from typing import Dict, Any
 from urllib.parse import urlparse
 
 from app.config import settings

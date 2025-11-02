@@ -3,7 +3,6 @@
 from datetime import datetime
 from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy import ForeignKey
 
 
 class ChatBase(SQLModel):

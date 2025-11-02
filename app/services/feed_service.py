@@ -1,9 +1,9 @@
 """Feed service for managing feeds"""
 
 from typing import Optional, Dict, Any, List
-from datetime import datetime, timedelta
+from datetime import datetime
 from uuid import uuid4
-from sqlmodel import select, Session
+from sqlmodel import select
 
 from app.database import database
 from app.models.feed import Feed, Chat
@@ -184,7 +184,7 @@ class FeedService:
                 total_count = len(list(total_feeds))
                 
                 # Get enabled feeds
-                statement = select(Feed).where(Feed.enabled == True)
+                statement = select(Feed).where(Feed.enabled)
                 feeds = session.exec(statement).all()
                 feeds_list = list(feeds)
                 enabled_count = len(feeds_list)

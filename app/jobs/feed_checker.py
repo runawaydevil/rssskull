@@ -1,10 +1,8 @@
 """Feed checker job using APScheduler"""
 
-from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional
-from sqlmodel import select
+from datetime import datetime
+from typing import Dict, Any, Optional
 
-from app.database import database
 from app.models.feed import Feed
 from app.services.rss_service import rss_service
 from app.services.feed_service import feed_service
