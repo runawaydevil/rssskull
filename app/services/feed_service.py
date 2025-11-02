@@ -194,7 +194,7 @@ class FeedService:
                 if enabled_count == 0 and total_count > 0:
                     logger.warning(f"⚠️ No enabled feeds found, but {total_count} feed(s) exist in database (they may be disabled)")
                 elif total_count == 0:
-                    logger.info(f"ℹ️ No feeds found in database at all")
+                    logger.info("ℹ️ No feeds found in database at all")
                 
                 return feeds_list
         except Exception as e:

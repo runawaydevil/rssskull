@@ -4,7 +4,6 @@ from typing import Optional, Any
 import json
 from redis.asyncio import Redis
 from redis.asyncio.connection import ConnectionPool
-from datetime import timedelta
 
 from app.config import settings
 from app.utils.logger import get_logger

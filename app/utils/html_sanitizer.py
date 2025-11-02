@@ -1,7 +1,6 @@
 """HTML sanitization for Telegram messages"""
 
 import re
-from typing import Optional
 from html import escape, unescape
 
 

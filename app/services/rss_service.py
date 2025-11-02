@@ -266,7 +266,7 @@ class RSSService:
                             # DEBUG: Log 304 cache results
                             logger.info(f"🔍 Received 304 Not Modified for {url}: {len(items)} items from cache")
                             if not items:
-                                logger.warning(f"⚠️ 304 cache returned empty feed - clearing cache and refetching")
+                                logger.warning("⚠️ 304 cache returned empty feed - clearing cache and refetching")
                                 await cache_service.delete(f"feed:{url}")
                                 await cache_service.delete(f"feed_meta:{url}")
                                 # Fall through to refetch
@@ -513,7 +513,7 @@ class RSSService:
                         f"Newest item ({newest_date.isoformat()}) {'IS newer' if newest_date > last_item_date else 'is NOT newer'} than baseline."
                     )
                     # Show detailed comparison for each item
-                    logger.info(f"🔍 Detailed comparison:")
+                    logger.info("🔍 Detailed comparison:")
                     for item in items_with_dates[:5]:
                         logger.info(
                             f"  - {item.id}: {item.pub_date.isoformat()} vs {last_item_date.isoformat()} = "
@@ -522,7 +522,7 @@ class RSSService:
                 else:
                     logger.warning(f"⚠️ No new posts: Feed has {len(items)} items but none have dates")
             else:
-                logger.warning(f"⚠️ No new posts: Feed is empty")
+                logger.warning("⚠️ No new posts: Feed is empty")
             
             return {
                 "items": [],

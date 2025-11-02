@@ -4,7 +4,6 @@ from typing import Optional, Dict, Any
 from urllib.parse import urlparse, parse_qs
 import re
 
-from app.config import settings
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
