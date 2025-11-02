@@ -138,3 +138,17 @@ dump.rdb
 
 # Local development
 docker-compose.override.yml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+*.egg
+.env/
+venv/
+ENV/
+env/
