@@ -2,11 +2,9 @@
 
 from typing import Optional, Dict, Any, List
 from urllib.parse import urlparse
-from datetime import datetime
 
 from app.config import settings
 from app.utils.logger import get_logger
-from app.services.rss_service import RSSFeed
 
 logger = get_logger(__name__)
 
