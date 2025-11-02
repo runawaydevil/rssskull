@@ -1,3 +1,21 @@
+# Python dependencies
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+
 # Dependencies
 node_modules/
 npm-debug.log*
@@ -252,6 +270,22 @@ $RECYCLE.BIN/
 Dockerfile*
 docker-compose*.yml
 .dockerignore
+docker/
+
+# Python-specific
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.egg
+*.egg-info/
+.venv/
+venv/
+ENV/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.hypothesis/
 
 # CI/CD files
 .github/

@@ -30,6 +30,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install tomli
+        run: pip install tomli
+
       - name: Extract version
         id: version
         run: |
@@ -37,7 +45,7 @@ jobs:
             VERSION="${{ github.ref }}" 
             VERSION=${VERSION#refs/tags/v}
           else
-            VERSION=$(node -p "require('./package.json').version")
+            VERSION=$(python -c "import tomli; data = tomli.load(open('pyproject.toml', 'rb')); print(data['project']['version'])")
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
@@ -74,16 +82,18 @@ jobs:
       - name: Extract version
         id: version
         run: |
+          pip install tomli
           VERSION="${{ github.ref }}" 
           VERSION=${VERSION#refs/tags/v}
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Read package.json
+      - name: Read project metadata
         id: package
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          NAME=$(node -p "require('./package.json').name")
+          pip install tomli
+          VERSION=$(python -c "import tomli; data = tomli.load(open('pyproject.toml', 'rb')); print(data['project']['version'])")
+          NAME=$(python -c "import tomli; data = tomli.load(open('pyproject.toml', 'rb')); print(data['project']['name'])")
           echo "name=$NAME" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 

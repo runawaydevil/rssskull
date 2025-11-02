@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  rss-skull-bot:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: rss-skull-bot
+    restart: always
+    ports:
+      - "8916:8916"
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - DATABASE_URL=sqlite:///app/data/production.db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=8916
+      - HOST=0.0.0.0
+      - ENVIRONMENT=production
+      - LOG_LEVEL=info
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8916/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  redis:
+    image: redis:7-alpine
+    container_name: rss-skull-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  redis-data:
+

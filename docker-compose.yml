@@ -3,7 +3,7 @@ services:
     image: redis:7-alpine
     container_name: rss-skull-redis
     ports:
-      - "63790:6379"
+      - "6379:6379"
     volumes:
       - redis_data:/data
     # Redis configuration with memory management
@@ -24,26 +24,10 @@ services:
       timeout: 3s
       retries: 3
 
-  # RSS-Bridge disabled for now - requires cookies/session management
-  # rss-bridge:
-  #   image: rssbridge/rss-bridge:latest
-  #   container_name: rss-bridge
-  #   ports:
-  #     - "3000:80"
-  #   volumes:
-  #     - ./rss-bridge/config:/config
-  #   environment:
-  #     - INSTAGRAM_SESSION_ID=${INSTAGRAM_SESSION_ID}
-  #     - INSTAGRAM_DS_USER_ID=${INSTAGRAM_DS_USER_ID}
-  #   restart: unless-stopped
-
   rss-skull-bot:
-    # Usa imagem do GHCR se disponível, senão builda local
-    image: ${DOCKER_IMAGE:-ghcr.io/runawaydevil/rss-skull-bot:latest}
     build:
       context: .
       dockerfile: Dockerfile
-      target: production
     container_name: rss-skull-bot
     ports:
       - "8916:8916"
@@ -64,7 +48,8 @@ services:
       - REDIS_PORT=6379
       - PORT=8916
       - HOST=0.0.0.0
-      - LOG_LEVEL=info
+      - ENVIRONMENT=production
+      - LOG_LEVEL=${LOG_LEVEL:-info}
       # Reddit OAuth API credentials
       - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID}
       - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET}
@@ -74,8 +59,8 @@ services:
       - USE_REDDIT_API=${USE_REDDIT_API:-true}
       - USE_REDDIT_JSON_FALLBACK=${USE_REDDIT_JSON_FALLBACK:-true}
       - FEATURE_INSTAGRAM=${FEATURE_INSTAGRAM:-false}
-      # - RSS_BRIDGE_HOST=http://rss-bridge:80  # Disabled
-      
+      # Access Control
+      - ALLOWED_USER_ID=${ALLOWED_USER_ID}
       # Resilience System Configuration
       - TELEGRAM_RESILIENCE_ENABLED=${TELEGRAM_RESILIENCE_ENABLED:-true}
       - TELEGRAM_MAX_RETRIES=${TELEGRAM_MAX_RETRIES:-10}
@@ -83,20 +68,17 @@ services:
       - TELEGRAM_MAX_DELAY=${TELEGRAM_MAX_DELAY:-60000}
       - TELEGRAM_CIRCUIT_BREAKER_THRESHOLD=${TELEGRAM_CIRCUIT_BREAKER_THRESHOLD:-5}
       - TELEGRAM_CIRCUIT_BREAKER_TIMEOUT=${TELEGRAM_CIRCUIT_BREAKER_TIMEOUT:-300000}
-      
       # Message Queue Configuration
       - MESSAGE_QUEUE_ENABLED=${MESSAGE_QUEUE_ENABLED:-true}
       - MESSAGE_QUEUE_MAX_SIZE=${MESSAGE_QUEUE_MAX_SIZE:-1000}
       - MESSAGE_QUEUE_BATCH_SIZE=${MESSAGE_QUEUE_BATCH_SIZE:-20}
       - MESSAGE_QUEUE_PROCESSING_INTERVAL=${MESSAGE_QUEUE_PROCESSING_INTERVAL:-5000}
       - MESSAGE_QUEUE_MESSAGE_TTL=${MESSAGE_QUEUE_MESSAGE_TTL:-3600000}
-      
       # Health Monitoring
       - HEALTH_CHECK_INTERVAL=${HEALTH_CHECK_INTERVAL:-30000}
       - ALERT_THRESHOLD_ERROR_RATE=${ALERT_THRESHOLD_ERROR_RATE:-0.1}
       - ALERT_THRESHOLD_DOWNTIME_MINUTES=${ALERT_THRESHOLD_DOWNTIME_MINUTES:-15}
       - ALERT_THRESHOLD_QUEUE_SIZE=${ALERT_THRESHOLD_QUEUE_SIZE:-500}
-      
       # Job Cleanup Configuration
       - JOB_CLEANUP_ENABLED=${JOB_CLEANUP_ENABLED:-true}
       - JOB_CLEANUP_INTERVAL_MINUTES=${JOB_CLEANUP_INTERVAL_MINUTES:-30}
@@ -108,8 +90,6 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      # rss-bridge:  # Disabled
-      #   condition: service_healthy
     restart: always
     # Enhanced health check with more tolerant settings
     healthcheck:
@@ -141,5 +121,4 @@ volumes:
 #
 # The database will persist between container restarts thanks to:
 # - Volume mount: app_data:/app/data
-# - Backup mount: ./backups:/app/backups
-# - Fixed Dockerfile CMD (no more data deletion)
+# - Backup mount: backups_data:/app/backups

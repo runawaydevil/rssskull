@@ -4,9 +4,9 @@
   <img src="rssskull.png" alt="RSS Skull Bot" width="200" height="200" />
 </div>
 
-> **Modern RSS to Telegram Bot with Reddit OAuth API Integration**
+> **Modern RSS to Telegram Bot with Reddit Support**
 
-A powerful, feature-rich Telegram bot that fetches RSS feeds and delivers content directly to your Telegram channels. Built with TypeScript, featuring Reddit OAuth API integration, HTTP caching, performance metrics, and intelligent rate limiting.
+A powerful, feature-rich Telegram bot that fetches RSS feeds and delivers content directly to your Telegram channels. Built with Python (FastAPI + aiogram), featuring Reddit RSS support, HTTP caching, performance metrics, HTML sanitization, and intelligent feed processing.
 
 ## ✨ Features
 
@@ -15,13 +15,15 @@ A powerful, feature-rich Telegram bot that fetches RSS feeds and delivers conten
 - **Smart Parsing**: Automatic content extraction and normalization
 - **Deduplication**: Prevents duplicate posts using intelligent ID matching
 - **Content Filtering**: Advanced filtering based on keywords, domains, and patterns
+- **HTML Sanitization**: Automatic sanitization for Telegram HTML parse mode
+- **Baseline Management**: Smart baseline using most recent post date to prevent old post notifications
 
 ### 🔴 **Reddit Integration**
-- **OAuth API**: Official Reddit API with proper authentication (primary method)
-- **Smart Fallback**: Automatic fallback to public JSON API on OAuth failures
-- **Rate Limiting**: Intelligent request management (10 requests per 10 minutes per feed)
-- **Token Management**: Automatic token refresh with database persistence
-- **Circuit Breaker**: Exponential backoff on 403 errors (10min to 4h)
+- **RSS Feed Support**: Automatic Reddit URL to RSS conversion (`/r/subreddit` → `.rss`)
+- **Timestamp-based Detection**: Smart detection of new posts using publication dates
+- **Popularity-based Handling**: Correctly handles Reddit's non-chronological sorting
+- **HTTP Caching**: ETag and Last-Modified header support to reduce API calls
+- **Rate Limiting**: Intelligent request management to respect Reddit's limits
 
 ### ⚡ **Performance & Reliability**
 - **HTTP Caching**: ETag and Last-Modified header support
@@ -50,11 +52,10 @@ A powerful, feature-rich Telegram bot that fetches RSS feeds and delivers conten
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 20+ 
+- Python 3.11+ 
 - Docker & Docker Compose (recommended)
 - Redis (optional, can be disabled)
 - Telegram Bot Token
-- Reddit OAuth credentials (optional, for enhanced Reddit support)
 
 ### Installation
 
@@ -66,24 +67,23 @@ cd rssskull
 
 2. **Install dependencies**
 ```bash
-npm install
+pip install -r requirements.txt
 ```
 
 3. **Setup environment**
 ```bash
 cp .env.example .env
-# Edit .env with your configuration
+# Edit .env with your configuration (BOT_TOKEN is required)
 ```
 
-4. **Initialize database**
+4. **Run the bot**
 ```bash
-npx prisma generate
-npx prisma migrate dev --name init
+python run.py
 ```
 
-5. **Run the bot**
+Or using Docker (recommended):
 ```bash
-npm run dev
+docker-compose up -d --build
 ```
 
 ## 🐳 Docker Deployment
@@ -144,34 +144,24 @@ Data is automatically persisted across container restarts and updates.
 | `REDIS_HOST` | Redis host | `redis` |
 | `REDIS_PORT` | Redis port | `6379` |
 
-**Reddit OAuth (Optional - for enhanced support):**
-| Variable | Description | Required |
-|----------|-------------|---------|
-| `REDDIT_CLIENT_ID` | Reddit app client ID | For OAuth |
-| `REDDIT_CLIENT_SECRET` | Reddit app secret | For OAuth |
-| `REDDIT_USERNAME` | Reddit username | For OAuth |
-| `REDDIT_PASSWORD` | Reddit password | For OAuth |
-| `USE_REDDIT_API` | Enable Reddit OAuth API | `false` |
-| `USE_REDDIT_JSON_FALLBACK` | Enable JSON fallback | `true` |
-
-**Other Settings:**
+**Optional Settings:**
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `NODE_ENV` | Environment | `production` |
+| `ENVIRONMENT` | Environment | `production` |
 | `LOG_LEVEL` | Log level | `info` |
 | `ALLOWED_USER_ID` | Restrict bot to specific user (optional) | `undefined` |
+| `DISABLE_REDIS` | Disable Redis caching | `false` |
+| `PORT` | HTTP server port | `8916` |
+| `HOST` | HTTP server host | `0.0.0.0` |
 
-### Reddit App Setup (Optional)
+### Reddit Feed Setup
 
-For enhanced Reddit support with OAuth API:
+Reddit feeds are automatically converted to RSS format:
 
-1. Go to [Reddit App Preferences](https://www.reddit.com/prefs/apps)
-2. Create new app with type **"Script"** (not "web app" or "installed app")
-3. Copy Client ID and Secret to `.env`
-4. Use your Reddit username and password (or app password if using 2FA)
-5. Enable `USE_REDDIT_API=true` in `.env`
+- Add Reddit subreddit: `/add MySub https://reddit.com/r/subreddit`
+- Or directly: `/add MySub https://reddit.com/r/subreddit/.rss`
 
-**Note:** If OAuth is disabled or fails, the bot automatically falls back to the public Reddit JSON API, ensuring continuous operation.
+The bot automatically converts Reddit URLs to RSS feeds and handles Reddit's popularity-based sorting to correctly detect new posts.
 
 ## 📱 Bot Commands
 
@@ -189,23 +179,25 @@ For enhanced Reddit support with OAuth API:
 ## 🏗️ Architecture
 
 ```
-src/
-├── bot/                        # Telegram bot implementation
-│   ├── commands/              # Bot command handlers
-│   ├── handlers/              # Message handlers
-│   └── middleware/            # Bot middleware
-├── services/                   # Core business logic
-│   ├── feed.service.ts        # RSS feed processing
-│   ├── reddit.service.ts     # Reddit OAuth + JSON API
-│   ├── reddit-api-provider.ts # OAuth API provider
-│   ├── reddit-token-manager.ts # Token management
-│   ├── token-manager.service.ts # DB token persistence
-│   └── notification.service.ts # Telegram notifications
-├── providers/                  # External API providers
-├── database/                  # Database services & repositories
-├── jobs/                      # Background job processing (BullMQ)
-├── config/                    # Configuration services
-└── utils/                     # Utility functions
+app/
+├── bot.py                     # Telegram bot implementation (aiogram)
+├── commands/                  # Bot command handlers
+│   └── feed_commands.py      # Feed management commands
+├── jobs/                      # Background job processing
+│   └── feed_checker.py       # RSS feed checking job (APScheduler)
+├── services/                  # Core business logic
+│   ├── feed_service.py        # Feed CRUD operations
+│   ├── rss_service.py        # RSS feed fetching and parsing
+│   └── reddit_service.py     # Reddit URL handling
+├── models/                    # Database models (SQLModel)
+│   └── feed.py               # Feed and Chat models
+├── utils/                     # Utility functions
+│   ├── html_sanitizer.py     # Telegram HTML sanitization
+│   ├── cache.py              # Redis caching
+│   └── logger.py             # Structured logging
+├── database.py               # Database initialization
+├── config.py                 # Configuration (Pydantic Settings)
+└── main.py                   # FastAPI application with health endpoints
 ```
 
 ## 🔧 Development
@@ -214,34 +206,26 @@ src/
 
 ```bash
 # Development
-npm run dev          # Start development server
-npm run build        # Build TypeScript
-npm run start        # Start production server
-npm run lint         # Run Biome linter
-npm run format       # Format code with Biome
+python run.py              # Start development server
 
 # Docker
 docker-compose up -d --build  # Build and start containers
-docker-compose logs -f bot    # View bot logs
-docker-compose restart bot    # Restart bot container
+docker-compose logs -f rss-skull-bot    # View bot logs
+docker-compose restart rss-skull-bot    # Restart bot container
 
-# Database
-npx prisma studio            # Open Prisma Studio (GUI)
-npx prisma migrate dev       # Create new migration
-node scripts/backup-database.js  # Backup database
+# Code Quality
+ruff check app/           # Run Ruff linter
+black app/                # Format code with Black
+mypy app/                 # Type checking with mypy
 ```
 
 ### Database Management
 
+The database is automatically initialized on first startup. Data is persisted in Docker volumes (`app_data`).
+
+To access the database directly:
 ```bash
-# Generate Prisma client
-npx prisma generate
-
-# Run migrations
-npx prisma migrate dev --name <migration-name>
-
-# Reset database
-npx prisma migrate reset
+docker-compose exec rss-skull-bot sqlite3 /app/data/production.db
 ```
 
 ## 📊 Monitoring & Reliability
@@ -299,16 +283,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆕 Changelog
 
-### v0.5.0 - "Halfway to definitive"
-- ✨ Reddit OAuth API integration with smart fallback
-- ⚡ HTTP caching with ETag support
-- 📊 Performance metrics tracking
-- 🔄 Circuit breaker with exponential backoff
-- 🚀 Intelligent rate limiting (6-8 min for Reddit)
-- 💾 Database persistence across Docker deployments
-- 🔐 Token management with automatic refresh
-- 🐳 Robust Docker deployment with entrypoint scripts
-- 🛡️ Graceful error handling and recovery
+See [CHANGELOG.md](CHANGELOG.md) for full version history.
+
+### v0.6.0 - "Python Migration & Bug Fixes" (2025-11-02)
+- 🐍 Complete migration from TypeScript/Node.js to Python
+- 🔧 Fixed Telegram HTML parse errors (HTML comments, unbalanced tags)
+- ✅ Fixed Reddit feed notification issues
+- 📊 Enhanced logging and debugging capabilities
+- 🎯 Improved baseline management for new feeds
+- 🐳 Docker improvements (multi-stage build, non-root user)
+- 📝 HTML sanitization system for Telegram messages
 - 🧹 Code cleanup and optimization
 
 ## 📞 Support
