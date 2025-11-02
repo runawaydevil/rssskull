@@ -1,6 +1,6 @@
 """RSS service using aiohttp and feedparser"""
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional, Dict, Any, List
 import asyncio
 import aiohttp
