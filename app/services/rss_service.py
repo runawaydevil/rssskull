@@ -151,7 +151,7 @@ class RSSService:
         # If URL is already in RSS format, fetch directly without service detection
         # This prevents infinite recursion when services call this method with converted URLs
         if self._is_rss_url(url):
-            logger.info(f"📡 URL already in RSS format, fetching directly: {url}")
+            logger.debug(f"📡 URL already in RSS format, fetching directly: {url}")
             return await self._fetch_feed_from_url(url)
 
         # Check if this is a YouTube URL - if so, use YouTube service
@@ -210,9 +210,9 @@ class RSSService:
                 items.append(RSSItem(**item_dict))
 
             # DEBUG: Log cache results
-            logger.info(f"🔍 Using cached feed for {url}: {len(items)} items from cache")
+            logger.debug(f"🔍 Using cached feed for {url}: {len(items)} items from cache")
             if items:
-                logger.info(
+                logger.debug(
                     f"🔍 Cached first item: id={items[0].id}, title={items[0].title[:50]}, pub_date={items[0].pub_date.isoformat() if items[0].pub_date else 'N/A'}"
                 )
                 # Cache has items - use it
@@ -275,7 +275,7 @@ class RSSService:
                                 items.append(RSSItem(**item_dict))
 
                             # DEBUG: Log 304 cache results
-                            logger.info(
+                            logger.debug(
                                 f"🔍 Received 304 Not Modified for {url}: {len(items)} items from cache"
                             )
                             if not items:
@@ -301,7 +301,7 @@ class RSSService:
                             # Fall through to refetch
 
                     if not response.ok:
-                        error_msg = f"HTTP {response.status}: {response.statusText}"
+                        error_msg = f"HTTP {response.status}: {response.reason}"
                         logger.error(f"{url} - {error_msg}")
                         raise Exception(error_msg)
 
@@ -321,11 +321,11 @@ class RSSService:
                         raise Exception(error_msg)
 
                     # DEBUG: Log feed parsing results
-                    logger.info(
+                    logger.debug(
                         f"🔍 Feed parser result for {url}: {len(parsed.entries)} entries found"
                     )
                     if parsed.entries:
-                        logger.info(
+                        logger.debug(
                             f"🔍 First entry: id={parsed.entries[0].get('id', 'N/A')}, title={parsed.entries[0].get('title', 'N/A')[:50]}"
                         )
 
@@ -383,11 +383,11 @@ class RSSService:
                         items.append(item)
 
                     # DEBUG: Log conversion results
-                    logger.info(
+                    logger.debug(
                         f"🔍 Feed conversion result for {url}: {len(items)} items created from {len(parsed.entries)} entries (skipped: {entries_skipped})"
                     )
                     if items:
-                        logger.info(
+                        logger.debug(
                             f"🔍 First item: id={items[0].id}, title={items[0].title[:50]}, pub_date={items[0].pub_date.isoformat() if items[0].pub_date else 'N/A'}"
                         )
 
@@ -494,7 +494,7 @@ class RSSService:
 
         # Check ALL items for posts newer than lastNotifiedAt
         # This is necessary because Reddit feeds are sorted by popularity, not by date
-        logger.info(
+        logger.debug(
             f"🔍 Checking ALL {len(items)} items for posts newer than lastNotifiedAt {last_item_date.isoformat()}"
         )
 
@@ -505,7 +505,7 @@ class RSSService:
         if items_with_dates:
             all_dates = [item.pub_date.isoformat() for item in items_with_dates]
             all_ids = [item.id for item in items_with_dates]
-            logger.info(
+            logger.debug(
                 f"🔍 Items with dates ({len(items_with_dates)}): IDs={', '.join(all_ids[:5])}, Dates={', '.join(all_dates[:5])}"
             )
 
@@ -557,15 +557,15 @@ class RSSService:
                 if items_with_dates:
                     newest_date = max(item.pub_date for item in items_with_dates)
                     oldest_date = min(item.pub_date for item in items_with_dates)
-                    logger.info(
+                    logger.debug(
                         f"ℹ️ No new posts found. Feed date range: {oldest_date.isoformat()} to {newest_date.isoformat()}, "
                         f"lastNotifiedAt: {last_item_date.isoformat()}. "
                         f"Newest item ({newest_date.isoformat()}) {'IS newer' if newest_date > last_item_date else 'is NOT newer'} than baseline."
                     )
                     # Show detailed comparison for each item
-                    logger.info("🔍 Detailed comparison:")
+                    logger.debug("🔍 Detailed comparison:")
                     for item in items_with_dates[:5]:
-                        logger.info(
+                        logger.debug(
                             f"  - {item.id}: {item.pub_date.isoformat()} vs {last_item_date.isoformat()} = "
                             f"{'✅ NEWER' if item.pub_date > last_item_date else '❌ older'}"
                         )

@@ -188,7 +188,7 @@ class FeedService:
                 feeds_list = list(feeds)
                 enabled_count = len(feeds_list)
 
-                logger.info(
+                logger.debug(
                     f"📈 Feed statistics: {enabled_count} enabled out of {total_count} total feeds"
                 )
 
