@@ -19,7 +19,7 @@ class FeedChecker:
         """Check if feed should be checked based on interval"""
         if not feed.last_check:
             return True
-        
+
         time_since_last_check = (datetime.utcnow() - feed.last_check).total_seconds() / 60
         return time_since_last_check >= feed.check_interval_minutes
 
@@ -28,14 +28,14 @@ class FeedChecker:
         if stats["checked"] == 0:
             logger.debug(f"ℹ️ All {stats['total']} feed(s) skipped - intervals not reached")
             return
-        
+
         summary_parts = [
             "✅ Feed check complete:",
             f"{stats['checked']} checked",
             f"{stats['skipped']} skipped",
-            f"{stats['notifications']} notification(s) sent"
+            f"{stats['notifications']} notification(s) sent",
         ]
-        
+
         if stats["errors"] > 0:
             summary_parts.append(f"{stats['errors']} error(s)")
             logger.warning(" | ".join(summary_parts))
@@ -319,7 +319,7 @@ class FeedChecker:
         try:
             logger.debug("🔍 Fetching enabled feeds from database...")
             feeds = await feed_service.get_all_enabled_feeds()
-            
+
             if not feeds:
                 logger.debug("ℹ️ No enabled feeds to check")
                 return
@@ -331,9 +331,9 @@ class FeedChecker:
                 "skipped": 0,
                 "errors": 0,
                 "notifications": 0,
-                "error_feeds": []
+                "error_feeds": [],
             }
-            
+
             # Only log start if feeds will be checked
             feeds_to_check = [f for f in feeds if self._should_check_feed(f)]
             if feeds_to_check:
@@ -346,10 +346,10 @@ class FeedChecker:
                         stats["skipped"] += 1
                         logger.debug(f"⏭️ Skipping {feed.name} - interval not reached")
                         continue
-                    
+
                     stats["checked"] += 1
                     result = await self.check_feed(feed)
-                    
+
                     if not result.get("success"):
                         stats["errors"] += 1
                         stats["error_feeds"].append(feed.name)
@@ -357,7 +357,7 @@ class FeedChecker:
                     else:
                         notifications = result.get("notifications_sent", 0)
                         stats["notifications"] += notifications
-                        
+
                         if notifications > 0:
                             logger.info(f"✅ {feed.name}: {notifications} notification(s) sent")
                         else:
@@ -365,6 +365,7 @@ class FeedChecker:
 
                     # Small delay between feeds to avoid overwhelming the system
                     import asyncio
+
                     await asyncio.sleep(1)
 
                 except Exception as e:

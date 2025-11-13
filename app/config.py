@@ -35,10 +35,7 @@ class Settings(BaseSettings):
 
     # Application Configuration
     environment: str = Field(default="production", validation_alias="ENVIRONMENT")
-    log_level: str = Field(
-        default="info",
-        description="Log level: debug, info, warning, error"
-    )
+    log_level: str = Field(default="info", description="Log level: debug, info, warning, error")
 
     @model_validator(mode="before")
     @classmethod
@@ -49,7 +46,7 @@ class Settings(BaseSettings):
             if "NODE_ENV" in data and "ENVIRONMENT" not in data:
                 data["ENVIRONMENT"] = data["NODE_ENV"]
         return data
-    
+
     @model_validator(mode="after")
     def set_environment_defaults(self) -> "Settings":
         """Set environment-specific defaults for log level"""
@@ -61,7 +58,7 @@ class Settings(BaseSettings):
             elif not os.getenv("LOG_LEVEL"):
                 # Default to info in production if not explicitly set
                 self.log_level = "info"
-        
+
         return self
 
     # Access Control

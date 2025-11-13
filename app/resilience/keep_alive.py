@@ -21,11 +21,11 @@ class KeepAliveService:
         self._heartbeat_task: Optional[asyncio.Task] = None
         self._keep_alive_task: Optional[asyncio.Task] = None
         self.start_time = datetime.utcnow()
-    
+
     def _get_heartbeat_interval(self) -> int:
         """Get heartbeat interval based on environment"""
         from app.config import settings
-        
+
         # Production: 5 minutes, Development: 30 seconds
         if settings.environment == "production":
             return 300  # 5 minutes
@@ -105,7 +105,7 @@ class KeepAliveService:
                             "uptime_minutes": uptime_minutes,
                             "memory_mb": memory_mb,
                             "pid": os.getpid(),
-                        }
+                        },
                     )
                 else:
                     # Normal heartbeat - DEBUG level, no duplicate console output
@@ -115,7 +115,7 @@ class KeepAliveService:
                             "uptime_minutes": uptime_minutes,
                             "memory_mb": memory_mb,
                             "pid": os.getpid(),
-                        }
+                        },
                     )
 
         except asyncio.CancelledError:
