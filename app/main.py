@@ -94,7 +94,7 @@ async def shutdown_event():
 
 @app.get("/health")
 async def health_check() -> Dict[str, Any]:
-    """Health check endpoint with detailed service status"""
+    """Health check endpoint with minimal logging"""
     try:
         import psutil
 
@@ -179,8 +179,11 @@ async def health_check() -> Dict[str, Any]:
 
     if not is_healthy:
         checks["status"] = "error"
+        logger.warning("Health check failed", extra={"checks": checks})
         return JSONResponse(status_code=503, content=checks)
 
+    # Success - log at DEBUG level only
+    logger.debug("Health check passed")
     return checks
 
 

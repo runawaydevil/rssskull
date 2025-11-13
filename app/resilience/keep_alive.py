@@ -16,11 +16,20 @@ class KeepAliveService:
 
     def __init__(self):
         self.running = False
-        self.heartbeat_interval = 30  # seconds
+        self.heartbeat_interval = self._get_heartbeat_interval()
         self.keep_alive_interval = 5  # seconds
         self._heartbeat_task: Optional[asyncio.Task] = None
         self._keep_alive_task: Optional[asyncio.Task] = None
         self.start_time = datetime.utcnow()
+    
+    def _get_heartbeat_interval(self) -> int:
+        """Get heartbeat interval based on environment"""
+        from app.config import settings
+        
+        # Production: 5 minutes, Development: 30 seconds
+        if settings.environment == "production":
+            return 300  # 5 minutes
+        return 30  # 30 seconds
 
     def start(self):
         """Start keep-alive service"""
@@ -64,7 +73,7 @@ class KeepAliveService:
         self.stop()
 
     async def _heartbeat_loop(self):
-        """Heartbeat logging loop"""
+        """Heartbeat logging loop with reduced verbosity"""
         try:
             while self.running:
                 await asyncio.sleep(self.heartbeat_interval)
@@ -88,22 +97,29 @@ class KeepAliveService:
                         # Fallback: use os to get minimal info (Windows doesn't have resource)
                         memory_mb = 0
 
-                logger.info(
-                    "💓 HEARTBEAT - Process is ALIVE and RUNNING",
-                    extra={
-                        "uptime": f"{uptime_minutes} minutes",
-                        "memoryMB": memory_mb,
-                        "pid": os.getpid(),
-                        "timestamp": datetime.utcnow().isoformat(),
-                    },
-                )
-                print(
-                    f"💓 HEARTBEAT - Process running for {uptime_minutes} minutes, "
-                    f"Memory: {memory_mb}MB, PID: {os.getpid()}"
-                )
+                # Check for anomalies
+                if memory_mb > 500:  # More than 500MB
+                    logger.warning(
+                        "⚠️ High memory usage detected",
+                        extra={
+                            "uptime_minutes": uptime_minutes,
+                            "memory_mb": memory_mb,
+                            "pid": os.getpid(),
+                        }
+                    )
+                else:
+                    # Normal heartbeat - DEBUG level, no duplicate console output
+                    logger.debug(
+                        "💓 Heartbeat",
+                        extra={
+                            "uptime_minutes": uptime_minutes,
+                            "memory_mb": memory_mb,
+                            "pid": os.getpid(),
+                        }
+                    )
 
         except asyncio.CancelledError:
-            logger.info("Heartbeat loop cancelled")
+            logger.debug("Heartbeat loop cancelled")
         except Exception as e:
             logger.error(f"Error in heartbeat loop: {e}")
 
@@ -125,7 +141,7 @@ class KeepAliveService:
                     pass
 
         except asyncio.CancelledError:
-            logger.info("Keep-alive loop cancelled")
+            logger.debug("Keep-alive loop cancelled")
         except Exception as e:
             logger.error(f"Error in keep-alive loop: {e}")
 

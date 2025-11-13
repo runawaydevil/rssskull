@@ -15,10 +15,39 @@ logger = get_logger(__name__)
 class FeedChecker:
     """Feed checker that processes feeds and sends notifications"""
 
+    def _should_check_feed(self, feed: Feed) -> bool:
+        """Check if feed should be checked based on interval"""
+        if not feed.last_check:
+            return True
+        
+        time_since_last_check = (datetime.utcnow() - feed.last_check).total_seconds() / 60
+        return time_since_last_check >= feed.check_interval_minutes
+
+    def _log_summary(self, stats: dict):
+        """Log summary of check cycle"""
+        if stats["checked"] == 0:
+            logger.debug(f"ℹ️ All {stats['total']} feed(s) skipped - intervals not reached")
+            return
+        
+        summary_parts = [
+            f"✅ Feed check complete:",
+            f"{stats['checked']} checked",
+            f"{stats['skipped']} skipped",
+            f"{stats['notifications']} notification(s) sent"
+        ]
+        
+        if stats["errors"] > 0:
+            summary_parts.append(f"{stats['errors']} error(s)")
+            logger.warning(" | ".join(summary_parts))
+            if stats["error_feeds"]:
+                logger.warning(f"Failed feeds: {', '.join(stats['error_feeds'])}")
+        else:
+            logger.info(" | ".join(summary_parts))
+
     async def check_feed(self, feed: Feed) -> Dict[str, Any]:
         """Check a single feed for new items"""
         try:
-            logger.info(f"🔍 Checking feed: {feed.name} ({feed.url})")
+            logger.debug(f"🔍 Checking feed: {feed.name} ({feed.url})")
 
             # Get last item ID and date
             last_item_id = feed.last_item_id
@@ -27,8 +56,8 @@ class FeedChecker:
             if not last_item_date:
                 last_item_date = feed.last_seen_at
 
-            # Log feed state before checking
-            logger.info(
+            # Log feed state before checking (debug level)
+            logger.debug(
                 f"📊 Feed state for {feed.name}: "
                 f"lastItemId={last_item_id or 'None'}, "
                 f"lastNotifiedAt={last_item_date.isoformat() if last_item_date else 'None'}, "
@@ -37,12 +66,12 @@ class FeedChecker:
 
             # Log first time processing
             if not last_item_id:
-                logger.info(
+                logger.debug(
                     f"📌 First time checking feed {feed.name} - will not notify old items, setting baseline"
                 )
 
             # Get new items from RSS service
-            logger.info(f"📡 Fetching new items from RSS service for {feed.name}...")
+            logger.debug(f"📡 Fetching new items from RSS service for {feed.name}...")
             result = await rss_service.get_new_items(
                 feed.rss_url or feed.url,
                 last_item_id=last_item_id,
@@ -53,7 +82,7 @@ class FeedChecker:
             total_items_count = result.get("totalItemsCount", 0)
             first_item_id = result.get("firstItemId")
 
-            logger.info(
+            logger.debug(
                 f"📥 RSS service result for {feed.name}: "
                 f"{len(new_items)} new items found, "
                 f"{total_items_count} total items in feed, "
@@ -79,28 +108,27 @@ class FeedChecker:
                     ]  # Items are already sorted by date descending
                     if most_recent_item.pub_date:
                         last_notified = most_recent_item.pub_date
-                        logger.info(
+                        logger.debug(
                             f"🔍 First time processing {feed.name} - setting baseline to most recent post date: "
-                            f"{last_notified.isoformat()} (from post {most_recent_item.id}). "
-                            f"This ensures we only notify posts created AFTER this point."
+                            f"{last_notified.isoformat()} (from post {most_recent_item.id})"
                         )
                     else:
                         # Fallback to current time if no date
                         last_notified = datetime.utcnow()
-                        logger.info(
+                        logger.debug(
                             f"🔍 First time processing {feed.name} - post has no date, using current time as baseline: {last_notified.isoformat()}"
                         )
                 else:
                     # Fallback to current time if feed fetch fails
                     last_notified = datetime.utcnow()
-                    logger.info(
+                    logger.debug(
                         f"🔍 First time processing {feed.name} - could not fetch feed, using current time as baseline: {last_notified.isoformat()}"
                     )
             elif new_items:
                 # Has new items - use the most recent new item (already sorted by date descending)
                 most_recent_item = new_items[0]
                 new_last_item_id = most_recent_item.id
-                logger.info(
+                logger.debug(
                     f"✅ New items found for {feed.name} - updating lastItemId from {last_item_id} to {new_last_item_id}"
                 )
 
@@ -108,7 +136,7 @@ class FeedChecker:
                 # This ensures we only notify posts created after this point
                 if most_recent_item.pub_date:
                     last_notified = most_recent_item.pub_date
-                    logger.info(
+                    logger.debug(
                         f"📅 Updating lastNotifiedAt to {last_notified.isoformat()} for {feed.name} "
                         f"(from most recent new post: {most_recent_item.title[:50]})"
                     )
@@ -121,13 +149,13 @@ class FeedChecker:
             elif first_item_id:
                 # No new items but feed has items - update to current first item
                 new_last_item_id = first_item_id
-                logger.info(
+                logger.debug(
                     f"ℹ️ No new items for {feed.name} - updating lastItemId to current first item: {first_item_id}"
                 )
             else:
                 # Feed is empty or firstItemId is undefined - keep existing lastItemId
                 new_last_item_id = last_item_id
-                logger.info(
+                logger.debug(
                     f"ℹ️ No new items for {feed.name} - keeping existing lastItemId: {last_item_id}"
                 )
 
@@ -140,7 +168,7 @@ class FeedChecker:
             # Send notifications for new items
             notifications_sent = 0
             if new_items:
-                logger.info(
+                logger.debug(
                     f"📤 Processing {len(new_items)} new item(s) for notifications to {feed.name}..."
                 )
                 for item in new_items:
@@ -210,7 +238,7 @@ class FeedChecker:
                             f"❌ Notification NOT sent for {feed.name}: {item.title} (failed after all retries)"
                         )
 
-            logger.info(
+            logger.debug(
                 f"Feed check completed: {feed.name} - {len(new_items)} new items, "
                 f"{notifications_sent} notifications sent"
             )
@@ -223,7 +251,7 @@ class FeedChecker:
             }
 
         except Exception as e:
-            logger.error(f"Failed to check feed {feed.name}: {e}", exc_info=True)
+            logger.error(f"❌ Failed to check feed {feed.name}: {e}", exc_info=True)
             return {
                 "success": False,
                 "error": str(e),
@@ -287,59 +315,66 @@ class FeedChecker:
         return message
 
     async def check_all_feeds(self):
-        """Check all enabled feeds"""
+        """Check all enabled feeds with smart logging"""
         try:
-            logger.info("🔍 Fetching enabled feeds from database...")
+            logger.debug("🔍 Fetching enabled feeds from database...")
             feeds = await feed_service.get_all_enabled_feeds()
-            logger.info(f"📊 Found {len(feeds)} enabled feed(s) in database")
-
+            
             if not feeds:
-                logger.info("ℹ️ No enabled feeds to check - job completed")
+                logger.debug("ℹ️ No enabled feeds to check")
                 return
 
-            logger.info(f"🔄 Checking {len(feeds)} enabled feeds...")
-
-            # Track counts
-            checked_count = 0
-            skipped_count = 0
+            # Track statistics
+            stats = {
+                "total": len(feeds),
+                "checked": 0,
+                "skipped": 0,
+                "errors": 0,
+                "notifications": 0,
+                "error_feeds": []
+            }
+            
+            # Only log start if feeds will be checked
+            feeds_to_check = [f for f in feeds if self._should_check_feed(f)]
+            if feeds_to_check:
+                logger.info(f"🔄 Checking {len(feeds_to_check)} feed(s)...")
 
             # Process feeds sequentially to avoid rate limiting
             for feed in feeds:
                 try:
-                    # Check if feed should be checked based on interval
-                    if feed.last_check:
-                        time_since_last_check = (
-                            datetime.utcnow() - feed.last_check
-                        ).total_seconds() / 60
-                        if time_since_last_check < feed.check_interval_minutes:
-                            logger.info(
-                                f"⏭️ Skipping feed {feed.name} - checked {time_since_last_check:.1f} minutes ago "
-                                f"(interval: {feed.check_interval_minutes} minutes)"
-                            )
-                            skipped_count += 1
-                            continue
-                        else:
-                            logger.info(
-                                f"✅ Feed {feed.name} interval passed ({time_since_last_check:.1f} >= {feed.check_interval_minutes} minutes) - will check now"
-                            )
+                    if not self._should_check_feed(feed):
+                        stats["skipped"] += 1
+                        logger.debug(f"⏭️ Skipping {feed.name} - interval not reached")
+                        continue
+                    
+                    stats["checked"] += 1
+                    result = await self.check_feed(feed)
+                    
+                    if not result.get("success"):
+                        stats["errors"] += 1
+                        stats["error_feeds"].append(feed.name)
+                        logger.error(f"❌ Failed to check {feed.name}: {result.get('error')}")
                     else:
-                        logger.info(f"✅ Feed {feed.name} has never been checked - will check now")
-
-                    checked_count += 1
-                    await self.check_feed(feed)
+                        notifications = result.get("notifications_sent", 0)
+                        stats["notifications"] += notifications
+                        
+                        if notifications > 0:
+                            logger.info(f"✅ {feed.name}: {notifications} notification(s) sent")
+                        else:
+                            logger.debug(f"✓ {feed.name}: No new items")
 
                     # Small delay between feeds to avoid overwhelming the system
                     import asyncio
-
                     await asyncio.sleep(1)
 
                 except Exception as e:
-                    logger.error(f"Error checking feed {feed.name}: {e}")
+                    stats["errors"] += 1
+                    stats["error_feeds"].append(feed.name)
+                    logger.error(f"❌ Error checking feed {feed.name}: {e}")
                     continue
 
-            logger.info(
-                f"✅ Completed checking feeds - {checked_count} checked, {skipped_count} skipped (total: {len(feeds)})"
-            )
+            # Log summary
+            self._log_summary(stats)
 
         except Exception as e:
             logger.error(f"❌ Failed to check all feeds: {e}", exc_info=True)
@@ -351,6 +386,6 @@ feed_checker = FeedChecker()
 
 async def check_feeds_job():
     """APScheduler job function to check all feeds"""
-    logger.info("🔄 Feed checker job started")
+    logger.debug("🔄 Feed checker job started")
     await feed_checker.check_all_feeds()
-    logger.info("✅ Feed checker job completed")
+    logger.debug("✅ Feed checker job completed")

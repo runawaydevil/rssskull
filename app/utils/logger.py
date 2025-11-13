@@ -9,14 +9,45 @@ import structlog
 from app.config import settings
 
 
+def configure_third_party_loggers(log_level: int):
+    """Configure third-party library loggers to reduce verbosity"""
+    
+    # Uvicorn access logs - suppress in production unless error
+    if settings.environment == "production" and log_level > logging.DEBUG:
+        logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    else:
+        logging.getLogger("uvicorn.access").setLevel(log_level)
+    
+    # Uvicorn error logs
+    logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
+    
+    # APScheduler - reduce verbosity
+    if log_level > logging.DEBUG:
+        logging.getLogger("apscheduler").setLevel(logging.WARNING)
+    else:
+        logging.getLogger("apscheduler").setLevel(log_level)
+    
+    # Aiohttp - reduce verbosity
+    logging.getLogger("aiohttp").setLevel(logging.WARNING)
+
+
 def configure_logging():
-    """Configure structured logging"""
+    """Configure structured logging with environment-aware settings"""
+    
+    # Determine log level
+    log_level = getattr(logging, settings.log_level.upper(), logging.INFO)
+    
+    # Configure root logger
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
-        level=getattr(logging, settings.log_level.upper(), logging.INFO),
+        level=log_level,
     )
+    
+    # Configure third-party loggers
+    configure_third_party_loggers(log_level)
 
+    # Configure structlog
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,

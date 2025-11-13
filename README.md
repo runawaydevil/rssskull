@@ -148,11 +148,39 @@ Data is automatically persisted across container restarts and updates.
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `ENVIRONMENT` | Environment | `production` |
-| `LOG_LEVEL` | Log level | `info` |
+| `LOG_LEVEL` | Log level (see below) | `info` |
 | `ALLOWED_USER_ID` | Restrict bot to specific user (optional) | `undefined` |
 | `DISABLE_REDIS` | Disable Redis caching | `false` |
 | `PORT` | HTTP server port | `8916` |
 | `HOST` | HTTP server host | `0.0.0.0` |
+
+### Logging Configuration
+
+Control log verbosity with the `LOG_LEVEL` environment variable:
+
+- **`debug`**: Show all logs including detailed operation logs (verbose, for troubleshooting)
+- **`info`**: Show info, warning, and error logs (default, recommended for production)
+- **`warning`**: Show only warnings and errors
+- **`error`**: Show only errors
+
+**Production defaults:**
+- Heartbeat logs every 5 minutes (vs 30 seconds in development)
+- Feed skip messages at DEBUG level (not shown in INFO mode)
+- Health check logs minimized
+- Summary logs after each feed check cycle
+
+**Troubleshooting:**
+If you need to debug an issue, temporarily set `LOG_LEVEL=debug` in your `.env` file and restart:
+```bash
+# Edit .env
+LOG_LEVEL=debug
+
+# Restart container
+docker-compose restart rss-skull-bot
+
+# View detailed logs
+docker-compose logs -f rss-skull-bot
+```
 
 ### Reddit Feed Setup
 
