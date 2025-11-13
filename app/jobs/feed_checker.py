@@ -30,7 +30,7 @@ class FeedChecker:
             return
         
         summary_parts = [
-            f"✅ Feed check complete:",
+            "✅ Feed check complete:",
             f"{stats['checked']} checked",
             f"{stats['skipped']} skipped",
             f"{stats['notifications']} notification(s) sent"
