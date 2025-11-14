@@ -9,6 +9,9 @@ from urllib.parse import urlparse
 
 from app.utils.logger import get_logger
 from app.utils.cache import cache_service
+from app.utils.user_agents import user_agent_pool
+from app.utils.header_builder import header_builder
+from app.utils.rate_limiter import rate_limiter
 
 logger = get_logger(__name__)
 
@@ -238,22 +241,19 @@ class RSSService:
 
         last_error: Optional[Exception] = None
 
+        # Extract domain for rate limiting
+        domain = self.extract_domain(url)
+
+        # Apply rate limiting
+        await rate_limiter.wait_if_needed(domain)
+
         for attempt in range(1, self.max_retries + 1):
             try:
-                headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-                    "Accept-Language": "en-US,en;q=0.9",
-                    "Accept-Encoding": "gzip, deflate, br",
-                    "DNT": "1",
-                    "Connection": "keep-alive",
-                    "Upgrade-Insecure-Requests": "1",
-                    "Sec-Fetch-Dest": "document",
-                    "Sec-Fetch-Mode": "navigate",
-                    "Sec-Fetch-Site": "none",
-                    "Sec-Fetch-User": "?1",
-                    "Cache-Control": "max-age=0",
-                }
+                # Get User-Agent from pool (domain-aware)
+                user_agent = user_agent_pool.get_for_domain(domain)
+
+                # Build headers with randomization
+                headers = header_builder.build_headers(url, user_agent)
 
                 # Add conditional headers if cached
                 cached_entry = await cache_service.get(f"feed_meta:{url}")
@@ -313,6 +313,9 @@ class RSSService:
                     if not response.ok:
                         error_msg = f"HTTP {response.status}: {response.reason}"
                         logger.error(f"{url} - {error_msg}")
+                        # Record failure with status code for rate limiting
+                        rate_limiter.record_failure(domain, response.status)
+                        user_agent_pool.record_failure(domain, user_agent)
                         raise Exception(error_msg)
 
                     # Extract response headers for caching
@@ -428,14 +431,25 @@ class RSSService:
                             ttl=3600,  # 1 hour
                         )
 
+                    # Record success for rate limiter and UA pool
+                    rate_limiter.record_success(domain)
+                    user_agent_pool.record_success(domain, user_agent)
+
                     return {"success": True, "feed": feed}
 
             except asyncio.TimeoutError:
                 last_error = Exception(f"Timeout after {self.timeout}s")
                 logger.warning(f"{url} - Timeout (attempt {attempt}/{self.max_retries})")
+                # Record failure (timeout treated as soft failure)
+                rate_limiter.record_failure(domain, 0)
+                user_agent_pool.record_failure(domain, user_agent)
             except Exception as e:
                 last_error = e
                 logger.warning(f"{url} - Error (attempt {attempt}/{self.max_retries}): {e}")
+                # Try to extract status code from error
+                status_code = getattr(e, "status", 0) if hasattr(e, "status") else 0
+                rate_limiter.record_failure(domain, status_code)
+                user_agent_pool.record_failure(domain, user_agent)
 
             # Exponential backoff
             if attempt < self.max_retries:
