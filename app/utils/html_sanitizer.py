@@ -50,15 +50,15 @@ def sanitize_html_for_telegram(text: str) -> str:
         if href_match:
             href = href_match.group(1)
             # Escape special characters in href but keep it valid
-            href = href.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            href = href.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
             return f'<a href="{href}">'
         return "<a>"
 
     text = re.sub(r"<a[^>]*>", clean_a_tag, text, flags=re.IGNORECASE)
-    
+
     # Step 4.5: Remove any orphaned </a> tags that don't have matching opening tags
     # This is a common issue with malformed HTML from Reddit
-    text = _remove_orphaned_closing_tags(text, 'a')
+    text = _remove_orphaned_closing_tags(text, "a")
 
     # Step 5: Remove attributes from other allowed tags (keep only tag name)
     # Allowed tags: b, i, u, s, code, pre
@@ -114,37 +114,37 @@ def sanitize_html_for_telegram(text: str) -> str:
 def _remove_orphaned_closing_tags(text: str, tag_name: str) -> str:
     """
     Remove orphaned closing tags that don't have matching opening tags.
-    
+
     Args:
         text: HTML text
         tag_name: Tag name to check (e.g., 'a', 'i', 'b')
-    
+
     Returns:
         HTML text with orphaned closing tags removed
     """
     if not text:
         return ""
-    
+
     # Count opening and closing tags
-    opening_pattern = rf'<{tag_name}(?:\s[^>]*)?>|<{tag_name}>'
-    closing_pattern = rf'</{tag_name}>'
-    
+    opening_pattern = rf"<{tag_name}(?:\s[^>]*)?>|<{tag_name}>"
+    closing_pattern = rf"</{tag_name}>"
+
     # Find all tags with their positions
     tags = []
     for match in re.finditer(opening_pattern, text, re.IGNORECASE):
-        tags.append(('open', match.start(), match.end()))
+        tags.append(("open", match.start(), match.end()))
     for match in re.finditer(closing_pattern, text, re.IGNORECASE):
-        tags.append(('close', match.start(), match.end()))
-    
+        tags.append(("close", match.start(), match.end()))
+
     # Sort by position
     tags.sort(key=lambda x: x[1])
-    
+
     # Track which closing tags are orphaned
     orphaned_positions = []
     open_count = 0
-    
+
     for tag_type, start, end in tags:
-        if tag_type == 'open':
+        if tag_type == "open":
             open_count += 1
         else:  # close
             if open_count > 0:
@@ -152,11 +152,11 @@ def _remove_orphaned_closing_tags(text: str, tag_name: str) -> str:
             else:
                 # This is an orphaned closing tag
                 orphaned_positions.append((start, end))
-    
+
     # Remove orphaned tags from text (in reverse order to maintain positions)
     for start, end in reversed(orphaned_positions):
         text = text[:start] + text[end:]
-    
+
     return text
 
 
