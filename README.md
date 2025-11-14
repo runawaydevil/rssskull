@@ -10,6 +10,15 @@ A powerful, feature-rich Telegram bot that fetches RSS feeds and delivers conten
 
 ## ✨ Features
 
+### 🛡️ **Anti-Blocking System**
+- **User-Agent Rotation**: Pool of 10+ realistic browser User-Agents with domain-aware selection
+- **Adaptive Rate Limiting**: Intelligent delays that adjust based on server responses (2x on 429, 3x on repeated 403)
+- **Circuit Breaker Pattern**: Automatically stops checking feeds that consistently fail (5 failures = 1 hour pause)
+- **Reddit Fallback Chain**: Multiple access methods (RSS → JSON → old.reddit.com) for blocked subreddits
+- **Session Management**: Per-domain HTTP sessions with cookie handling and 1-hour rotation
+- **Request Randomization**: Jitter (±20%) and randomized headers to avoid detection patterns
+- **Learning System**: Tracks success rates per User-Agent per domain for optimization
+
 ### 🔗 **RSS Feed Processing**
 - **Multi-format Support**: RSS 2.0, Atom, JSON Feed 1.1
 - **Smart Parsing**: Automatic content extraction and normalization
@@ -32,6 +41,15 @@ A powerful, feature-rich Telegram bot that fetches RSS feeds and delivers conten
 - **Auto-Migrations**: Prisma migrations applied automatically on startup
 - **Smart Rate Limiting**: Adaptive throttling per domain (6-8 min for Reddit)
 - **User-Agent Management**: Realistic browser headers to avoid detection
+
+### 🛡️ **Anti-Blocking System**
+- **User-Agent Rotation**: 10+ realistic browser User-Agents with domain-aware selection
+- **Adaptive Rate Limiting**: Automatic delay adjustment based on server responses (2x on 429, 3x on 403)
+- **Circuit Breaker Pattern**: Temporarily skip feeds that fail consistently (5 failures = 1 hour pause)
+- **Session Management**: Per-domain HTTP sessions with cookie support and 1-hour rotation
+- **Reddit Fallback Chain**: Automatic fallback to old.reddit.com when main endpoint is blocked
+- **Request Randomization**: Jitter (±20%) and randomized headers to appear more human
+- **Success Rate Learning**: Tracks which User-Agents work best for each domain
 
 ### 🛡️ **Telegram Resilience System**
 - **Auto-Recovery**: Automatic recovery from 502 Bad Gateway errors
@@ -203,6 +221,7 @@ The bot automatically converts Reddit URLs to RSS feeds and handles Reddit's pop
 | `/list` | List all monitored feeds |
 | `/status` | Show bot status and statistics |
 | `/filters` | Manage content filters |
+| `/blockstats` | Show anti-blocking statistics and circuit breaker status |
 
 ## 🏗️ Architecture
 
@@ -322,6 +341,36 @@ See [CHANGELOG.md](CHANGELOG.md) for full version history.
 - 🐳 Docker improvements (multi-stage build, non-root user)
 - 📝 HTML sanitization system for Telegram messages
 - 🧹 Code cleanup and optimization
+
+## 🔧 Troubleshooting
+
+### Feeds Being Blocked (403 Errors)
+
+The bot includes an anti-blocking system that automatically handles most blocking issues:
+
+1. **Check blocking statistics**: Use `/blockstats` command to see current delays and circuit breaker status
+2. **Wait for automatic recovery**: Circuit breaker will retry after cooldown period (1 hour initially)
+3. **Reddit-specific**: The bot automatically tries multiple access methods (RSS → JSON → old.reddit.com)
+4. **Adjust delays**: Increase `ANTI_BLOCK_MIN_DELAY` in `.env` if needed (default: 5 seconds)
+
+### High Rate Limiting Delays
+
+If you see very high delays (>60s) for a domain:
+
+- This means the domain is actively blocking or rate-limiting requests
+- The bot will gradually reduce delays as requests succeed
+- Use `/blockstats` to monitor current delays per domain
+- Consider reducing number of feeds from the same domain
+
+### Circuit Breaker Activated
+
+When a feed fails 5 times consecutively:
+
+- Circuit breaker activates and pauses checks for 1 hour
+- After timeout, bot attempts one test request
+- If successful, normal checking resumes
+- If failed, timeout doubles (max 24 hours)
+- Check status with `/blockstats` command
 
 ## 📞 Support
 

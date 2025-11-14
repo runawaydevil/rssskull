@@ -10,6 +10,7 @@ from app.utils.logger import get_logger
 from app.models.feed import (
     Chat,
     Feed,
+    BlockingStats,
 )
 
 logger = get_logger(__name__)

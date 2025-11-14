@@ -209,3 +209,23 @@ class QueuedMessage(SQLModel, table=True):
     )  # 'pending', 'processing', 'sent', 'failed', 'expired'
     created_at: datetime = Field(default_factory=datetime.utcnow, alias="createdAt")
     updated_at: datetime = Field(default_factory=datetime.utcnow, alias="updatedAt")
+
+
+class BlockingStats(SQLModel, table=True):
+    """Blocking statistics per domain for anti-blocking system"""
+
+    __tablename__ = "blockingstats"
+
+    id: str = Field(primary_key=True)
+    domain: str = Field(index=True, unique=True)
+    total_requests: int = 0
+    successful_requests: int = 0
+    blocked_requests: int = 0  # 403
+    rate_limited_requests: int = 0  # 429
+    last_success: Optional[datetime] = Field(default=None, alias="lastSuccess")
+    last_failure: Optional[datetime] = Field(default=None, alias="lastFailure")
+    current_delay: float = 5.0
+    circuit_breaker_state: str = "closed"
+    preferred_user_agent: Optional[str] = Field(default=None, alias="preferredUserAgent")
+    created_at: datetime = Field(default_factory=datetime.utcnow, alias="createdAt")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, alias="updatedAt")

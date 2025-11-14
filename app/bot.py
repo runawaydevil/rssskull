@@ -137,6 +137,7 @@ Type /help for more information.
 
 <b>Information:</b>
 /stats - Show statistics
+/blockstats - Show anti-blocking statistics
 /ping - Check if bot is alive
 
 <b>Examples:</b>
@@ -173,6 +174,7 @@ For more information, visit the repository.
             BotCommand(command="enable", description="Enable a feed"),
             BotCommand(command="disable", description="Disable a feed"),
             BotCommand(command="stats", description="Show statistics"),
+            BotCommand(command="blockstats", description="Show anti-blocking statistics"),
             BotCommand(command="ping", description="Check if bot is alive"),
         ]
 

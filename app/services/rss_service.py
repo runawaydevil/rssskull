@@ -3,6 +3,7 @@
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 import asyncio
+import time
 import aiohttp
 import feedparser
 from urllib.parse import urlparse
@@ -12,8 +13,23 @@ from app.utils.cache import cache_service
 from app.utils.user_agents import user_agent_pool
 from app.utils.header_builder import header_builder
 from app.utils.rate_limiter import rate_limiter
+from app.utils.circuit_breaker import circuit_breaker
+from app.utils.session_manager import session_manager
+from app.services.reddit_fallback import reddit_fallback
+from app.services.blocking_alert_service import blocking_alert_service
+from app.database import database
+from app.services.blocking_stats_service import BlockingStatsService
+from app.config import settings
 
 logger = get_logger(__name__)
+
+
+# Import reddit_fallback here to avoid circular dependency
+def get_reddit_fallback():
+    """Get Reddit fallback instance"""
+    from app.services.reddit_fallback import reddit_fallback
+
+    return reddit_fallback
 
 
 # Import reddit_service here to avoid circular dependency
@@ -151,6 +167,15 @@ class RSSService:
             'error': Optional[str]
         }
         """
+        # Check if this is a Reddit URL and use fallback chain
+        if "reddit.com" in url and "/r/" in url:
+            # Extract subreddit name
+            parts = url.split("/r/")
+            if len(parts) > 1:
+                subreddit = parts[1].split("/")[0].split(".")[0]
+                logger.debug(f"Using Reddit fallback chain for r/{subreddit}")
+                return await reddit_fallback.fetch_reddit_feed(subreddit, self)
+        
         # If URL is already in RSS format, fetch directly without service detection
         # This prevents infinite recursion when services call this method with converted URLs
         if self._is_rss_url(url):
@@ -194,6 +219,13 @@ class RSSService:
 
     async def _fetch_feed_from_url(self, url: str) -> Dict[str, Any]:
         """Fetch feed from a specific URL"""
+        
+        # Check circuit breaker
+        if not circuit_breaker.should_allow_request(url):
+            time_until_retry = circuit_breaker.get_time_until_retry(url)
+            logger.warning(f"Circuit breaker OPEN for {url} - retry in {time_until_retry:.0f}s")
+            return {"success": False, "error": "Circuit breaker open"}
+        
         # Check cache first
         cached_dict = await cache_service.get(f"feed:{url}")
         if cached_dict:
@@ -263,7 +295,9 @@ class RSSService:
                     if cached_entry.get("last_modified"):
                         headers["If-Modified-Since"] = cached_entry["last_modified"]
 
-                async with self._session.get(url, headers=headers) as response:
+                # Get session from session manager (domain-aware with rotation)
+                session = await session_manager.get_session(domain)
+                async with session.get(url, headers=headers) as response:
                     # Check if we got a 304 Not Modified response
                     if response.status == 304:
                         # Get cached feed for 304 response
@@ -316,6 +350,40 @@ class RSSService:
                         # Record failure with status code for rate limiting
                         rate_limiter.record_failure(domain, response.status)
                         user_agent_pool.record_failure(domain, user_agent)
+                        
+                        # Record failure in database and trigger alerts
+                        try:
+                            with database.get_session() as session:
+                                stats_service = BlockingStatsService(session)
+                                stats = stats_service.record_request_failure(
+                                    domain=domain,
+                                    status_code=response.status,
+                                    delay=rate_limiter.get_current_delay(domain),
+                                    circuit_breaker_state=circuit_breaker.get_state(url),
+                                )
+                                
+                                # Trigger alerts
+                                from app.bot import bot_service
+                                admin_chat_id = settings.allowed_user_id
+                                await blocking_alert_service.check_and_alert_on_block(
+                                    domain=domain,
+                                    status_code=response.status,
+                                    bot_service=bot_service if bot_service.bot else None,
+                                    admin_chat_id=admin_chat_id,
+                                )
+                                
+                                # Check for low success rate
+                                success_rate = stats_service.get_success_rate(domain)
+                                await blocking_alert_service.check_and_alert_low_success_rate(
+                                    domain=domain,
+                                    success_rate=success_rate,
+                                    total_requests=stats.total_requests,
+                                    bot_service=bot_service if bot_service.bot else None,
+                                    admin_chat_id=admin_chat_id,
+                                )
+                        except Exception as e:
+                            logger.error(f"Failed to record failure stats: {e}")
+                        
                         raise Exception(error_msg)
 
                     # Extract response headers for caching
@@ -431,9 +499,24 @@ class RSSService:
                             ttl=3600,  # 1 hour
                         )
 
-                    # Record success for rate limiter and UA pool
+                    # Record success for rate limiter, UA pool, and circuit breaker
                     rate_limiter.record_success(domain)
                     user_agent_pool.record_success(domain, user_agent)
+                    circuit_breaker.record_success(url)
+                    
+                    # Record success in database
+                    try:
+                        with database.get_session() as session:
+                            stats_service = BlockingStatsService(session)
+                            stats_service.record_request_success(
+                                domain=domain,
+                                user_agent=user_agent,
+                                delay=rate_limiter.get_current_delay(domain),
+                            )
+                            # Reset consecutive blocks on success
+                            blocking_alert_service.reset_consecutive_blocks(domain)
+                    except Exception as e:
+                        logger.error(f"Failed to record success stats: {e}")
 
                     return {"success": True, "feed": feed}
 
@@ -443,6 +526,20 @@ class RSSService:
                 # Record failure (timeout treated as soft failure)
                 rate_limiter.record_failure(domain, 0)
                 user_agent_pool.record_failure(domain, user_agent)
+                circuit_breaker.record_failure(url)
+                
+                # Record timeout in database
+                try:
+                    with database.get_session() as session:
+                        stats_service = BlockingStatsService(session)
+                        stats_service.record_request_failure(
+                            domain=domain,
+                            status_code=0,  # 0 for timeout
+                            delay=rate_limiter.get_current_delay(domain),
+                            circuit_breaker_state=circuit_breaker.get_state(url),
+                        )
+                except Exception as db_error:
+                    logger.error(f"Failed to record timeout stats: {db_error}")
             except Exception as e:
                 last_error = e
                 logger.warning(f"{url} - Error (attempt {attempt}/{self.max_retries}): {e}")
@@ -450,6 +547,20 @@ class RSSService:
                 status_code = getattr(e, "status", 0) if hasattr(e, "status") else 0
                 rate_limiter.record_failure(domain, status_code)
                 user_agent_pool.record_failure(domain, user_agent)
+                circuit_breaker.record_failure(url)
+                
+                # Record failure in database (but don't trigger alerts on retries)
+                try:
+                    with database.get_session() as session:
+                        stats_service = BlockingStatsService(session)
+                        stats_service.record_request_failure(
+                            domain=domain,
+                            status_code=status_code,
+                            delay=rate_limiter.get_current_delay(domain),
+                            circuit_breaker_state=circuit_breaker.get_state(url),
+                        )
+                except Exception as db_error:
+                    logger.error(f"Failed to record failure stats: {db_error}")
 
             # Exponential backoff
             if attempt < self.max_retries:

@@ -164,3 +164,21 @@ model QueuedMessage {
   @@index([expiresAt])
   @@index([chatId])
 }
+
+model BlockingStats {
+  id                   String   @id @default(cuid())
+  domain               String   @unique
+  totalRequests        Int      @default(0)
+  successfulRequests   Int      @default(0)
+  blockedRequests      Int      @default(0) // 403
+  rateLimitedRequests  Int      @default(0) // 429
+  lastSuccess          DateTime?
+  lastFailure          DateTime?
+  currentDelay         Float    @default(5.0)
+  circuitBreakerState  String   @default("closed") // 'closed', 'open', 'half_open'
+  preferredUserAgent   String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  @@index([domain])
+}

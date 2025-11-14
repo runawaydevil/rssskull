@@ -52,6 +52,25 @@ async def startup_event():
     )
     logger.info("✅ Feed checker job scheduled")
 
+    # Add blocking monitor job (runs every hour to check success rates)
+    from app.jobs.blocking_monitor import check_blocking_stats_job, cleanup_blocking_stats_job
+
+    scheduler.add_interval_job(
+        check_blocking_stats_job,
+        minutes=60,
+        job_id="check_blocking_stats",
+    )
+    logger.info("✅ Blocking monitor job scheduled")
+
+    # Add blocking stats cleanup job (runs daily at 3 AM UTC)
+    scheduler.add_cron_job(
+        cleanup_blocking_stats_job,
+        hour=3,
+        minute=0,
+        job_id="cleanup_blocking_stats",
+    )
+    logger.info("✅ Blocking stats cleanup job scheduled")
+
     # Initialize bot
     await bot_service.initialize()
     # Start polling in background task

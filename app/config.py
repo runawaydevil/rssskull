@@ -108,6 +108,12 @@ class Settings(BaseSettings):
     circuit_breaker_threshold: int = 3
     min_delay_ms: int = 200000
 
+    # Anti-blocking Configuration
+    anti_block_enabled: bool = True
+    anti_block_min_delay: float = 5.0
+    anti_block_max_delay: float = 300.0
+    anti_block_circuit_breaker_threshold: int = 5
+
 
 # Global settings instance
 settings = Settings()

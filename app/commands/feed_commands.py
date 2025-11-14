@@ -162,3 +162,84 @@ async def setup_feed_commands(dp: Optional[Dispatcher], bot: Optional[Bot]):
         except Exception as e:
             logger.error(f"Failed to disable feed for {chat_id}: {e}")
             await message.answer("❌ Failed to disable feed. Please try again.")
+
+
+    # Block stats command
+    @dp.message(Command("blockstats"))
+    async def blockstats_command(message: Message):
+        """Show blocking statistics"""
+        try:
+            from app.utils.rate_limiter import rate_limiter
+            from app.utils.circuit_breaker import circuit_breaker
+            from app.database import database
+            from app.services.blocking_stats_service import BlockingStatsService
+
+            response = "📊 <b>Anti-Blocking Statistics</b>\n\n"
+
+            # Get database statistics
+            with database.get_session() as session:
+                stats_service = BlockingStatsService(session)
+                summary = stats_service.get_summary()
+                all_stats = stats_service.get_all_stats()
+
+                # Overall summary
+                if summary["total_requests"] > 0:
+                    response += "<b>📈 Overall Performance:</b>\n"
+                    response += f"• Total Requests: {summary['total_requests']}\n"
+                    response += f"• Success Rate: {summary['overall_success_rate']:.1f}%\n"
+                    response += f"• Blocked (403): {summary['blocked_requests']}\n"
+                    response += f"• Rate Limited (429): {summary['rate_limited_requests']}\n"
+                    response += f"• Domains Tracked: {summary['total_domains']}\n\n"
+
+                # Per-domain statistics (top 10 by request count)
+                if all_stats:
+                    sorted_stats = sorted(all_stats, key=lambda x: x.total_requests, reverse=True)
+                    response += "<b>🌐 Top Domains:</b>\n"
+                    for stat in sorted_stats[:10]:
+                        success_rate = (
+                            (stat.successful_requests / stat.total_requests * 100)
+                            if stat.total_requests > 0
+                            else 0.0
+                        )
+                        status_icon = "✅" if success_rate >= 80 else "⚠️" if success_rate >= 50 else "❌"
+                        response += f"{status_icon} <b>{stat.domain}</b>\n"
+                        response += f"  Success: {success_rate:.1f}% ({stat.successful_requests}/{stat.total_requests})\n"
+                        if stat.blocked_requests > 0:
+                            response += f"  Blocked: {stat.blocked_requests}\n"
+                        if stat.rate_limited_requests > 0:
+                            response += f"  Rate Limited: {stat.rate_limited_requests}\n"
+                        response += f"  Delay: {stat.current_delay:.1f}s\n"
+                        if stat.circuit_breaker_state != "closed":
+                            cb_icon = "🔴" if stat.circuit_breaker_state == "open" else "🟡"
+                            response += f"  {cb_icon} Circuit: {stat.circuit_breaker_state}\n"
+                    response += "\n"
+
+                # Circuit breaker summary
+                if summary["circuit_breaker_open"] > 0 or summary["circuit_breaker_half_open"] > 0:
+                    response += "<b>⚡ Circuit Breakers:</b>\n"
+                    if summary["circuit_breaker_open"] > 0:
+                        response += f"🔴 Open: {summary['circuit_breaker_open']}\n"
+                    if summary["circuit_breaker_half_open"] > 0:
+                        response += f"🟡 Testing: {summary['circuit_breaker_half_open']}\n"
+                    response += "\n"
+
+                # Low success rate domains
+                low_success_domains = stats_service.get_domains_with_low_success_rate(threshold=50.0)
+                if low_success_domains:
+                    response += "<b>⚠️ Low Success Rate Domains:</b>\n"
+                    for stat in low_success_domains[:5]:
+                        success_rate = (
+                            (stat.successful_requests / stat.total_requests * 100)
+                            if stat.total_requests > 0
+                            else 0.0
+                        )
+                        response += f"• {stat.domain}: {success_rate:.1f}%\n"
+                    response += "\n"
+
+                if summary["total_requests"] == 0:
+                    response += "ℹ️ No blocking data yet.\n"
+
+            await message.answer(response)
+        except Exception as e:
+            logger.error(f"Failed to get block stats: {e}")
+            await message.answer("❌ Failed to get statistics. Please try again.")
