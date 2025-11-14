@@ -3,7 +3,6 @@
 from datetime import datetime, timedelta
 from typing import Optional, Dict
 from app.utils.logger import get_logger
-from app.config import settings
 
 logger = get_logger(__name__)
 

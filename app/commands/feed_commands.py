@@ -169,8 +169,6 @@ async def setup_feed_commands(dp: Optional[Dispatcher], bot: Optional[Bot]):
     async def blockstats_command(message: Message):
         """Show blocking statistics"""
         try:
-            from app.utils.rate_limiter import rate_limiter
-            from app.utils.circuit_breaker import circuit_breaker
             from app.database import database
             from app.services.blocking_stats_service import BlockingStatsService
 

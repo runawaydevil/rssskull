@@ -1,6 +1,5 @@
 """Blocking monitor job for periodic success rate checks"""
 
-from datetime import datetime
 from app.database import database
 from app.services.blocking_stats_service import BlockingStatsService
 from app.services.blocking_alert_service import blocking_alert_service
