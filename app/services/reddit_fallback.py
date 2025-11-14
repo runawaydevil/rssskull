@@ -1,5 +1,6 @@
 """Reddit fallback chain for accessing blocked feeds"""
 
+import time
 from typing import Dict
 from app.utils.logger import get_logger
 
