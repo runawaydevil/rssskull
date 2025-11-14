@@ -30,9 +30,7 @@ class BlockingMonitor:
                     logger.debug("✅ All domains have acceptable success rates")
                     return
 
-                logger.info(
-                    f"⚠️ Found {len(low_success_domains)} domain(s) with low success rates"
-                )
+                logger.info(f"⚠️ Found {len(low_success_domains)} domain(s) with low success rates")
 
                 # Send alerts for each low success rate domain
                 admin_chat_id = settings.allowed_user_id

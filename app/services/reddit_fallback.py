@@ -41,9 +41,7 @@ class RedditFallbackChain:
             result = await method_func(subreddit, rss_service)
             if result["success"]:
                 self.successful_methods[subreddit] = (method_name, time.time())
-                logger.info(
-                    f"✅ Reddit access successful via {method_name}: r/{subreddit}"
-                )
+                logger.info(f"✅ Reddit access successful via {method_name}: r/{subreddit}")
                 return result
             else:
                 logger.debug(

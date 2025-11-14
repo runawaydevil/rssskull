@@ -163,7 +163,6 @@ async def setup_feed_commands(dp: Optional[Dispatcher], bot: Optional[Bot]):
             logger.error(f"Failed to disable feed for {chat_id}: {e}")
             await message.answer("❌ Failed to disable feed. Please try again.")
 
-
     # Block stats command
     @dp.message(Command("blockstats"))
     async def blockstats_command(message: Message):
@@ -199,7 +198,9 @@ async def setup_feed_commands(dp: Optional[Dispatcher], bot: Optional[Bot]):
                             if stat.total_requests > 0
                             else 0.0
                         )
-                        status_icon = "✅" if success_rate >= 80 else "⚠️" if success_rate >= 50 else "❌"
+                        status_icon = (
+                            "✅" if success_rate >= 80 else "⚠️" if success_rate >= 50 else "❌"
+                        )
                         response += f"{status_icon} <b>{stat.domain}</b>\n"
                         response += f"  Success: {success_rate:.1f}% ({stat.successful_requests}/{stat.total_requests})\n"
                         if stat.blocked_requests > 0:
@@ -222,7 +223,9 @@ async def setup_feed_commands(dp: Optional[Dispatcher], bot: Optional[Bot]):
                     response += "\n"
 
                 # Low success rate domains
-                low_success_domains = stats_service.get_domains_with_low_success_rate(threshold=50.0)
+                low_success_domains = stats_service.get_domains_with_low_success_rate(
+                    threshold=50.0
+                )
                 if low_success_domains:
                     response += "<b>⚠️ Low Success Rate Domains:</b>\n"
                     for stat in low_success_domains[:5]:

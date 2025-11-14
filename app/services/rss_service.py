@@ -174,7 +174,7 @@ class RSSService:
                 subreddit = parts[1].split("/")[0].split(".")[0]
                 logger.debug(f"Using Reddit fallback chain for r/{subreddit}")
                 return await reddit_fallback.fetch_reddit_feed(subreddit, self)
-        
+
         # If URL is already in RSS format, fetch directly without service detection
         # This prevents infinite recursion when services call this method with converted URLs
         if self._is_rss_url(url):
@@ -218,13 +218,13 @@ class RSSService:
 
     async def _fetch_feed_from_url(self, url: str) -> Dict[str, Any]:
         """Fetch feed from a specific URL"""
-        
+
         # Check circuit breaker
         if not circuit_breaker.should_allow_request(url):
             time_until_retry = circuit_breaker.get_time_until_retry(url)
             logger.warning(f"Circuit breaker OPEN for {url} - retry in {time_until_retry:.0f}s")
             return {"success": False, "error": "Circuit breaker open"}
-        
+
         # Check cache first
         cached_dict = await cache_service.get(f"feed:{url}")
         if cached_dict:
@@ -349,7 +349,7 @@ class RSSService:
                         # Record failure with status code for rate limiting
                         rate_limiter.record_failure(domain, response.status)
                         user_agent_pool.record_failure(domain, user_agent)
-                        
+
                         # Record failure in database and trigger alerts
                         try:
                             with database.get_session() as session:
@@ -360,9 +360,10 @@ class RSSService:
                                     delay=rate_limiter.get_current_delay(domain),
                                     circuit_breaker_state=circuit_breaker.get_state(url),
                                 )
-                                
+
                                 # Trigger alerts
                                 from app.bot import bot_service
+
                                 admin_chat_id = settings.allowed_user_id
                                 await blocking_alert_service.check_and_alert_on_block(
                                     domain=domain,
@@ -370,7 +371,7 @@ class RSSService:
                                     bot_service=bot_service if bot_service.bot else None,
                                     admin_chat_id=admin_chat_id,
                                 )
-                                
+
                                 # Check for low success rate
                                 success_rate = stats_service.get_success_rate(domain)
                                 await blocking_alert_service.check_and_alert_low_success_rate(
@@ -382,7 +383,7 @@ class RSSService:
                                 )
                         except Exception as e:
                             logger.error(f"Failed to record failure stats: {e}")
-                        
+
                         raise Exception(error_msg)
 
                     # Extract response headers for caching
@@ -502,7 +503,7 @@ class RSSService:
                     rate_limiter.record_success(domain)
                     user_agent_pool.record_success(domain, user_agent)
                     circuit_breaker.record_success(url)
-                    
+
                     # Record success in database
                     try:
                         with database.get_session() as session:
@@ -526,7 +527,7 @@ class RSSService:
                 rate_limiter.record_failure(domain, 0)
                 user_agent_pool.record_failure(domain, user_agent)
                 circuit_breaker.record_failure(url)
-                
+
                 # Record timeout in database
                 try:
                     with database.get_session() as session:
@@ -547,7 +548,7 @@ class RSSService:
                 rate_limiter.record_failure(domain, status_code)
                 user_agent_pool.record_failure(domain, user_agent)
                 circuit_breaker.record_failure(url)
-                
+
                 # Record failure in database (but don't trigger alerts on retries)
                 try:
                     with database.get_session() as session:

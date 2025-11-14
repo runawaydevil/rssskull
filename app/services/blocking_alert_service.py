@@ -27,7 +27,7 @@ class BlockingAlertService:
     ):
         """
         Check if we should alert on a blocking event
-        
+
         Args:
             domain: The domain that was blocked
             status_code: HTTP status code (403, 429, etc.)
@@ -73,15 +73,11 @@ class BlockingAlertService:
         if consecutive_count >= 3:
             # Check if we should send alert (cooldown period)
             last_alerted = self.consecutive_block_alerted.get(domain)
-            should_alert = (
-                last_alerted is None or (now - last_alerted) > self.alert_cooldown
-            )
+            should_alert = last_alerted is None or (now - last_alerted) > self.alert_cooldown
 
             if should_alert:
                 self.consecutive_block_alerted[domain] = now
-                logger.error(
-                    f"🚨 {consecutive_count} consecutive 403 blocks for domain: {domain}"
-                )
+                logger.error(f"🚨 {consecutive_count} consecutive 403 blocks for domain: {domain}")
 
                 # Send Telegram alert if bot service is available
                 if bot_service and admin_chat_id:
@@ -96,9 +92,7 @@ class BlockingAlertService:
                             f"Consider manual intervention or checking /blockstats."
                         )
                         await bot_service.send_message(admin_chat_id, message)
-                        logger.info(
-                            f"Sent consecutive block alert to admin for domain: {domain}"
-                        )
+                        logger.info(f"Sent consecutive block alert to admin for domain: {domain}")
                     except Exception as e:
                         logger.error(f"Failed to send consecutive block alert: {e}")
 
@@ -117,7 +111,7 @@ class BlockingAlertService:
     ):
         """
         Check if domain has low success rate and alert if needed
-        
+
         Args:
             domain: The domain to check
             success_rate: Success rate percentage (0-100)
@@ -135,9 +129,7 @@ class BlockingAlertService:
 
             # Check if we should send alert (cooldown period)
             last_alerted = self.low_success_rate_alerted.get(domain)
-            should_alert = (
-                last_alerted is None or (now - last_alerted) > self.alert_cooldown
-            )
+            should_alert = last_alerted is None or (now - last_alerted) > self.alert_cooldown
 
             if should_alert:
                 self.low_success_rate_alerted[domain] = now
@@ -159,9 +151,7 @@ class BlockingAlertService:
                             f"Check /blockstats for more details."
                         )
                         await bot_service.send_message(admin_chat_id, message)
-                        logger.info(
-                            f"Sent low success rate alert to admin for domain: {domain}"
-                        )
+                        logger.info(f"Sent low success rate alert to admin for domain: {domain}")
                     except Exception as e:
                         logger.error(f"Failed to send low success rate alert: {e}")
 
@@ -174,7 +164,7 @@ class BlockingAlertService:
     ):
         """
         Alert when circuit breaker opens for a domain
-        
+
         Args:
             domain: The domain
             state: Circuit breaker state (open, half_open, closed)

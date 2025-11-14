@@ -66,7 +66,7 @@ class CircuitBreaker:
             # Activate circuit breaker
             self.states[feed_id] = self.STATE_OPEN
             self.open_until[feed_id] = time.time() + self.initial_timeout
-            
+
             # Trigger alert for circuit breaker opening
             try:
                 from app.services.blocking_alert_service import blocking_alert_service
@@ -74,14 +74,14 @@ class CircuitBreaker:
                 from app.config import settings
                 from urllib.parse import urlparse
                 import asyncio
-                
+
                 # Extract domain from feed_id (which is a URL)
                 try:
                     parsed = urlparse(feed_id)
                     domain = parsed.netloc or parsed.path.split("/")[0]
                 except Exception:
                     domain = feed_id
-                
+
                 # Create async task to send alert
                 admin_chat_id = settings.allowed_user_id
                 if bot_service.bot and admin_chat_id:
@@ -96,6 +96,7 @@ class CircuitBreaker:
             except Exception as e:
                 # Don't let alerting failures break the circuit breaker
                 from app.utils.logger import get_logger
+
                 logger = get_logger(__name__)
                 logger.error(f"Failed to send circuit breaker alert: {e}")
 
