@@ -200,9 +200,7 @@ async def setup_feed_commands(dp: Optional[Dispatcher], bot: Optional[Bot]):
                 response += f"✅ <b>Healthy Feeds:</b> {len(healthy_feeds)}\n"
 
             if problem_feeds:
-                response += (
-                    "\n💡 <b>Tip:</b> Use /remove &lt;name&gt; to remove problematic feeds."
-                )
+                response += "\n💡 <b>Tip:</b> Use /remove &lt;name&gt; to remove problematic feeds."
 
             await message.answer(response)
         except Exception as e:

@@ -488,12 +488,12 @@ class RSSService:
                         "link": feed.link,
                     }
                     await cache_service.set(f"feed:{url}", feed_dict, ttl=300)  # 5 minutes
-                    
+
                     if items:
                         logger.debug(f"Cached feed with {len(items)} items: {url}")
                     else:
                         logger.debug(f"Cached empty feed (to avoid 304 refetch): {url}")
-                    
+
                     if etag or last_modified:
                         await cache_service.set(
                             f"feed_meta:{url}",

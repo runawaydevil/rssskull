@@ -133,8 +133,7 @@ class BlockingAlertService:
             # Use a longer cooldown for low success rate (24 hours instead of 1 hour)
             last_alerted = self.low_success_rate_alerted.get(domain)
             should_alert = (
-                last_alerted is None
-                or (now - last_alerted) > self.low_success_rate_cooldown
+                last_alerted is None or (now - last_alerted) > self.low_success_rate_cooldown
             )
 
             if should_alert:
