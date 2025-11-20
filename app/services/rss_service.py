@@ -480,18 +480,20 @@ class RSSService:
                     )
 
                     # Cache feed and metadata (convert to dict for JSON serialization)
-                    # Only cache if we have items (avoid caching empty feeds)
+                    # Cache even if empty to avoid refetching on 304
+                    feed_dict = {
+                        "items": [item.to_dict() for item in items],
+                        "title": feed.title,
+                        "description": feed.description,
+                        "link": feed.link,
+                    }
+                    await cache_service.set(f"feed:{url}", feed_dict, ttl=300)  # 5 minutes
+                    
                     if items:
-                        feed_dict = {
-                            "items": [item.to_dict() for item in items],
-                            "title": feed.title,
-                            "description": feed.description,
-                            "link": feed.link,
-                        }
-                        await cache_service.set(f"feed:{url}", feed_dict, ttl=300)  # 5 minutes
                         logger.debug(f"Cached feed with {len(items)} items: {url}")
                     else:
-                        logger.warning(f"⚠️ Feed has no items - not caching: {url}")
+                        logger.debug(f"Cached empty feed (to avoid 304 refetch): {url}")
+                    
                     if etag or last_modified:
                         await cache_service.set(
                             f"feed_meta:{url}",

@@ -163,6 +163,52 @@ async def setup_feed_commands(dp: Optional[Dispatcher], bot: Optional[Bot]):
             logger.error(f"Failed to disable feed for {chat_id}: {e}")
             await message.answer("❌ Failed to disable feed. Please try again.")
 
+    # Check feed health command
+    @dp.message(Command("health"))
+    async def health_command(message: Message):
+        """Check health of all feeds"""
+        chat_id = str(message.chat.id)
+
+        try:
+            feeds = await feed_service.list_feeds(chat_id)
+
+            if not feeds:
+                await message.answer("📋 No feeds configured.")
+                return
+
+            # Check for feeds with high failure rates
+            problem_feeds = []
+            healthy_feeds = []
+
+            for feed in feeds:
+                if feed.failures >= 3:
+                    problem_feeds.append(feed)
+                else:
+                    healthy_feeds.append(feed)
+
+            response = "🏥 <b>Feed Health Report</b>\n\n"
+
+            if problem_feeds:
+                response += "❌ <b>Problem Feeds:</b>\n"
+                for feed in problem_feeds:
+                    response += f"• <b>{feed.name}</b>\n"
+                    response += f"  URL: {feed.url}\n"
+                    response += f"  Failures: {feed.failures}\n"
+                    response += f"  Status: {'Enabled' if feed.enabled else 'Disabled'}\n\n"
+
+            if healthy_feeds:
+                response += f"✅ <b>Healthy Feeds:</b> {len(healthy_feeds)}\n"
+
+            if problem_feeds:
+                response += (
+                    "\n💡 <b>Tip:</b> Use /remove &lt;name&gt; to remove problematic feeds."
+                )
+
+            await message.answer(response)
+        except Exception as e:
+            logger.error(f"Failed to check feed health for {chat_id}: {e}")
+            await message.answer("❌ Failed to check feed health. Please try again.")
+
     # Block stats command
     @dp.message(Command("blockstats"))
     async def blockstats_command(message: Message):

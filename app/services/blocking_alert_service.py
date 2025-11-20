@@ -21,6 +21,8 @@ class BlockingAlertService:
         self.low_success_rate_alerted: Dict[str, datetime] = {}
         # Alert cooldown period (avoid spamming)
         self.alert_cooldown = timedelta(hours=1)
+        # Longer cooldown for low success rate alerts (24 hours)
+        self.low_success_rate_cooldown = timedelta(hours=24)
 
     async def check_and_alert_on_block(
         self, domain: str, status_code: int, bot_service=None, admin_chat_id: Optional[int] = None
@@ -128,8 +130,12 @@ class BlockingAlertService:
             now = datetime.utcnow()
 
             # Check if we should send alert (cooldown period)
+            # Use a longer cooldown for low success rate (24 hours instead of 1 hour)
             last_alerted = self.low_success_rate_alerted.get(domain)
-            should_alert = last_alerted is None or (now - last_alerted) > self.alert_cooldown
+            should_alert = (
+                last_alerted is None
+                or (now - last_alerted) > self.low_success_rate_cooldown
+            )
 
             if should_alert:
                 self.low_success_rate_alerted[domain] = now

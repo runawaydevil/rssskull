@@ -173,6 +173,7 @@ For more information, visit the repository.
             BotCommand(command="remove", description="Remove a feed"),
             BotCommand(command="enable", description="Enable a feed"),
             BotCommand(command="disable", description="Disable a feed"),
+            BotCommand(command="health", description="Check feed health"),
             BotCommand(command="stats", description="Show statistics"),
             BotCommand(command="blockstats", description="Show anti-blocking statistics"),
             BotCommand(command="ping", description="Check if bot is alive"),
