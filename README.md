@@ -4,78 +4,55 @@
   <img src="rssskull.png" alt="RSS Skull Bot" width="200" height="200" />
 </div>
 
-> **Modern RSS to Telegram Bot with Reddit Support**
+**Enterprise-grade RSS to Telegram Bot with Advanced Anti-Blocking**
 
-A powerful, feature-rich Telegram bot that fetches RSS feeds and delivers content directly to your Telegram channels. Built with Python (FastAPI + aiogram), featuring Reddit RSS support, HTTP caching, performance metrics, HTML sanitization, and intelligent feed processing.
+A robust, production-ready Telegram bot that monitors RSS feeds and delivers content notifications with enterprise-level reliability. Built with Python using FastAPI and aiogram, featuring comprehensive anti-blocking systems, Reddit integration, circuit breakers, and Docker-first deployment.
 
-## ✨ Features
+## Features
 
-### 🛡️ **Anti-Blocking System**
+### Core Functionality
+- **Multi-format RSS Support**: RSS 2.0, Atom, JSON Feed 1.1 with intelligent parsing
+- **Real-time Notifications**: Instant delivery of new feed items to Telegram channels
+- **Content Deduplication**: Advanced duplicate detection using intelligent ID matching
+- **HTML Sanitization**: Automatic content sanitization for Telegram HTML parse mode
+- **Smart Baseline Management**: Prevents notification spam from historical posts
+
+### Anti-Blocking System
 - **User-Agent Rotation**: Pool of 10+ realistic browser User-Agents with domain-aware selection
-- **Adaptive Rate Limiting**: Intelligent delays that adjust based on server responses (2x on 429, 3x on repeated 403)
-- **Circuit Breaker Pattern**: Automatically stops checking feeds that consistently fail (5 failures = 1 hour pause)
-- **Reddit Fallback Chain**: Multiple access methods (RSS → JSON → old.reddit.com) for blocked subreddits
-- **Session Management**: Per-domain HTTP sessions with cookie handling and 1-hour rotation
+- **Adaptive Rate Limiting**: Dynamic delays that adjust based on server responses (2x on 429, 3x on 403)
+- **Circuit Breaker Pattern**: Automatic feed suspension after consecutive failures (5 failures = 1 hour pause)
+- **Session Management**: Per-domain HTTP sessions with cookie handling and automatic rotation
 - **Request Randomization**: Jitter (±20%) and randomized headers to avoid detection patterns
-- **Learning System**: Tracks success rates per User-Agent per domain for optimization
+- **Success Rate Learning**: Tracks and optimizes User-Agent performance per domain
 
-### 🔗 **RSS Feed Processing**
-- **Multi-format Support**: RSS 2.0, Atom, JSON Feed 1.1
-- **Smart Parsing**: Automatic content extraction and normalization
-- **Deduplication**: Prevents duplicate posts using intelligent ID matching
-- **Content Filtering**: Advanced filtering based on keywords, domains, and patterns
-- **HTML Sanitization**: Automatic sanitization for Telegram HTML parse mode
-- **Baseline Management**: Smart baseline using most recent post date to prevent old post notifications
+### Reddit Integration
+- **Automatic RSS Conversion**: Seamless conversion of Reddit URLs to RSS feeds
+- **Fallback Chain**: Multiple access methods (RSS → JSON → old.reddit.com) for blocked subreddits
+- **Popularity-based Handling**: Correctly processes Reddit's non-chronological post sorting
+- **OAuth API Support**: Optional Reddit API integration with token management
 
-### 🔴 **Reddit Integration**
-- **RSS Feed Support**: Automatic Reddit URL to RSS conversion (`/r/subreddit` → `.rss`)
-- **Timestamp-based Detection**: Smart detection of new posts using publication dates
-- **Popularity-based Handling**: Correctly handles Reddit's non-chronological sorting
-- **HTTP Caching**: ETag and Last-Modified header support to reduce API calls
-- **Rate Limiting**: Intelligent request management to respect Reddit's limits
+### Reliability & Performance
+- **HTTP Caching**: ETag and Last-Modified header support to minimize bandwidth
+- **Database Persistence**: SQLite with automatic migrations and data integrity
+- **Health Monitoring**: Comprehensive health checks with `/health`, `/metrics`, and `/stats` endpoints
+- **Exponential Backoff**: Smart retry mechanisms with configurable delays
+- **Memory Management**: Resource monitoring and cleanup to prevent memory leaks
 
-### ⚡ **Performance & Reliability**
-- **HTTP Caching**: ETag and Last-Modified header support
-- **Circuit Breaker**: Intelligent fault tolerance with exponential backoff
-- **Database Persistence**: All data persisted across Docker deployments
-- **Auto-Migrations**: Prisma migrations applied automatically on startup
-- **Smart Rate Limiting**: Adaptive throttling per domain (6-8 min for Reddit)
-- **User-Agent Management**: Realistic browser headers to avoid detection
+### Telegram Resilience
+- **Auto-Recovery**: Automatic recovery from 502 Bad Gateway and API outages
+- **Message Queue**: Persistent message queuing during Telegram API downtime (up to 1000 messages)
+- **Connection Persistence**: Maintains connection state across restarts
+- **Alert System**: Proactive alerts for critical connectivity issues
 
-### 🛡️ **Anti-Blocking System**
-- **User-Agent Rotation**: 10+ realistic browser User-Agents with domain-aware selection
-- **Adaptive Rate Limiting**: Automatic delay adjustment based on server responses (2x on 429, 3x on 403)
-- **Circuit Breaker Pattern**: Temporarily skip feeds that fail consistently (5 failures = 1 hour pause)
-- **Session Management**: Per-domain HTTP sessions with cookie support and 1-hour rotation
-- **Reddit Fallback Chain**: Automatic fallback to old.reddit.com when main endpoint is blocked
-- **Request Randomization**: Jitter (±20%) and randomized headers to appear more human
-- **Success Rate Learning**: Tracks which User-Agents work best for each domain
-
-### 🛡️ **Telegram Resilience System**
-- **Auto-Recovery**: Automatic recovery from 502 Bad Gateway errors
-- **Message Queue**: Offline message queuing during API outages
-- **Exponential Backoff**: Smart retry with delays from 1s to 60s
-- **Health Monitoring**: Real-time monitoring with `/health` endpoint
-- **Alert System**: Automatic alerts for critical connectivity issues
-- **Persistent State**: Connection state survives restarts
-
-### 🤖 **Telegram Bot Features**
-- **Interactive Commands**: `/add`, `/remove`, `/list`, `/help`
-- **Real-time Notifications**: Instant feed updates
-- **Channel Management**: Support for multiple channels
-- **Access Control**: Optional user ID whitelist (respond only to owner)
-- **Feed Limits**: Global limit of 100 feeds across all chats
-- **Error Handling**: Graceful error recovery and user feedback
-
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
-- Python 3.11+ 
-- Docker & Docker Compose (recommended)
+- Docker and Docker Compose (recommended)
+- Python 3.11+ (for local development)
+- Telegram Bot Token from [@BotFather](https://t.me/botfather)
 - Redis (optional, can be disabled)
-- Telegram Bot Token
 
-### Installation
+### Docker Deployment (Recommended)
 
 1. **Clone the repository**
 ```bash
@@ -83,300 +60,724 @@ git clone https://github.com/runawaydevil/rssskull.git
 cd rssskull
 ```
 
-2. **Install dependencies**
-```bash
-pip install -r requirements.txt
-```
-
-3. **Setup environment**
+2. **Configure environment**
 ```bash
 cp .env.example .env
-# Edit .env with your configuration (BOT_TOKEN is required)
+# Edit .env with your BOT_TOKEN and other settings
 ```
 
-4. **Run the bot**
-```bash
-python run.py
-```
-
-Or using Docker (recommended):
+3. **Start the application**
 ```bash
 docker-compose up -d --build
 ```
 
-## 🐳 Docker Deployment
+4. **Verify deployment**
+```bash
+# Check container status
+docker-compose ps
 
-### Using Docker Compose (Recommended)
+# View logs
+docker-compose logs -f rss-skull-bot
+
+# Check health
+curl http://localhost:8916/health
+```
+
+### Local Development
+
+1. **Install dependencies**
+```bash
+pip install -r requirements.txt
+```
+
+2. **Configure environment**
+```bash
+cp .env.example .env
+# Edit .env with your configuration
+```
+
+3. **Run the application**
+```bash
+python run.py
+```
+
+## Docker Configuration
+
+### Container Architecture
+
+The application runs in a multi-container Docker environment:
+
+- **rss-skull-bot**: Main application container (Python 3.11-slim)
+- **redis**: Redis cache container (Alpine Linux)
+
+### Resource Limits
+
+Production-ready resource constraints are configured:
+
+```yaml
+# Application Container
+Memory: 4GB limit, 1GB reserved
+CPU: 1.0 limit, 0.5 reserved
+
+# Redis Container  
+Memory: 256MB limit, 128MB reserved
+CPU: 0.5 limit, 0.25 reserved
+```
+
+### Data Persistence
+
+Three Docker volumes ensure data persistence:
+
+- **`app_data`**: Database storage (`/app/data`)
+- **`backups_data`**: Automated backups (`/app/backups`)
+- **`redis_data`**: Redis persistence (`/data`)
+
+### Health Checks
+
+Comprehensive health monitoring:
+
+```yaml
+# Application Health Check
+Interval: 30s
+Timeout: 10s
+Retries: 10
+Start Period: 60s
+
+# Redis Health Check
+Interval: 10s
+Timeout: 3s
+Retries: 3
+```
+
+### Container Management
 
 ```bash
-# Clone and navigate to project
-git clone https://github.com/runawaydevil/rssskull.git
-cd rssskull
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your BOT_TOKEN and settings
-
 # Start containers
 docker-compose up -d --build
 
 # View logs
 docker-compose logs -f rss-skull-bot
 
-# Stop containers (data persists in volumes)
+# Restart specific service
+docker-compose restart rss-skull-bot
+
+# Stop containers (data persists)
 docker-compose down
 
-# For clean deployment (WARNING: deletes all data):
+# Clean deployment (WARNING: deletes all data)
+docker-compose down -v
+docker-compose up -d --build
+
+# Access container shell
+docker-compose exec rss-skull-bot sh
+
+# Database backup
+docker-compose exec rss-skull-bot python -c "
+from app.database import database
+database.backup_database()
+"
+```
+
+### Production Deployment
+
+For production environments:
+
+1. **Configure resource limits** based on your server capacity
+2. **Set up log rotation** to prevent disk space issues
+3. **Configure monitoring** using the `/health` and `/metrics` endpoints
+4. **Set up automated backups** using the backup scripts
+5. **Configure reverse proxy** (nginx/traefik) for SSL termination
+
+## Configuration
+
+### Environment Variables
+
+#### Required Configuration
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `BOT_TOKEN` | Telegram bot token from @BotFather | **Required** |
+
+#### Database Configuration
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_URL` | SQLite database path | `file:/app/data/production.db` |
+
+#### Redis Configuration
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `REDIS_HOST` | Redis server hostname | `redis` |
+| `REDIS_PORT` | Redis server port | `6379` |
+| `REDIS_PASSWORD` | Redis authentication password | `null` |
+| `DISABLE_REDIS` | Disable Redis caching entirely | `false` |
+
+#### Server Configuration
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | HTTP server port | `8916` |
+| `HOST` | HTTP server bind address | `0.0.0.0` |
+| `ENVIRONMENT` | Runtime environment | `production` |
+
+#### Logging Configuration
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `LOG_LEVEL` | Logging verbosity level | `info` |
+
+**Log Levels:**
+- `debug`: Verbose logging for troubleshooting
+- `info`: Standard production logging (recommended)
+- `warning`: Warnings and errors only
+- `error`: Errors only
+
+#### Access Control
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ALLOWED_USER_ID` | Restrict bot to specific Telegram user ID | `null` |
+
+#### Anti-Blocking System
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ANTI_BLOCK_ENABLED` | Enable anti-blocking features | `true` |
+| `ANTI_BLOCK_MIN_DELAY` | Minimum delay between requests (seconds) | `5.0` |
+| `ANTI_BLOCK_MAX_DELAY` | Maximum delay between requests (seconds) | `300.0` |
+| `ANTI_BLOCK_CIRCUIT_BREAKER_THRESHOLD` | Failures before circuit breaker activates | `5` |
+
+#### Reddit Integration
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `USE_REDDIT_API` | Enable Reddit OAuth API | `false` |
+| `USE_REDDIT_JSON_FALLBACK` | Enable Reddit JSON fallback | `false` |
+| `REDDIT_CLIENT_ID` | Reddit OAuth client ID | `null` |
+| `REDDIT_CLIENT_SECRET` | Reddit OAuth client secret | `null` |
+| `REDDIT_USERNAME` | Reddit account username | `null` |
+| `REDDIT_PASSWORD` | Reddit account password | `null` |
+
+#### Telegram Resilience
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `TELEGRAM_RESILIENCE_ENABLED` | Enable Telegram resilience system | `true` |
+| `TELEGRAM_MAX_RETRIES` | Maximum retry attempts | `10` |
+| `TELEGRAM_BASE_DELAY` | Base retry delay (milliseconds) | `1000` |
+| `TELEGRAM_MAX_DELAY` | Maximum retry delay (milliseconds) | `60000` |
+| `MESSAGE_QUEUE_ENABLED` | Enable message queuing | `true` |
+| `MESSAGE_QUEUE_MAX_SIZE` | Maximum queued messages | `1000` |
+
+### Configuration Examples
+
+#### Basic Configuration (.env)
+```bash
+# Required
+BOT_TOKEN=your_telegram_bot_token_here
+
+# Optional - Production Settings
+LOG_LEVEL=info
+ENVIRONMENT=production
+ALLOWED_USER_ID=123456789
+
+# Optional - Performance Tuning
+ANTI_BLOCK_MIN_DELAY=10.0
+REDIS_HOST=redis
+DISABLE_REDIS=false
+```
+
+#### Development Configuration (.env)
+```bash
+# Required
+BOT_TOKEN=your_telegram_bot_token_here
+
+# Development Settings
+LOG_LEVEL=debug
+ENVIRONMENT=development
+DATABASE_URL=file:./data/development.db
+
+# Disable Redis for local development
+DISABLE_REDIS=true
+```
+
+## Bot Commands
+
+| Command | Description | Usage |
+|---------|-------------|-------|
+| `/start` | Initialize bot and show welcome message | `/start` |
+| `/help` | Display available commands and usage | `/help` |
+| `/add` | Add RSS feed to monitoring | `/add <name> <url>` |
+| `/remove` | Remove RSS feed from monitoring | `/remove <name>` |
+| `/list` | List all monitored feeds with status | `/list` |
+| `/enable` | Enable a disabled feed | `/enable <name>` |
+| `/disable` | Temporarily disable a feed | `/disable <name>` |
+| `/health` | Check individual feed health status | `/health <name>` |
+| `/stats` | Show bot statistics and metrics | `/stats` |
+| `/blockstats` | Display anti-blocking system status | `/blockstats` |
+| `/ping` | Verify bot connectivity | `/ping` |
+
+### Command Examples
+
+```bash
+# Add various feed types
+/add TechNews https://example.com/rss
+/add RedditPython https://reddit.com/r/Python
+/add YouTubeChannel https://youtube.com/@channelname
+
+# Manage feeds
+/remove TechNews
+/disable RedditPython
+/enable RedditPython
+
+# Monitor system
+/stats
+/blockstats
+/health TechNews
+```
+
+### Supported Feed Types
+
+- **RSS 2.0**: Standard RSS feeds
+- **Atom**: Atom syndication format
+- **JSON Feed**: JSON Feed 1.1 specification
+- **Reddit**: Automatic conversion to RSS (r/subreddit)
+- **YouTube**: Channel and user feeds (requires RSS URL conversion)
+
+## System Architecture
+
+### Application Structure
+
+```
+app/
+├── main.py                    # FastAPI application with health endpoints
+├── bot.py                     # Telegram bot service (aiogram)
+├── config.py                  # Configuration management (Pydantic)
+├── database.py                # Database initialization and management
+├── scheduler.py               # APScheduler job management
+│
+├── commands/                  # Telegram bot command handlers
+│   ├── feed_commands.py      # Feed management commands (/add, /remove, /list)
+│   └── __init__.py           # Command registration and setup
+│
+├── jobs/                      # Background job processors
+│   ├── feed_checker.py       # RSS feed monitoring job (5-minute intervals)
+│   ├── blocking_monitor.py   # Anti-blocking statistics monitoring
+│   └── __init__.py
+│
+├── services/                  # Core business logic services
+│   ├── feed_service.py       # Feed CRUD operations and management
+│   ├── rss_service.py        # RSS fetching, parsing, and processing
+│   ├── reddit_service.py     # Reddit URL handling and conversion
+│   ├── youtube_service.py    # YouTube feed URL conversion
+│   ├── reddit_fallback.py   # Reddit fallback chain implementation
+│   ├── blocking_stats_service.py  # Anti-blocking statistics tracking
+│   └── blocking_alert_service.py  # Blocking alert notifications
+│
+├── models/                    # Database models (SQLModel)
+│   ├── feed.py               # Feed and Chat data models
+│   └── __init__.py
+│
+├── utils/                     # Utility modules and helpers
+│   ├── logger.py             # Structured logging with context
+│   ├── cache.py              # Redis caching service
+│   ├── html_sanitizer.py     # Telegram HTML sanitization
+│   ├── user_agents.py        # User-Agent rotation pool
+│   ├── header_builder.py     # HTTP header construction
+│   ├── rate_limiter.py       # Adaptive rate limiting
+│   ├── circuit_breaker.py    # Circuit breaker pattern implementation
+│   ├── session_manager.py    # HTTP session management
+│   └── __init__.py
+│
+└── resilience/                # Telegram resilience system
+    ├── keep_alive.py         # Connection keep-alive service
+    ├── circuit_breaker.py    # Telegram-specific circuit breaker
+    ├── retry.py              # Exponential backoff retry logic
+    └── __init__.py
+```
+
+### Data Flow
+
+```mermaid
+graph TD
+    A[Scheduler] -->|Every 5 min| B[Feed Checker Job]
+    B --> C[Feed Service]
+    C --> D[RSS Service]
+    D --> E[HTTP Client]
+    E --> F[Anti-Blocking System]
+    F --> G[User-Agent Pool]
+    F --> H[Rate Limiter]
+    F --> I[Circuit Breaker]
+    D --> J[Content Parser]
+    J --> K[HTML Sanitizer]
+    K --> L[Telegram Bot]
+    L --> M[Message Queue]
+    M --> N[Telegram API]
+    
+    O[Database] <--> C
+    P[Redis Cache] <--> D
+    Q[Health Monitor] --> R[/health endpoint]
+```
+
+### Technology Stack
+
+**Core Framework:**
+- **Python 3.11**: Modern Python with async/await support
+- **FastAPI**: High-performance web framework for API endpoints
+- **aiogram**: Modern Telegram Bot API framework
+- **SQLModel**: Type-safe database ORM with Pydantic integration
+
+**Data Storage:**
+- **SQLite**: Embedded database with automatic migrations
+- **Redis**: Optional caching layer for HTTP responses
+
+**HTTP Client:**
+- **aiohttp**: Async HTTP client with session management
+- **feedparser**: RSS/Atom feed parsing library
+
+**Job Processing:**
+- **APScheduler**: Advanced Python scheduler for background jobs
+
+**Monitoring:**
+- **structlog**: Structured logging with context
+- **psutil**: System resource monitoring
+
+### Deployment Architecture
+
+```mermaid
+graph TB
+    subgraph "Docker Environment"
+        subgraph "Application Container"
+            A[RSS Skull Bot]
+            B[FastAPI Server :8916]
+            C[Telegram Bot]
+            D[Background Jobs]
+        end
+        
+        subgraph "Redis Container"
+            E[Redis Cache :6379]
+        end
+        
+        subgraph "Volumes"
+            F[app_data - Database]
+            G[backups_data - Backups]
+            H[redis_data - Cache]
+        end
+    end
+    
+    I[Telegram API] <--> C
+    J[RSS Feeds] <--> A
+    K[Health Checks] <--> B
+    A <--> E
+    A <--> F
+    A <--> G
+    E <--> H
+```
+
+## Development
+
+### Local Development Setup
+
+1. **Clone and setup**
+```bash
+git clone https://github.com/runawaydevil/rssskull.git
+cd rssskull
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+2. **Configure environment**
+```bash
+cp .env.example .env
+# Edit .env with your BOT_TOKEN and development settings
+```
+
+3. **Run locally**
+```bash
+python run.py
+```
+
+### Development Tools
+
+**Code Quality:**
+```bash
+# Install development dependencies
+pip install black ruff mypy
+
+# Format code
+black app/
+
+# Lint code
+ruff check app/
+
+# Type checking
+mypy app/
+```
+
+**Testing:**
+```bash
+# Run tests (when available)
+python -m pytest
+
+# Test specific module
+python -m pytest tests/test_rss_service.py
+```
+
+### Docker Development
+
+**Development with Docker:**
+```bash
+# Build development image
+docker-compose -f docker-compose.yml up --build
+
+# Development with live reload
+docker-compose -f docker-compose.dev.yml up
+
+# Run specific services
+docker-compose up redis  # Redis only
+```
+
+**Database Development:**
+```bash
+# Access development database
+docker-compose exec rss-skull-bot sqlite3 /app/data/production.db
+
+# Reset database (development only)
 docker-compose down -v
 docker-compose up -d --build
 ```
 
-**Data Persistence:**
-- Database: Persisted in `app_data` Docker volume
-- Backups: Stored in `backups_data` Docker volume  
-- Migrations: Applied automatically on container startup
+### Project Structure Guidelines
 
-### Docker Volumes
+**Adding New Features:**
+1. Create service in `app/services/`
+2. Add models in `app/models/`
+3. Create commands in `app/commands/`
+4. Add utilities in `app/utils/`
+5. Update configuration in `app/config.py`
 
-The bot uses Docker volumes for data persistence:
+**Code Style:**
+- Follow PEP 8 conventions
+- Use type hints for all functions
+- Add docstrings for public methods
+- Use structured logging with context
+- Handle exceptions gracefully
 
-- **`app_data`**: Database storage (`/app/data`)
-- **`backups_data`**: Automated backups (`/app/backups`)
+### Contributing
 
-To backup your data:
+1. **Fork the repository**
+2. **Create feature branch**
 ```bash
-docker-compose exec rss-skull-bot node scripts/backup-database.js
+git checkout -b feature/amazing-feature
 ```
 
-Data is automatically persisted across container restarts and updates.
-
-## ⚙️ Configuration
-
-### Environment Variables
-
-**Required:**
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `BOT_TOKEN` | Telegram bot token | **Required** |
-| `DATABASE_URL` | SQLite database path | `file:/app/data/production.db` |
-| `REDIS_HOST` | Redis host | `redis` |
-| `REDIS_PORT` | Redis port | `6379` |
-
-**Optional Settings:**
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `ENVIRONMENT` | Environment | `production` |
-| `LOG_LEVEL` | Log level (see below) | `info` |
-| `ALLOWED_USER_ID` | Restrict bot to specific user (optional) | `undefined` |
-| `DISABLE_REDIS` | Disable Redis caching | `false` |
-| `PORT` | HTTP server port | `8916` |
-| `HOST` | HTTP server host | `0.0.0.0` |
-
-### Logging Configuration
-
-Control log verbosity with the `LOG_LEVEL` environment variable:
-
-- **`debug`**: Show all logs including detailed operation logs (verbose, for troubleshooting)
-- **`info`**: Show info, warning, and error logs (default, recommended for production)
-- **`warning`**: Show only warnings and errors
-- **`error`**: Show only errors
-
-**Production defaults:**
-- Heartbeat logs every 5 minutes (vs 30 seconds in development)
-- Feed skip messages at DEBUG level (not shown in INFO mode)
-- Health check logs minimized
-- Summary logs after each feed check cycle
-
-**Troubleshooting:**
-If you need to debug an issue, temporarily set `LOG_LEVEL=debug` in your `.env` file and restart:
+3. **Make changes with tests**
+4. **Commit with conventional format**
 ```bash
-# Edit .env
-LOG_LEVEL=debug
+git commit -m 'feat: add amazing feature'
+```
 
-# Restart container
-docker-compose restart rss-skull-bot
+5. **Push and create Pull Request**
+```bash
+git push origin feature/amazing-feature
+```
+
+### Commit Convention
+
+Follow conventional commits specification:
+
+- `feat:` New features
+- `fix:` Bug fixes  
+- `docs:` Documentation changes
+- `style:` Code style changes (formatting, etc.)
+- `refactor:` Code refactoring without feature changes
+- `test:` Test additions or modifications
+- `chore:` Maintenance tasks and dependencies
+
+## Monitoring and Operations
+
+### Health Monitoring
+
+The application provides comprehensive monitoring endpoints:
+
+#### Health Check Endpoint
+```bash
+GET /health
+```
+
+Returns system health status including:
+- Database connectivity
+- Redis availability (if enabled)
+- Telegram bot polling status
+- Scheduler status
+- Memory usage and uptime
+
+#### Metrics Endpoint
+```bash
+GET /metrics
+```
+
+Provides detailed metrics for monitoring systems:
+- Memory usage (RSS, VMS)
+- CPU utilization
+- Uptime statistics
+- Service-specific metrics
+
+#### Statistics Endpoint
+```bash
+GET /stats
+```
+
+Returns operational statistics:
+- Feed count and status
+- Processing statistics
+- Error rates and patterns
+
+### Anti-Blocking Monitoring
+
+Monitor anti-blocking system status:
+
+```bash
+# Check blocking statistics via bot
+/blockstats
+
+# View current delays and circuit breaker status
+# Shows per-domain delays and success rates
+```
+
+### Log Management
+
+**Production Logging:**
+- Structured JSON logs with context
+- Configurable log levels
+- Automatic log rotation (when using Docker)
+- Health check logs minimized to reduce noise
+
+**Debug Mode:**
+```bash
+# Enable debug logging
+LOG_LEVEL=debug docker-compose restart rss-skull-bot
 
 # View detailed logs
 docker-compose logs -f rss-skull-bot
 ```
 
-### Reddit Feed Setup
-
-Reddit feeds are automatically converted to RSS format:
-
-- Add Reddit subreddit: `/add MySub https://reddit.com/r/subreddit`
-- Or directly: `/add MySub https://reddit.com/r/subreddit/.rss`
-
-The bot automatically converts Reddit URLs to RSS feeds and handles Reddit's popularity-based sorting to correctly detect new posts.
-
-## 📱 Bot Commands
-
-| Command | Description |
-|---------|-------------|
-| `/start` | Start the bot and show welcome message |
-| `/help` | Show available commands |
-| `/add <name> <url>` | Add RSS feed to monitoring |
-| `/discover <url>` | Auto-discover feeds from a website |
-| `/remove <name>` | Remove RSS feed from monitoring |
-| `/list` | List all monitored feeds |
-| `/status` | Show bot status and statistics |
-| `/filters` | Manage content filters |
-| `/blockstats` | Show anti-blocking statistics and circuit breaker status |
-
-## 🏗️ Architecture
-
-```
-app/
-├── bot.py                     # Telegram bot implementation (aiogram)
-├── commands/                  # Bot command handlers
-│   └── feed_commands.py      # Feed management commands
-├── jobs/                      # Background job processing
-│   └── feed_checker.py       # RSS feed checking job (APScheduler)
-├── services/                  # Core business logic
-│   ├── feed_service.py        # Feed CRUD operations
-│   ├── rss_service.py        # RSS feed fetching and parsing
-│   └── reddit_service.py     # Reddit URL handling
-├── models/                    # Database models (SQLModel)
-│   └── feed.py               # Feed and Chat models
-├── utils/                     # Utility functions
-│   ├── html_sanitizer.py     # Telegram HTML sanitization
-│   ├── cache.py              # Redis caching
-│   └── logger.py             # Structured logging
-├── database.py               # Database initialization
-├── config.py                 # Configuration (Pydantic Settings)
-└── main.py                   # FastAPI application with health endpoints
-```
-
-## 🔧 Development
-
-### Available Scripts
-
-```bash
-# Development
-python run.py              # Start development server
-
-# Docker
-docker-compose up -d --build  # Build and start containers
-docker-compose logs -f rss-skull-bot    # View bot logs
-docker-compose restart rss-skull-bot    # Restart bot container
-
-# Code Quality
-ruff check app/           # Run Ruff linter
-black app/                # Format code with Black
-mypy app/                 # Type checking with mypy
-```
-
 ### Database Management
 
-The database is automatically initialized on first startup. Data is persisted in Docker volumes (`app_data`).
-
-To access the database directly:
+**Backup Operations:**
 ```bash
-docker-compose exec rss-skull-bot sqlite3 /app/data/production.db
+# Manual backup
+docker-compose exec rss-skull-bot python -c "
+from app.database import database
+database.backup_database()
+"
+
+# Automated backups are stored in backups_data volume
+docker-compose exec rss-skull-bot ls -la /app/backups/
 ```
 
-## 📊 Monitoring & Reliability
+**Database Access:**
+```bash
+# Access SQLite database directly
+docker-compose exec rss-skull-bot sqlite3 /app/data/production.db
 
-The bot includes comprehensive monitoring and fault tolerance:
+# View database schema
+.schema
 
-- **Performance Metrics**: Request latency tracking
-- **Error Monitoring**: Automatic error logging and recovery
-- **Circuit Breaker**: Exponential backoff on API failures (10min → 4h)
-- **Smart Rate Limiting**: Adaptive throttling per domain
-- **Health Checks**: Service availability monitoring
-- **Database Persistence**: Automatic migrations and backups
-- **Graceful Degradation**: OAuth → JSON fallback → RSS when needed
+# Query feeds
+SELECT * FROM feeds LIMIT 10;
+```
 
-### 🛡️ Telegram Resilience System
+### Performance Tuning
 
-The bot includes a robust resilience system specifically designed to handle Telegram API connectivity issues:
+**Memory Optimization:**
+- Container memory limits prevent OOM kills
+- Automatic resource cleanup
+- Redis memory management with LRU eviction
 
-- **Automatic Recovery**: Handles 502 Bad Gateway errors with exponential backoff (1s → 60s)
-- **Message Queuing**: Stores up to 1000 messages during API outages with priority handling
-- **Circuit Breaker**: Prevents cascade failures with adaptive thresholds
-- **Health Monitoring**: Real-time metrics and alerting via `/health`, `/resilience-stats`, `/metrics`
-- **Persistent State**: Connection state and queued messages survive restarts
-- **Smart Retry**: Up to 30 minutes of retry attempts before escalation
+**Rate Limiting Tuning:**
+```bash
+# Adjust anti-blocking delays
+ANTI_BLOCK_MIN_DELAY=10.0  # Increase for aggressive rate limiting
+ANTI_BLOCK_MAX_DELAY=600.0 # Maximum delay cap
 
-**Monitoring Endpoints:**
-- `GET /health` - Overall system health including resilience status
-- `GET /resilience-stats` - Detailed resilience system statistics  
-- `GET /metrics` - Complete metrics for monitoring systems
+# Circuit breaker sensitivity
+ANTI_BLOCK_CIRCUIT_BREAKER_THRESHOLD=3  # Fewer failures before activation
+```
 
-For detailed information, see [RESILIENCE.md](RESILIENCE.md).
+### Troubleshooting
 
-## 🤝 Contributing
+#### Common Issues
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+**Feeds Being Blocked (403 Errors):**
+1. Check `/blockstats` for current delays
+2. Wait for automatic circuit breaker recovery
+3. Increase `ANTI_BLOCK_MIN_DELAY` if needed
+4. Monitor success rates per domain
 
-### Commit Convention
+**High Memory Usage:**
+1. Check `/metrics` endpoint for memory stats
+2. Verify Redis memory limits
+3. Review log levels (debug mode uses more memory)
+4. Consider reducing feed check frequency
 
-We use conventional commits:
-- `feat:` New features
-- `fix:` Bug fixes
-- `docs:` Documentation changes
-- `style:` Code style changes
-- `refactor:` Code refactoring
-- `test:` Test additions/changes
-- `chore:` Maintenance tasks
+**Telegram API Issues:**
+1. Monitor `/health` endpoint
+2. Check message queue status
+3. Verify bot token validity
+4. Review resilience system logs
 
-## 📄 License
+#### Diagnostic Commands
+
+```bash
+# Container resource usage
+docker stats rss-skull-bot
+
+# Application logs with timestamps
+docker-compose logs -f --timestamps rss-skull-bot
+
+# Redis memory usage
+docker-compose exec redis redis-cli info memory
+
+# Database size and statistics
+docker-compose exec rss-skull-bot du -sh /app/data/
+```
+
+## Contributing
+
+We welcome contributions to RSS Skull Bot. Please follow these guidelines:
+
+### Development Process
+
+1. **Fork the repository** on GitHub
+2. **Create a feature branch** from `main`
+3. **Make your changes** with appropriate tests
+4. **Follow code style** guidelines (Black, Ruff, mypy)
+5. **Write clear commit messages** using conventional commits
+6. **Submit a Pull Request** with detailed description
+
+### Code Standards
+
+- **Python Style**: Follow PEP 8 conventions
+- **Type Hints**: Use type annotations for all functions
+- **Documentation**: Add docstrings for public methods
+- **Error Handling**: Implement graceful error handling
+- **Logging**: Use structured logging with appropriate context
+
+### Testing Guidelines
+
+- Write unit tests for new functionality
+- Ensure existing tests pass
+- Test Docker deployment locally
+- Verify health endpoints work correctly
+
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🆕 Changelog
+## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for full version history.
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history and release notes.
 
-### v0.6.0 - "Python Migration & Bug Fixes" (2025-11-02)
-- 🐍 Complete migration from TypeScript/Node.js to Python
-- 🔧 Fixed Telegram HTML parse errors (HTML comments, unbalanced tags)
-- ✅ Fixed Reddit feed notification issues
-- 📊 Enhanced logging and debugging capabilities
-- 🎯 Improved baseline management for new feeds
-- 🐳 Docker improvements (multi-stage build, non-root user)
-- 📝 HTML sanitization system for Telegram messages
-- 🧹 Code cleanup and optimization
-
-## 🔧 Troubleshooting
-
-### Feeds Being Blocked (403 Errors)
-
-The bot includes an anti-blocking system that automatically handles most blocking issues:
-
-1. **Check blocking statistics**: Use `/blockstats` command to see current delays and circuit breaker status
-2. **Wait for automatic recovery**: Circuit breaker will retry after cooldown period (1 hour initially)
-3. **Reddit-specific**: The bot automatically tries multiple access methods (RSS → JSON → old.reddit.com)
-4. **Adjust delays**: Increase `ANTI_BLOCK_MIN_DELAY` in `.env` if needed (default: 5 seconds)
-
-### High Rate Limiting Delays
-
-If you see very high delays (>60s) for a domain:
-
-- This means the domain is actively blocking or rate-limiting requests
-- The bot will gradually reduce delays as requests succeed
-- Use `/blockstats` to monitor current delays per domain
-- Consider reducing number of feeds from the same domain
-
-### Circuit Breaker Activated
-
-When a feed fails 5 times consecutively:
-
-- Circuit breaker activates and pauses checks for 1 hour
-- After timeout, bot attempts one test request
-- If successful, normal checking resumes
-- If failed, timeout doubles (max 24 hours)
-- Check status with `/blockstats` command
-
-## 📞 Support
+## Support
 
 - **Issues**: [GitHub Issues](https://github.com/runawaydevil/rssskull/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/runawaydevil/rssskull/discussions)
+- **Documentation**: This README and inline code documentation
 
 ---
 
-**Made with ❤️ by [Pablo Murad](https://github.com/runawaydevil)**
+**Developed by [Pablo Murad](https://github.com/runawaydevil)**
