@@ -408,7 +408,7 @@ graph TD
     
     O[Database] <--> C
     P[Redis Cache] <--> D
-    Q[Health Monitor] --> R[/health endpoint]
+    Q[Health Monitor] --> R[Health Endpoint]
 ```
 
 ### Technology Stack
@@ -780,4 +780,4 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history and release notes.
 
 ---
 
-**Developed by [Pablo Murad](https://github.com/runawaydevil)**
+**Developed by [runawaydevil](https://github.com/runawaydevil)**
