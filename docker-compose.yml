@@ -1,0 +1,129 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: rss-skull-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    # Redis configuration with memory management
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --save 900 1 --save 300 10
+    restart: unless-stopped
+    # Memory limits for Redis
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  rss-skull-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rss-skull-bot
+    ports:
+      - "8916:8916"
+    # Memory and resource limits to prevent crashes
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    environment:
+      - NODE_ENV=production
+      - BOT_TOKEN=${BOT_TOKEN}
+      - DATABASE_URL=file:/app/data/production.db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=8916
+      - HOST=0.0.0.0
+      - ENVIRONMENT=production
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      # Reddit OAuth API credentials
+      - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID}
+      - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET}
+      - REDDIT_USERNAME=${REDDIT_USERNAME}
+      - REDDIT_PASSWORD=${REDDIT_PASSWORD}
+      # Feature flags for Reddit
+      - USE_REDDIT_API=${USE_REDDIT_API:-true}
+      - USE_REDDIT_JSON_FALLBACK=${USE_REDDIT_JSON_FALLBACK:-true}
+      - FEATURE_INSTAGRAM=${FEATURE_INSTAGRAM:-false}
+      # Access Control
+      - ALLOWED_USER_ID=${ALLOWED_USER_ID}
+      # Resilience System Configuration
+      - TELEGRAM_RESILIENCE_ENABLED=${TELEGRAM_RESILIENCE_ENABLED:-true}
+      - TELEGRAM_MAX_RETRIES=${TELEGRAM_MAX_RETRIES:-10}
+      - TELEGRAM_BASE_DELAY=${TELEGRAM_BASE_DELAY:-1000}
+      - TELEGRAM_MAX_DELAY=${TELEGRAM_MAX_DELAY:-60000}
+      - TELEGRAM_CIRCUIT_BREAKER_THRESHOLD=${TELEGRAM_CIRCUIT_BREAKER_THRESHOLD:-5}
+      - TELEGRAM_CIRCUIT_BREAKER_TIMEOUT=${TELEGRAM_CIRCUIT_BREAKER_TIMEOUT:-300000}
+      # Message Queue Configuration
+      - MESSAGE_QUEUE_ENABLED=${MESSAGE_QUEUE_ENABLED:-true}
+      - MESSAGE_QUEUE_MAX_SIZE=${MESSAGE_QUEUE_MAX_SIZE:-1000}
+      - MESSAGE_QUEUE_BATCH_SIZE=${MESSAGE_QUEUE_BATCH_SIZE:-20}
+      - MESSAGE_QUEUE_PROCESSING_INTERVAL=${MESSAGE_QUEUE_PROCESSING_INTERVAL:-5000}
+      - MESSAGE_QUEUE_MESSAGE_TTL=${MESSAGE_QUEUE_MESSAGE_TTL:-3600000}
+      # Health Monitoring
+      - HEALTH_CHECK_INTERVAL=${HEALTH_CHECK_INTERVAL:-30000}
+      - ALERT_THRESHOLD_ERROR_RATE=${ALERT_THRESHOLD_ERROR_RATE:-0.1}
+      - ALERT_THRESHOLD_DOWNTIME_MINUTES=${ALERT_THRESHOLD_DOWNTIME_MINUTES:-15}
+      - ALERT_THRESHOLD_QUEUE_SIZE=${ALERT_THRESHOLD_QUEUE_SIZE:-500}
+      # Job Cleanup Configuration
+      - JOB_CLEANUP_ENABLED=${JOB_CLEANUP_ENABLED:-true}
+      - JOB_CLEANUP_INTERVAL_MINUTES=${JOB_CLEANUP_INTERVAL_MINUTES:-30}
+      - JOB_CLEANUP_THOROUGH_INTERVAL_HOURS=${JOB_CLEANUP_THOROUGH_INTERVAL_HOURS:-2}
+      - JOB_CLEANUP_ORPHANED_THRESHOLD=${JOB_CLEANUP_ORPHANED_THRESHOLD:-10}
+      # Anti-Blocking System Configuration
+      - ANTI_BLOCK_ENABLED=${ANTI_BLOCK_ENABLED:-true}
+      - ANTI_BLOCK_MIN_DELAY=${ANTI_BLOCK_MIN_DELAY:-5.0}
+      - ANTI_BLOCK_MAX_DELAY=${ANTI_BLOCK_MAX_DELAY:-300.0}
+      - ANTI_BLOCK_CIRCUIT_BREAKER_THRESHOLD=${ANTI_BLOCK_CIRCUIT_BREAKER_THRESHOLD:-5}
+    volumes:
+      - app_data:/app/data
+      - backups_data:/app/backups
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: always
+    # Enhanced health check with more tolerant settings
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8916/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    # Prevent OOM kills
+    oom_kill_disable: false
+    # Faster restart on failure
+    stop_grace_period: 10s
+
+volumes:
+  redis_data:
+    driver: local
+  app_data:
+    driver: local
+  backups_data:
+    driver: local
+
+# IMPORTANT: Database persistence is now properly configured!
+#
+# For clean deployment (removes all data):
+# docker-compose down -v && docker-compose up -d --build
+#
+# For updates preserving data (RECOMMENDED):
+# docker-compose up -d --build
+#
+# The database will persist between container restarts thanks to:
+# - Volume mount: app_data:/app/data
+# - Backup mount: backups_data:/app/backups
