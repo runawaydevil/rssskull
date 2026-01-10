@@ -46,6 +46,7 @@ export class TokenManagerService {
       
       return refreshedToken?.accessToken || null;
     } catch (error) {
+      // Error is sanitized by logger automatically
       logger.error(`Error getting valid token for ${provider}:`, error);
       return null;
     }
@@ -78,6 +79,7 @@ export class TokenManagerService {
 
       logger.info(`Token stored for provider: ${provider}`);
     } catch (error) {
+      // Error is sanitized by logger automatically
       logger.error(`Error storing token for ${provider}:`, error);
       throw error;
     }
@@ -124,6 +126,7 @@ export class TokenManagerService {
       logger.warn(`Token refresh not implemented for ${provider}`);
       return null;
     } catch (error) {
+      // Error is sanitized by logger automatically
       logger.error(`Error refreshing token for ${provider}:`, error);
       return null;
     }

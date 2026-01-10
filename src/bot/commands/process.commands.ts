@@ -8,6 +8,7 @@ import {
   CommandSchemas,
 } from '../handlers/command.handler.js';
 import { logger } from '../../utils/logger/logger.service.js';
+import { getSafeErrorMessage } from '../../utils/security/error-sanitizer.js';
 
 /**
  * Secret command to reset database (admin only)
@@ -396,7 +397,7 @@ export class ResetFeedCommand extends BaseCommandHandler {
       logger.info(`Successfully reset lastItemId for feed: ${feed.name} (${feed.id})`);
     } catch (error) {
       logger.error(`Failed to reset lastItemId for feed "${feedName}":`, error);
-      await ctx.reply(`❌ **Error resetting lastItemId**\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      await ctx.reply(`❌ **Error resetting lastItemId**\n\nError: ${getSafeErrorMessage(error)}`);
     }
   }
 }
@@ -608,7 +609,7 @@ export class ReloadFeedsCommand extends BaseCommandHandler {
       logger.info(`Feed reload completed for chat ${ctx.chatIdString}: ${scheduledCount}/${feeds.length} feeds scheduled`);
     } catch (error) {
       logger.error('Failed to reload feeds:', error);
-      await ctx.reply('❌ **Error reloading feeds**\n\nError: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      await ctx.reply('❌ **Error reloading feeds**\n\nError: ' + getSafeErrorMessage(error));
     }
   }
 }

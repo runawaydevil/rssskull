@@ -23,6 +23,10 @@ export class TelegramResilienceHandler implements ResilienceHandler {
     // Update retry count in error
     error.retryCount = currentCount;
 
+    // Sanitize context before logging
+    const { sanitizeForLogging } = await import('../utils/security/sanitizer.js');
+    const sanitizedContext = context ? sanitizeForLogging(context) : undefined;
+    
     logger.warn('Handling Telegram error', {
       method: error.method,
       errorType: error.errorType,
@@ -30,7 +34,7 @@ export class TelegramResilienceHandler implements ResilienceHandler {
       description: error.description,
       retryCount: error.retryCount,
       timestamp: error.timestamp.toISOString(),
-      context: context ? JSON.stringify(context).substring(0, 200) : undefined
+      context: sanitizedContext ? JSON.stringify(sanitizedContext).substring(0, 200) : undefined
     });
 
     // Get retry strategy for this error type

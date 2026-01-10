@@ -61,13 +61,14 @@ export class RedditService {
         }
         
         logger.info('Reddit OAuth API provider initialized with Token Manager');
-        logger.info(`OAuth Client ID: ${clientId.substring(0, 8)}...`);
+        // Removed Client ID logging - even partial exposure is a security risk
       } catch (error) {
         logger.error('Failed to initialize Reddit OAuth API provider:', error);
       }
     } else {
       logger.warn('Reddit OAuth credentials not configured - using JSON fallback only');
-      logger.warn('Required: REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USERNAME, REDDIT_PASSWORD');
+      // Removed specific environment variable names from log to prevent information disclosure
+      logger.warn('Reddit OAuth credentials are required for API access');
     }
   }
   

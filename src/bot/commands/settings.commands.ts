@@ -209,7 +209,7 @@ export class SettingsCommand extends BaseCommandHandler {
     } catch (error) {
       logger.error('Failed to update language', { error, chatId, language });
       if (error instanceof Error && error.message.includes('Validation failed')) {
-        await ctx.reply(error.message);
+        await ctx.reply(getSafeErrorMessage(error));
       } else {
         await ctx.reply(ctx.t('error.internal'));
       }
@@ -277,7 +277,7 @@ export class SettingsCommand extends BaseCommandHandler {
     } catch (error) {
       logger.error('Failed to update interval', { error, chatId, interval: intervalMinutes });
       if (error instanceof Error && error.message.includes('Validation failed')) {
-        await ctx.reply(`❌ ${error.message}`);
+        await ctx.reply(`❌ ${getSafeErrorMessage(error)}`);
       } else {
         await ctx.reply(ctx.t('error.internal'));
       }
@@ -375,7 +375,8 @@ export class SettingsCommand extends BaseCommandHandler {
           '',
           '💡 Use `/settings template` to see examples.',
         ].join('\n');
-        await ctx.reply(errorMessage, { parse_mode: 'Markdown' });
+        const safeErrorMessage = getSafeErrorMessage(new Error(errorMessage));
+        await ctx.reply(safeErrorMessage, { parse_mode: 'Markdown' });
         return;
       }
 
@@ -398,7 +399,7 @@ export class SettingsCommand extends BaseCommandHandler {
     } catch (error) {
       logger.error('Failed to update template', { error, chatId, template });
       if (error instanceof Error && error.message.includes('Validation failed')) {
-        await ctx.reply(`❌ ${error.message}`);
+        await ctx.reply(`❌ ${getSafeErrorMessage(error)}`);
       } else {
         await ctx.reply(ctx.t('error.internal'));
       }
@@ -607,7 +608,9 @@ export class SettingsCommand extends BaseCommandHandler {
         version: '1.0',
       };
 
-      const exportJson = JSON.stringify(exportData, null, 2);
+      // Sanitize export data before serialization (though it shouldn't contain tokens)
+      const sanitizedExportData = sanitizeForLogging(exportData);
+      const exportJson = JSON.stringify(sanitizedExportData, null, 2);
       
       const message = [
         '📤 **Settings Export:**',

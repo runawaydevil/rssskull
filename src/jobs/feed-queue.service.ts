@@ -709,7 +709,9 @@ export class FeedQueueService {
           
           if (!jobId) {
             // Remove jobs with null/undefined IDs
-            logger.warn(`Removing job with null/undefined ID: ${JSON.stringify(job)}`);
+            // Sanitize job data before logging
+            const { sanitizeForLogging } = await import('../utils/security/sanitizer.js');
+            logger.warn(`Removing job with null/undefined ID: ${JSON.stringify(sanitizeForLogging(job))}`);
             await this.feedCheckQueue.removeRepeatableByKey(job.key);
             cleanedCount++;
             continue;

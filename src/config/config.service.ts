@@ -1,5 +1,6 @@
 import { config as dotenvConfig } from 'dotenv';
 import { z } from 'zod';
+import { sanitizeForLogging } from '../utils/security/sanitizer.js';
 
 // Load environment variables from .env file
 dotenvConfig();
@@ -72,7 +73,9 @@ function loadConfig(): Config {
   try {
     return configSchema.parse(rawConfig);
   } catch (error) {
-    console.error('Configuration validation failed:', error);
+    // Sanitize error before logging to prevent token leaks
+    const sanitizedError = sanitizeForLogging(error);
+    console.error('Configuration validation failed:', sanitizedError);
     process.exit(1);
   }
 }

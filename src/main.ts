@@ -5,6 +5,7 @@ import { config } from './config/config.service.js';
 import { DatabaseService } from './database/database.service.js';
 import { feedQueueService, jobService } from './jobs/index.js';
 import { logger } from './utils/logger/logger.service.js';
+import { sanitizeForLogging } from './utils/security/sanitizer.js';
 import { cacheService } from './utils/cache.service.js';
 import { cacheHTTPService } from './utils/cache-http.service.js';
 import { userAgentService } from './utils/user-agent.service.js';
@@ -621,7 +622,9 @@ async function bootstrap() {
       logger.error('   • Network connectivity issues to Telegram API');
       logger.error('   • Bot token problems');
       logger.error('   • Database or Redis connection issues');
-      console.error('💡 Initialization timed out - check network connectivity');
+      // Sanitize error message before console output
+      const sanitizedError = sanitizeForLogging(error);
+      console.error('💡 Initialization timed out - check network connectivity', sanitizedError);
     }
     
     // Don't call process.exit(1) - let retry logic handle it
@@ -765,12 +768,15 @@ function safeAsync<T>(promise: Promise<T>, context: string): Promise<T> {
 // Wrap all critical async operations to prevent unhandled rejections
 process.on('unhandledRejection', (reason, promise) => {
   const error = reason instanceof Error ? reason : new Error(String(reason));
+  // Sanitize error before logging
+  const sanitizedError = sanitizeForLogging(error);
   logger.error('🚨 UNHANDLED REJECTION DETECTED - Keeping process alive:', {
-    error: error.message,
-    stack: error.stack,
+    error: sanitizedError instanceof Error ? sanitizedError.message : String(sanitizedError),
+    stack: sanitizedError instanceof Error ? sanitizedError.stack : undefined,
     promise: promise.toString(),
   });
-  console.error('🚨 UNHANDLED REJECTION DETECTED - Keeping process alive:', error.message);
+  console.error('🚨 UNHANDLED REJECTION DETECTED - Keeping process alive:', 
+    sanitizedError instanceof Error ? sanitizedError.message : String(sanitizedError));
   
   // Intercept and handle
   errorRecoveryService.interceptUnhandledRejection(error, promise);

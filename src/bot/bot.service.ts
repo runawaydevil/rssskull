@@ -381,6 +381,9 @@ export class BotService {
       const authCtx = ctx as AuthContext;
 
       // Enhanced error logging with channel context
+      // Sanitize all data before logging to prevent token leaks
+      const { sanitizeForLogging } = await import('../utils/security/sanitizer.js');
+      
       const errorInfo = {
         chatId: ctx.chat?.id,
         userId: ctx.from?.id,
@@ -393,7 +396,9 @@ export class BotService {
         messageText: ctx.message?.text?.substring(0, 100),
       };
 
-      logger.error('Bot error occurred', errorInfo);
+      // Sanitize error info before logging
+      const sanitizedErrorInfo = sanitizeForLogging(errorInfo);
+      logger.error('Bot error occurred', sanitizedErrorInfo);
 
       // Integrate with resilience system
       if (this.resilienceEnabled) {
@@ -738,12 +743,16 @@ export class BotService {
 
     // Handle channel posts specifically
     this.bot.on('channel_post', async (ctx) => {
+      // Sanitize channel post before logging
+      const { sanitizeForLogging } = await import('../utils/security/sanitizer.js');
+      const sanitizedPost = sanitizeForLogging(ctx.channelPost);
+      
       logger.info('Channel post received', {
         chatId: ctx.chat?.id,
         text: ctx.channelPost?.text,
         hasText: !!ctx.channelPost?.text,
         entities: ctx.channelPost?.entities,
-        fullPost: JSON.stringify(ctx.channelPost, null, 2).substring(0, 500),
+        fullPost: JSON.stringify(sanitizedPost, null, 2).substring(0, 500),
       });
 
       if (ctx.channelPost?.text && ctx.channelPost?.entities) {
@@ -875,6 +884,10 @@ export class BotService {
         const hasText = !!ctx.message.text;
         const hasEntities = !!(ctx.message as any).entities?.length;
 
+        // Sanitize update before logging
+        const { sanitizeForLogging } = await import('../utils/security/sanitizer.js');
+        const sanitizedUpdate = sanitizeForLogging(ctx.update);
+        
         logger.info('Channel message received', {
           chatId: authCtx.chatIdString,
           userId: authCtx.userId,
@@ -885,7 +898,7 @@ export class BotService {
           updateId: ctx.update.update_id,
           textPreview: hasText ? ctx.message.text?.substring(0, 100) : undefined,
           messageKeys: Object.keys(ctx.message),
-          rawUpdate: JSON.stringify(ctx.update, null, 2).substring(0, 800),
+          rawUpdate: JSON.stringify(sanitizedUpdate, null, 2).substring(0, 800),
         });
 
         // If it's a text message in channel, process it here since message:text might not catch it

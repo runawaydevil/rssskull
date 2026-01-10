@@ -1,4 +1,5 @@
 import { config } from '../../config/config.service.js';
+import { sanitizeForLogging, sanitizeString } from '../security/sanitizer.js';
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -21,14 +22,22 @@ class Logger {
 
   private formatMessage(level: LogLevel, message: string, ...args: unknown[]): string {
     const timestamp = new Date().toISOString();
-    const formattedArgs =
-      args.length > 0
-        ? ` ${args
-            .map((arg) => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
-            .join(' ')}`
-        : '';
+    
+    // Sanitize message first
+    const sanitizedMessage = sanitizeString(message);
+    
+    // Sanitize all arguments before serialization
+    const sanitizedArgs = args.length > 0
+      ? args.map((arg) => {
+          // Sanitize before JSON.stringify to prevent token leaks
+          const sanitized = sanitizeForLogging(arg);
+          return typeof sanitized === 'object' ? JSON.stringify(sanitized, null, 2) : String(sanitized);
+        })
+      : [];
 
-    return `[${timestamp}] [${level.toUpperCase()}] ${message}${formattedArgs}`;
+    const formattedArgs = sanitizedArgs.length > 0 ? ` ${sanitizedArgs.join(' ')}` : '';
+
+    return `[${timestamp}] [${level.toUpperCase()}] ${sanitizedMessage}${formattedArgs}`;
   }
 
   debug(message: string, ...args: unknown[]): void {

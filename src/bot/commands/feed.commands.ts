@@ -3,6 +3,7 @@ import { FeedService } from '../../services/feed.service.js';
 import { UrlNormalizer } from '../../utils/url-normalizer.js';
 import { feedQueueService } from '../../jobs/index.js';
 import { logger } from '../../utils/logger/logger.service.js';
+import { sanitizeString } from '../../utils/security/sanitizer.js';
 import {
   BaseCommandHandler,
   type CommandContext,
@@ -329,7 +330,9 @@ export class DiscoverFeedsCommand extends BaseCommandHandler {
       const result = await this.feedService.discoverFeeds(normalizedUrl);
 
       if (!result.success) {
-        await ctx.reply(`❌ Failed to discover feeds from ${normalizedUrl}\n\n**Errors:**\n${result.errors.join('\n')}`);
+        // Sanitize error messages before showing to user
+        const sanitizedErrors = result.errors.map(err => sanitizeString(err));
+        await ctx.reply(`❌ Failed to discover feeds from ${normalizedUrl}\n\n**Errors:**\n${sanitizedErrors.join('\n')}`);
         return;
       }
 
@@ -480,7 +483,8 @@ export class FeedStatusCommand extends BaseCommandHandler {
       logger.info(`Feed status checked for chat ${ctx.chatIdString}: ${feeds.length} feeds, ${jobsForThisChat.length} jobs scheduled`);
     } catch (error) {
       logger.error('Failed to get feed status:', error);
-      await ctx.reply('❌ **Error checking status**\n\nError: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      const { getSafeErrorMessage } = await import('../../utils/security/error-sanitizer.js');
+      await ctx.reply('❌ **Error checking status**\n\nError: ' + getSafeErrorMessage(error));
     }
   }
 }

@@ -56,8 +56,12 @@ export class RedditAPIProvider {
           snippet = text.substring(0, 600);
         } catch {}
         
+        // Sanitize snippet before logging to prevent token leaks
+        const { sanitizeString } = await import('../utils/security/sanitizer.js');
+        const sanitizedSnippet = sanitizeString(snippet);
+        
         logger.error(`Reddit OAuth auth failed: ${res.status} - Content-Type: ${contentType}`);
-        logger.error(`Response body snippet: ${snippet}`);
+        logger.error(`Response body snippet: ${sanitizedSnippet}`);
         
         const err = new Error(`auth_failed:${res.status}`);
         (err as any).status = res.status;
@@ -73,8 +77,12 @@ export class RedditAPIProvider {
           snippet = text.substring(0, 400);
         } catch {}
         
+        // Sanitize snippet before logging
+        const { sanitizeString } = await import('../utils/security/sanitizer.js');
+        const sanitizedSnippet = sanitizeString(snippet);
+        
         logger.error(`Reddit OAuth API failed: ${res.status} - Content-Type: ${contentType}`);
-        logger.error(`Response body snippet: ${snippet}`);
+        logger.error(`Response body snippet: ${sanitizedSnippet}`);
         
         const err = new Error(`reddit_api_fail:${res.status}`);
         (err as any).status = res.status;
@@ -87,8 +95,12 @@ export class RedditAPIProvider {
         let snippet = '';
         try { snippet = (await copy.text()).substring(0, 400); } catch {}
         
+        // Sanitize snippet before logging
+        const { sanitizeString } = await import('../utils/security/sanitizer.js');
+        const sanitizedSnippet = sanitizeString(snippet);
+        
         logger.error(`Reddit OAuth returned non-JSON: ${contentType}`);
-        logger.error(`Response body snippet: ${snippet}`);
+        logger.error(`Response body snippet: ${sanitizedSnippet}`);
         
         const err = new Error(`unexpected_content_type:${contentType}`);
         (err as any).status = 502;

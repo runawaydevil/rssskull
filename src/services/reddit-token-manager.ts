@@ -58,7 +58,10 @@ export class RedditTokenManager {
 
       if (!res.ok) {
         const errorText = await res.text();
-        logger.error(`Reddit OAuth failed: ${res.status} - ${errorText}`);
+        // Sanitize error text before logging to prevent token leaks
+        const { sanitizeString } = await import('../utils/security/sanitizer.js');
+        const sanitizedErrorText = sanitizeString(errorText);
+        logger.error(`Reddit OAuth failed: ${res.status} - ${sanitizedErrorText}`);
         throw new Error(`reddit_oauth_failed:${res.status}`);
       }
 
@@ -72,6 +75,7 @@ export class RedditTokenManager {
 
       logger.info(`Reddit OAuth token refreshed, expires in ${expiresIn}s`);
     } catch (error) {
+      // Error is already sanitized by logger, but ensure no token leaks
       logger.error('Failed to refresh Reddit OAuth token:', error);
       throw error;
     }
